@@ -1,0 +1,226 @@
+import { Page, Locator } from '@playwright/test';
+import { logger } from '../utils/logger';
+
+/**
+ * Base page class with common Playwright functionality
+ */
+export abstract class BasePage {
+  protected page: Page;
+  protected baseUrl: string;
+
+  constructor(page: Page, baseUrl: string = 'https://www.eversports.de') {
+    this.page = page;
+    this.baseUrl = baseUrl;
+  }
+
+  /**
+   * Navigate to a specific URL
+   */
+  async navigateTo(path: string = ''): Promise<void> {
+    const fullUrl = path.startsWith('http') ? path : `${this.baseUrl}${path}`;
+    logger.info('Navigating to URL', 'BasePage', { url: fullUrl });
+    
+    await this.page.goto(fullUrl);
+    await this.waitForPageLoad();
+  }
+
+  /**
+   * Wait for page to fully load
+   */
+  async waitForPageLoad(): Promise<void> {
+    await this.page.waitForLoadState('networkidle');
+    logger.debug('Page load completed', 'BasePage');
+  }
+
+  /**
+   * Wait for element to be visible
+   */
+  async waitForElement(selector: string, timeout: number = 10000): Promise<Locator> {
+    logger.debug('Waiting for element', 'BasePage', { selector, timeout });
+    return this.page.locator(selector).waitFor({ state: 'visible', timeout });
+  }
+
+  /**
+   * Safe click with retry logic
+   */
+  async safeClick(selector: string, retries: number = 3): Promise<void> {
+    const component = 'BasePage.safeClick';
+    
+    for (let attempt = 1; attempt <= retries; attempt++) {
+      try {
+        await this.waitForElement(selector);
+        await this.page.click(selector);
+        logger.debug('Clicked element successfully', component, { selector, attempt });
+        return;
+      } catch (error) {
+        logger.warn(`Click attempt ${attempt} failed`, component, { 
+          selector, 
+          error: error.message 
+        });
+        
+        if (attempt === retries) {
+          throw new Error(`Failed to click ${selector} after ${retries} attempts`);
+        }
+        
+        await this.page.waitForTimeout(1000 * attempt);
+      }
+    }
+  }
+
+  /**
+   * Safe fill with validation
+   */
+  async safeFill(selector: string, value: string, validateFill: boolean = true): Promise<void> {
+    const component = 'BasePage.safeFill';
+    
+    try {
+      await this.waitForElement(selector);
+      await this.page.fill(selector, value);
+      
+      if (validateFill) {
+        const actualValue = await this.page.inputValue(selector);
+        if (actualValue !== value) {
+          throw new Error(`Fill validation failed. Expected: ${value}, Actual: ${actualValue}`);
+        }
+      }
+      
+      logger.debug('Filled element successfully', component, { selector, value });
+    } catch (error) {
+      logger.error('Fill operation failed', component, { selector, value, error: error.message });
+      throw error;
+    }
+  }
+
+  /**
+   * Get text content of element
+   */
+  async getText(selector: string): Promise<string> {
+    await this.waitForElement(selector);
+    const text = await this.page.textContent(selector);
+    logger.debug('Retrieved text content', 'BasePage', { selector, text });
+    return text || '';
+  }
+
+  /**
+   * Check if element exists
+   */
+  async elementExists(selector: string, timeout: number = 5000): Promise<boolean> {
+    try {
+      await this.page.locator(selector).waitFor({ state: 'attached', timeout });
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Check if element is visible
+   */
+  async isElementVisible(selector: string, timeout: number = 5000): Promise<boolean> {
+    try {
+      await this.page.locator(selector).waitFor({ state: 'visible', timeout });
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Wait for any of multiple selectors to appear
+   */
+  async waitForAnySelector(selectors: string[], timeout: number = 10000): Promise<string> {
+    const component = 'BasePage.waitForAnySelector';
+    
+    logger.debug('Waiting for any selector', component, { selectors, timeout });
+    
+    const promises = selectors.map(selector => 
+      this.page.locator(selector).waitFor({ state: 'visible', timeout }).then(() => selector)
+    );
+    
+    try {
+      const foundSelector = await Promise.race(promises);
+      logger.debug('Found selector', component, { foundSelector });
+      return foundSelector;
+    } catch (error) {
+      logger.error('No selectors found', component, { selectors, error: error.message });
+      throw new Error(`None of the selectors found within ${timeout}ms: ${selectors.join(', ')}`);
+    }
+  }
+
+  /**
+   * Take screenshot for debugging
+   */
+  async takeScreenshot(name: string = 'debug'): Promise<string> {
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const filename = `screenshots/${name}-${timestamp}.png`;
+    
+    await this.page.screenshot({ path: filename, fullPage: true });
+    logger.info('Screenshot taken', 'BasePage', { filename });
+    
+    return filename;
+  }
+
+  /**
+   * Scroll element into view
+   */
+  async scrollIntoView(selector: string): Promise<void> {
+    await this.waitForElement(selector);
+    await this.page.locator(selector).scrollIntoViewIfNeeded();
+    logger.debug('Scrolled element into view', 'BasePage', { selector });
+  }
+
+  /**
+   * Wait for page navigation
+   */
+  async waitForNavigation(timeout: number = 30000): Promise<void> {
+    await this.page.waitForLoadState('networkidle', { timeout });
+    logger.debug('Navigation completed', 'BasePage');
+  }
+
+  /**
+   * Handle cookie consent popups
+   */
+  async handleCookieConsent(): Promise<void> {
+    const component = 'BasePage.handleCookieConsent';
+    
+    const cookieSelectors = [
+      'button[data-testid="accept-cookies"]',
+      '.cookie-accept',
+      '.consent-accept',
+      'button:has-text("Accept")',
+      'button:has-text("Akzeptieren")',
+      '#CybotCookiebotDialogBodyLevelButtonLevelOptinAllowAll'
+    ];
+
+    try {
+      const foundSelector = await this.waitForAnySelector(cookieSelectors, 5000);
+      await this.safeClick(foundSelector);
+      logger.info('Cookie consent handled', component, { selector: foundSelector });
+    } catch {
+      logger.debug('No cookie consent popup found', component);
+    }
+  }
+
+  /**
+   * Get current page URL
+   */
+  getCurrentUrl(): string {
+    return this.page.url();
+  }
+
+  /**
+   * Get page title
+   */
+  async getPageTitle(): Promise<string> {
+    return await this.page.title();
+  }
+
+  /**
+   * Reload the current page
+   */
+  async reload(): Promise<void> {
+    await this.page.reload();
+    await this.waitForPageLoad();
+    logger.debug('Page reloaded', 'BasePage');
+  }
+}

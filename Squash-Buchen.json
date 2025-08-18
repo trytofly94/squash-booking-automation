@@ -1,0 +1,600 @@
+{
+  "Name": "Squash-Buchen",
+  "CreationDate": "2025-5-24",
+  "Commands": [
+    {
+      "Command": "store",
+      "Target": "3",
+      "Value": "maxRetries",
+      "Description": ""
+    },
+    {
+      "Command": "store",
+      "Target": "0",
+      "Value": "currentTry",
+      "Description": ""
+    },
+    {
+      "Command": "label",
+      "Target": "MakroStart",
+      "Value": "",
+      "Description": ""
+    },
+    {
+      "Command": "executeScript_Sandbox",
+      "Target": "return Number(${currentTry}) + 1;",
+      "Value": "currentTry",
+      "Description": ""
+    },
+    {
+      "Command": "echo",
+      "Target": "Starte Buchungsversuch Nr. ${currentTry} von ${maxRetries}",
+      "Value": "blue",
+      "Description": ""
+    },
+    {
+      "Command": "comment",
+      "Target": "=== Initialisierung (pro Versuch) ===",
+      "Value": "",
+      "Description": ""
+    },
+    {
+      "Command": "store",
+      "Target": "true",
+      "Value": "!errorIgnore",
+      "Description": ""
+    },
+    {
+      "Command": "store",
+      "Target": "15",
+      "Value": "!timeout_wait",
+      "Description": ""
+    },
+    {
+      "Command": "executeScript_Sandbox",
+      "Target": "var today = new Date(); var targetDate = new Date(today); targetDate.setDate(today.getDate() + 20); var yyyy = targetDate.getFullYear(); var mm = targetDate.getMonth() + 1; var dd = targetDate.getDate(); if (mm < 10) { mm = '0' + mm; } if (dd < 10) { dd = '0' + dd; } return yyyy + '-' + mm + '-' + dd;",
+      "Value": "targetDate",
+      "Description": ""
+    },
+    {
+      "Command": "echo",
+      "Target": "Zieldatum für die Buchung: ${targetDate}",
+      "Value": "",
+      "Description": ""
+    },
+    {
+      "Command": "store",
+      "Target": "1400",
+      "Value": "targetTime1",
+      "Description": ""
+    },
+    {
+      "Command": "store",
+      "Target": "1430",
+      "Value": "targetTime2",
+      "Description": ""
+    },
+    {
+      "Command": "echo",
+      "Target": "DEBUG: targetTime1 = ${targetTime1}, targetTime2 = ${targetTime2}",
+      "Value": "green",
+      "Description": ""
+    },
+    {
+      "Command": "store",
+      "Target": "{\n\"targetDateValue\": \"${targetDate}\",\n\"targetTime1Value\": \"${targetTime1}\",\n\"targetTime2Value\": \"${targetTime2}\"\n}",
+      "Value": "jsonScriptArgsStep1",
+      "Description": ""
+    },
+    {
+      "Command": "echo",
+      "Target": "DEBUG: jsonScriptArgsStep1 vor JS Schritt 1 = >>>${jsonScriptArgsStep1}<<<",
+      "Value": "orange",
+      "Description": ""
+    },
+    {
+      "Command": "comment",
+      "Target": "=== JS Schritt 1: Argumente (Datum/Zeit) verarbeiten und prüfen ===",
+      "Value": "",
+      "Description": ""
+    },
+    {
+      "Command": "executeScript_Sandbox",
+      "Target": "try { var injectedJsonString = ${jsonScriptArgsStep1}; var args = JSON.parse(injectedJsonString); var debugInfo = { étape: 'JS Schritt 1', receivedInjectedValueType: typeof injectedJsonString, receivedInjectedValue: injectedJsonString, parsedArgsType: typeof args, parsedArgsContent: args }; if (!args || typeof args !== 'object') { return { success: false, error: 'Konnte jsonScriptArgsStep1 nicht als Objekt parsen.', message: 'JS Fehler: Argumente nicht korrekt empfangen/geparst.', debugString: JSON.stringify(debugInfo) }; } debugInfo.targetDate_from_args = args.targetDateValue; debugInfo.targetTime1_from_args = args.targetTime1Value; debugInfo.targetTime2_from_args = args.targetTime2Value; if (!args.targetDateValue || !args.targetTime1Value || !args.targetTime2Value) { return { success: false, error: 'Fehlende Datum/Zeit-Argumente.', message: 'JS Fehler: Argumente unvollständig.', debugString: JSON.stringify(debugInfo) }; } return { success: true, message: 'Argumente (Datum/Zeit) erfolgreich verarbeitet.', targetDate: args.targetDateValue, targetTime1: args.targetTime1Value, targetTime2: args.targetTime2Value, debugString: JSON.stringify(debugInfo) }; } catch (e) { return { success: false, error: e.toString(), message: 'JS Fehler in Schritt 1 (Verarbeitung).', debugString: JSON.stringify({ errorMsg: e.message, errorStack: e.stack, receivedValue: (typeof injectedJsonString !== 'undefined' ? injectedJsonString : 'injectedJsonString war undefined') }) }; }",
+      "Value": "processedArgsStep1",
+      "Description": ""
+    },
+    {
+      "Command": "echo",
+      "Target": "DEBUG: processedArgsStep1.success nach JS Schritt 1 = >>>${processedArgsStep1.success}<<<",
+      "Value": "blue",
+      "Description": ""
+    },
+    {
+      "Command": "if_v2",
+      "Target": "!${processedArgsStep1.success}",
+      "Value": "",
+      "Description": ""
+    },
+    {
+      "Command": "echo",
+      "Target": "FEHLER in JS Schritt 1 (Versuch ${currentTry}): ${processedArgsStep1.message} - Error: ${processedArgsStep1.error}",
+      "Value": "red",
+      "Description": ""
+    },
+    {
+      "Command": "echo",
+      "Target": "DEBUG Info JS Schritt 1 (String): ${processedArgsStep1.debugString}",
+      "Value": "red",
+      "Description": ""
+    },
+    {
+      "Command": "gotoLabel",
+      "Target": "MakroEndeFehlerhaft",
+      "Value": "",
+      "Description": ""
+    },
+    {
+      "Command": "endif",
+      "Target": "",
+      "Value": "",
+      "Description": ""
+    },
+    {
+      "Command": "store",
+      "Target": "{\n\"targetDate\": \"${processedArgsStep1.targetDate}\",\n\"targetTime1\": \"${processedArgsStep1.targetTime1}\",\n\"targetTime2\": \"${processedArgsStep1.targetTime2}\"\n}",
+      "Value": "jsonArgsForStep2",
+      "Description": ""
+    },
+    {
+      "Command": "echo",
+      "Target": "DEBUG: jsonArgsForStep2 vor JS Schritt 2 = >>>${jsonArgsForStep2}<<<",
+      "Value": "purple",
+      "Description": ""
+    },
+    {
+      "Command": "comment",
+      "Target": "=== Navigation ===",
+      "Value": "",
+      "Description": ""
+    },
+    {
+      "Command": "open",
+      "Target": "https://www.eversports.de/sb/sportcenter-kautz?sport=squash",
+      "Value": "",
+      "Description": ""
+    },
+    {
+      "Command": "waitForVisible",
+      "Target": "id=next-week",
+      "Value": "",
+      "Description": ""
+    },
+    {
+      "Command": "click",
+      "Target": "id=next-week",
+      "Value": "",
+      "Description": ""
+    },
+    {
+      "Command": "pause",
+      "Target": "3000",
+      "Value": "",
+      "Description": ""
+    },
+    {
+      "Command": "waitForVisible",
+      "Target": "id=booking-calendar-container",
+      "Value": "",
+      "Description": ""
+    },
+    {
+      "Command": "click",
+      "Target": "id=next-week",
+      "Value": "",
+      "Description": ""
+    },
+    {
+      "Command": "pause",
+      "Target": "5000",
+      "Value": "",
+      "Description": ""
+    },
+    {
+      "Command": "waitForVisible",
+      "Target": "id=booking-calendar-container",
+      "Value": "",
+      "Description": ""
+    },
+    {
+      "Command": "comment",
+      "Target": "=== JS Schritt 2: Slot-Suche im DOM (beliebiger Court) mit Prüfung auf isolierte Slots ===",
+      "Value": "",
+      "Description": ""
+    },
+    {
+      "Command": "executeScript",
+      "Target": "try { var injectedJson = ${jsonArgsForStep2}; var args = JSON.parse(injectedJson); var debugInfo = { étape: 'JS Schritt 2', receivedInjectedJsonType: typeof injectedJson, receivedInjectedJson: injectedJson, parsedArgsType: typeof args, parsedArgsContent: args }; var targetDate = args.targetDate; var targetTime1 = args.targetTime1; var targetTime2 = args.targetTime2; var bookingSuccessful = false; var bookedCourtId = null; var finalXpathSlot1 = null; var finalXpathSlot2 = null; function calculateAdjacentTime(timeStr, minutesToAdd) { var timeNumeric = parseInt(timeStr); var hours = Math.floor(timeNumeric / 100); var minutes = timeNumeric % 100; var dateObj = new Date(2000, 0, 1, hours, minutes); dateObj.setMinutes(dateObj.getMinutes() + minutesToAdd); var newHours = dateObj.getHours().toString().padStart(2, '0'); var newMinutes = dateObj.getMinutes().toString().padStart(2, '0'); return newHours + newMinutes; } var allSlotsTime1XPath = \"//div[@id='booking-calendar-container']//td[@data-date='\" + targetDate + \"' and @data-start='\" + targetTime1 + \"' and @data-state='free']\"; debugInfo.allSlotsTime1XPath = allSlotsTime1XPath; var slotsTime1Iterator = document.evaluate(allSlotsTime1XPath, document, null, XPathResult.ORDERED_NODE_ITERATOR_TYPE, null); var currentSlot1Node = slotsTime1Iterator.iterateNext(); debugInfo.initial_currentSlot1Node = currentSlot1Node ? currentSlot1Node.outerHTML : 'null'; var iterationCounter = 0; while (currentSlot1Node) { iterationCounter++; debugInfo['loop_' + iterationCounter + '_slot1_outerHTML'] = currentSlot1Node.outerHTML; var currentCourtId = currentSlot1Node.getAttribute('data-court'); debugInfo['loop_' + iterationCounter + '_courtId'] = currentCourtId; if (currentCourtId) { var xpathSlot2 = \"//div[@id='booking-calendar-container']//td[@data-date='\" + targetDate + \"' and @data-start='\" + targetTime2 + \"' and @data-state='free' and @data-court='\" + currentCourtId + \"']\"; debugInfo['loop_' + iterationCounter + '_xpathSlot2_for_court_' + currentCourtId] = xpathSlot2; var elementSlot2 = document.evaluate(xpathSlot2, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue; if (elementSlot2 !== null) { debugInfo['loop_' + iterationCounter + '_elementSlot2_found_for_court_' + currentCourtId] = 'JA - ' + elementSlot2.outerHTML; var timeBeforeSlot1 = calculateAdjacentTime(targetTime1, -30); var timeFurtherBeforeSlot1 = calculateAdjacentTime(targetTime1, -60); var timeAfterSlot2 = calculateAdjacentTime(targetTime2, 30); var timeFurtherAfterSlot2 = calculateAdjacentTime(targetTime2, 60); var isIsolatedSlotBefore = false; var xpathBeforeSlot1 = \"//div[@id='booking-calendar-container']//td[@data-date='\" + targetDate + \"' and @data-start='\" + timeBeforeSlot1 + \"' and @data-state='free' and @data-court='\" + currentCourtId + \"']\"; var elementBeforeSlot1 = document.evaluate(xpathBeforeSlot1, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue; debugInfo['loop_' + iterationCounter + '_check_before_slot1_time_' + timeBeforeSlot1] = elementBeforeSlot1 ? 'FREI' : 'NICHT FREI oder EXISTIERT NICHT'; if (elementBeforeSlot1) { var xpathFurtherBeforeSlot1 = \"//div[@id='booking-calendar-container']//td[@data-date='\" + targetDate + \"' and @data-start='\" + timeFurtherBeforeSlot1 + \"' and @data-state='free' and @data-court='\" + currentCourtId + \"']\"; var elementFurtherBeforeSlot1 = document.evaluate(xpathFurtherBeforeSlot1, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue; debugInfo['loop_' + iterationCounter + '_check_further_before_slot1_time_' + timeFurtherBeforeSlot1] = elementFurtherBeforeSlot1 ? 'FREI' : 'NICHT FREI oder EXISTIERT NICHT'; if (!elementFurtherBeforeSlot1) { isIsolatedSlotBefore = true; } } debugInfo['loop_' + iterationCounter + '_isIsolatedSlotBefore'] = isIsolatedSlotBefore; var isIsolatedSlotAfter = false; var xpathAfterSlot2 = \"//div[@id='booking-calendar-container']//td[@data-date='\" + targetDate + \"' and @data-start='\" + timeAfterSlot2 + \"' and @data-state='free' and @data-court='\" + currentCourtId + \"']\"; var elementAfterSlot2 = document.evaluate(xpathAfterSlot2, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue; debugInfo['loop_' + iterationCounter + '_check_after_slot2_time_' + timeAfterSlot2] = elementAfterSlot2 ? 'FREI' : 'NICHT FREI oder EXISTIERT NICHT'; if (elementAfterSlot2) { var xpathFurtherAfterSlot2 = \"//div[@id='booking-calendar-container']//td[@data-date='\" + targetDate + \"' and @data-start='\" + timeFurtherAfterSlot2 + \"' and @data-state='free' and @data-court='\" + currentCourtId + \"']\"; var elementFurtherAfterSlot2 = document.evaluate(xpathFurtherAfterSlot2, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue; debugInfo['loop_' + iterationCounter + '_check_further_after_slot2_time_' + timeFurtherAfterSlot2] = elementFurtherAfterSlot2 ? 'FREI' : 'NICHT FREI oder EXISTIERT NICHT'; if (!elementFurtherAfterSlot2) { isIsolatedSlotAfter = true; } } debugInfo['loop_' + iterationCounter + '_isIsolatedSlotAfter'] = isIsolatedSlotAfter; if (!isIsolatedSlotBefore && !isIsolatedSlotAfter) { debugInfo['loop_' + iterationCounter + '_conditionMet_noIsolatedSlots'] = 'JA - Buchung OK'; bookingSuccessful = true; bookedCourtId = currentCourtId; finalXpathSlot1 = \"//div[@id='booking-calendar-container']//td[@data-date='\" + targetDate + \"' and @data-start='\" + targetTime1 + \"' and @data-state='free' and @data-court='\" + currentCourtId + \"']\"; finalXpathSlot2 = xpathSlot2; break; } else { debugInfo['loop_' + iterationCounter + '_conditionMet_noIsolatedSlots'] = 'NEIN - Isolierter Slot gefunden (vorher: ' + isIsolatedSlotBefore + ', nachher: ' + isIsolatedSlotAfter + '). Suche weiter.'; } } else { debugInfo['loop_' + iterationCounter + '_elementSlot2_found_for_court_' + currentCourtId] = 'NEIN'; } } else { debugInfo['loop_' + iterationCounter + '_courtId_missing_for_slot1'] = currentSlot1Node.outerHTML; } currentSlot1Node = slotsTime1Iterator.iterateNext(); debugInfo['loop_' + iterationCounter + '_next_currentSlot1Node'] = currentSlot1Node ? currentSlot1Node.outerHTML : 'null_oder_letzte_Iteration_beendet'; } debugInfo.totalIterations = iterationCounter; debugInfo.final_bookingSuccessful = bookingSuccessful; debugInfo.final_bookedCourtId = bookedCourtId; if (bookingSuccessful) { return { success: true, courtId: bookedCourtId, xpathSlot1: finalXpathSlot1, xpathSlot2: finalXpathSlot2, message: 'Passenden Court gefunden (keine isolierten Slots): ' + bookedCourtId, debugString: JSON.stringify(debugInfo) }; } else { return { success: false, message: 'Kein passender Doppel-Slot (unter Berücksichtigung isolierter Nachbar-Slots) auf irgendeinem Court gefunden.', debugString: JSON.stringify(debugInfo) }; } } catch (e) { return { success: false, error: e.toString(), message: 'JavaScript-Fehler in Schritt 2 (Slot-Suche mit Prüfung auf isolierte Slots).', debugString: JSON.stringify({ errorMsg: e.message, errorStack: e.stack, receivedValue: (typeof injectedJson !== 'undefined' ? injectedJson : 'injectedJson war undefined') }) }; }",
+      "Value": "loopResult",
+      "Description": ""
+    },
+    {
+      "Command": "echo",
+      "Target": "DEBUG: loopResult.success nach JS Schritt 2 = >>>${loopResult.success}<<<",
+      "Value": "orange",
+      "Description": ""
+    },
+    {
+      "Command": "store",
+      "Target": "false",
+      "Value": "isBookingConfirmedThisAttempt",
+      "Description": ""
+    },
+    {
+      "Command": "if_v2",
+      "Target": "${loopResult.success}",
+      "Value": "",
+      "Description": ""
+    },
+    {
+      "Command": "echo",
+      "Target": "JavaScript meldet Erfolg für Slot-Suche. Court: ${loopResult.courtId}. Nachricht: ${loopResult.message}",
+      "Value": "blue",
+      "Description": ""
+    },
+    {
+      "Command": "click",
+      "Target": "${loopResult.xpathSlot1}",
+      "Value": "",
+      "Description": ""
+    },
+    {
+      "Command": "pause",
+      "Target": "500",
+      "Value": "",
+      "Description": ""
+    },
+    {
+      "Command": "click",
+      "Target": "${loopResult.xpathSlot2}",
+      "Value": "",
+      "Description": ""
+    },
+    {
+      "Command": "echo",
+      "Target": "FINAL: Erfolgreich Slots ausgewählt für Court ${loopResult.courtId} am ${targetDate} um ${targetTime1} und ${targetTime2}!",
+      "Value": "green",
+      "Description": ""
+    },
+    {
+      "Command": "comment",
+      "Target": "=== Beginn Checkout Prozess ===",
+      "Value": "",
+      "Description": ""
+    },
+    {
+      "Command": "click",
+      "Target": "linkText=Weiter zum Checkout",
+      "Value": "",
+      "Description": ""
+    },
+    {
+      "Command": "comment",
+      "Target": "Optionaler Login-Schritt",
+      "Value": "",
+      "Description": ""
+    },
+    {
+      "Command": "type",
+      "Target": "id=email",
+      "Value": "contact@lennart.de",
+      "Description": ""
+    },
+    {
+      "Command": "type",
+      "Target": "id=password",
+      "Value": "Columbus94!",
+      "Description": ""
+    },
+    {
+      "Command": "clickAndWait",
+      "Target": "xpath=//*[@id=\"root\"]/div/div/form/div/div/div/div[3]/button/p",
+      "Value": "",
+      "Description": "Login-Button - wird ignoriert, wenn nicht vorhanden"
+    },
+    {
+      "Command": "comment",
+      "Target": "Weitere Checkout-Schritte",
+      "Value": "",
+      "Description": ""
+    },
+    {
+      "Command": "click",
+      "Target": "xpath=//*[@id=\"root\"]/div/div[3]/aside/div/div/button",
+      "Value": "",
+      "Description": ""
+    },
+    {
+      "Command": "click",
+      "Target": "xpath=//*[@id=\"root\"]/div/div[3]/main/div[2]/div/div[3]/form/div[3]/div/div/div",
+      "Value": "",
+      "Description": ""
+    },
+    {
+      "Command": "click",
+      "Target": "id=5",
+      "Value": "",
+      "Description": "Wählt Zahlungsmethode"
+    },
+    {
+      "Command": "click",
+      "Target": "xpath=//*[@id=\"root\"]/div/div[3]/main/div[2]/div/div[3]/form/div[3]/div/div[2]/div/div/div/div/ul/li/label/div[2]/span/p",
+      "Value": "",
+      "Description": ""
+    },
+    {
+      "Command": "click",
+      "Target": "id=5",
+      "Value": "",
+      "Description": "Bestätigt ggf. Zahlungsmethode"
+    },
+    {
+      "Command": "click",
+      "Target": "xpath=//*[@id=\"root\"]/div/div[3]/main/div[2]/div/div[3]/form/div[4]/button",
+      "Value": "",
+      "Description": ""
+    },
+    {
+      "Command": "click",
+      "Target": "xpath=/html/body/div[3]/div[3]",
+      "Value": "",
+      "Description": "Letzter Klick im Checkout-Prozess (Dialog schließen?)"
+    },
+    {
+      "Command": "comment",
+      "Target": "=== Prüfung auf Buchungsbestätigung via sourceSearch (Regex) ===",
+      "Value": "",
+      "Description": ""
+    },
+    {
+      "Command": "store",
+      "Target": "true",
+      "Value": "!errorIgnore",
+      "Description": ""
+    },
+    {
+      "Command": "sourceSearch",
+      "Target": "regex=Buchung erfolgreich",
+      "Value": "successPatternFound",
+      "Description": ""
+    },
+    {
+      "Command": "if_v2",
+      "Target": "${!statusOK} == false",
+      "Value": "",
+      "Description": ""
+    },
+    {
+      "Command": "store",
+      "Target": "true",
+      "Value": "isBookingConfirmedThisAttempt",
+      "Description": ""
+    },
+    {
+      "Command": "echo",
+      "Target": "Buchungsbestätigung via sourceSearch ERFOLGREICH erkannt. Gefunden: ${successPatternFound}",
+      "Value": "green",
+      "Description": ""
+    },
+    {
+      "Command": "gotoLabel",
+      "Target": "MakroFinalSuccess",
+      "Value": "",
+      "Description": ""
+    },
+    {
+      "Command": "else",
+      "Target": "",
+      "Value": "",
+      "Description": ""
+    },
+    {
+      "Command": "echo",
+      "Target": "Buchungsbestätigung via sourceSearch NICHT erkannt. (!statusOK: ${!statusOK}, successPatternFound: ${successPatternFound})",
+      "Value": "orange",
+      "Description": ""
+    },
+    {
+      "Command": "endif",
+      "Target": "",
+      "Value": "",
+      "Description": ""
+    },
+    {
+      "Command": "store",
+      "Target": "false",
+      "Value": "!errorIgnore",
+      "Description": ""
+    },
+    {
+      "Command": "comment",
+      "Target": "=== Ende Checkout Prozess (nach sourceSearch) ===",
+      "Value": "",
+      "Description": ""
+    },
+    {
+      "Command": "else",
+      "Target": "",
+      "Value": "",
+      "Description": ""
+    },
+    {
+      "Command": "echo",
+      "Target": "JS Schritt 2 (Slot-Suche) war nicht erfolgreich in Versuch ${currentTry}. Nachricht: ${loopResult.message}",
+      "Value": "red",
+      "Description": ""
+    },
+    {
+      "Command": "if_v2",
+      "Target": "${loopResult.error}",
+      "Value": "",
+      "Description": ""
+    },
+    {
+      "Command": "echo",
+      "Target": "JS-Fehlerdetails in Versuch ${currentTry}: ${loopResult.error}",
+      "Value": "red",
+      "Description": ""
+    },
+    {
+      "Command": "endif",
+      "Target": "",
+      "Value": "",
+      "Description": ""
+    },
+    {
+      "Command": "endif",
+      "Target": "",
+      "Value": "",
+      "Description": ""
+    },
+    {
+      "Command": "comment",
+      "Target": "=== Entscheidung über Wiederholung basierend auf Buchungsbestätigung ===",
+      "Value": "",
+      "Description": ""
+    },
+    {
+      "Command": "if_v2",
+      "Target": "${isBookingConfirmedThisAttempt} == true",
+      "Value": "",
+      "Description": ""
+    },
+    {
+      "Command": "echo",
+      "Target": "FEHLER: Dieser Block sollte nicht erreicht werden, wenn isBookingConfirmedThisAttempt true ist und zu MakroFinalSuccess gesprungen wurde.",
+      "Value": "red",
+      "Description": ""
+    },
+    {
+      "Command": "gotoLabel",
+      "Target": "MakroFinalSuccess",
+      "Value": "",
+      "Description": ""
+    },
+    {
+      "Command": "else",
+      "Target": "",
+      "Value": "",
+      "Description": ""
+    },
+    {
+      "Command": "echo",
+      "Target": "Buchung in Versuch Nr. ${currentTry} NICHT bestätigt (isBookingConfirmedThisAttempt ist false) oder Slot-Suche war initial fehlgeschlagen.",
+      "Value": "orange",
+      "Description": ""
+    },
+    {
+      "Command": "if_v2",
+      "Target": "${currentTry} < ${maxRetries}",
+      "Value": "",
+      "Description": ""
+    },
+    {
+      "Command": "echo",
+      "Target": "Starte nächsten Versuch da ${currentTry} von ${maxRetries} nicht erfolgreich war.",
+      "Value": "orange",
+      "Description": ""
+    },
+    {
+      "Command": "gotoLabel",
+      "Target": "MakroStart",
+      "Value": "",
+      "Description": ""
+    },
+    {
+      "Command": "else",
+      "Target": "",
+      "Value": "",
+      "Description": ""
+    },
+    {
+      "Command": "echo",
+      "Target": "Maximale Anzahl von ${maxRetries} Versuchen erreicht. Buchung NICHT ERFOLGREICH.",
+      "Value": "red",
+      "Description": ""
+    },
+    {
+      "Command": "gotoLabel",
+      "Target": "MakroFinalFailure",
+      "Value": "",
+      "Description": ""
+    },
+    {
+      "Command": "endif",
+      "Target": "",
+      "Value": "",
+      "Description": ""
+    },
+    {
+      "Command": "endif",
+      "Target": "",
+      "Value": "",
+      "Description": ""
+    },
+    {
+      "Command": "label",
+      "Target": "MakroFinalSuccess",
+      "Value": "",
+      "Description": ""
+    },
+    {
+      "Command": "echo",
+      "Target": "Makro erfolgreich mit bestätigter Buchung beendet.",
+      "Value": "green",
+      "Description": ""
+    },
+    {
+      "Command": "gotoLabel",
+      "Target": "MakroEndeAllgemein",
+      "Value": "",
+      "Description": ""
+    },
+    {
+      "Command": "label",
+      "Target": "MakroFinalFailure",
+      "Value": "",
+      "Description": ""
+    },
+    {
+      "Command": "echo",
+      "Target": "Makro nach maximalen Versuchen oder schwerwiegendem Fehler beendet.",
+      "Value": "red",
+      "Description": ""
+    },
+    {
+      "Command": "gotoLabel",
+      "Target": "MakroEndeAllgemein",
+      "Value": "",
+      "Description": ""
+    },
+    {
+      "Command": "label",
+      "Target": "MakroEndeFehlerhaft",
+      "Value": "",
+      "Description": ""
+    },
+    {
+      "Command": "echo",
+      "Target": "Makro wegen Fehler in JS Schritt 1 beendet (nicht wiederholbar).",
+      "Value": "red",
+      "Description": ""
+    },
+    {
+      "Command": "label",
+      "Target": "MakroEndeAllgemein",
+      "Value": "",
+      "Description": ""
+    }
+  ]
+}

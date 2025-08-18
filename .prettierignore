@@ -1,0 +1,14 @@
+node_modules/
+dist/
+coverage/
+test-results/
+playwright-report/
+*.log
+.git/
+.env
+.env.local
+.env.production
+.env.test
+*.lock
+package-lock.json
+yarn.lock
