@@ -4,6 +4,7 @@ import { DateTimeCalculator } from './DateTimeCalculator';
 import { SlotSearcher } from './SlotSearcher';
 import { IsolationChecker } from './IsolationChecker';
 import { logger } from '../utils/logger';
+import { DryRunValidator } from '../utils/DryRunValidator';
 
 /**
  * Main orchestrator for the squash court booking automation
@@ -11,6 +12,7 @@ import { logger } from '../utils/logger';
 export class BookingManager {
   private page: Page;
   private config: BookingConfig;
+  private validator: DryRunValidator;
 
   constructor(page: Page, config: Partial<BookingConfig> = {}) {
     this.page = page;
@@ -19,8 +21,13 @@ export class BookingManager {
       targetStartTime: config.targetStartTime || '14:00',
       duration: config.duration || 60,
       maxRetries: config.maxRetries || 3,
-      dryRun: config.dryRun || false,
+      dryRun: config.dryRun !== false, // Default to true for safety
     };
+
+    // Initialize validator with strict safety for production-like environments
+    this.validator = new DryRunValidator(
+      process.env.NODE_ENV === 'production' ? 'strict' : 'standard'
+    );
   }
 
   /**
@@ -30,9 +37,35 @@ export class BookingManager {
     const component = 'BookingManager';
     const startTime = DateTimeCalculator.getCurrentTimestamp();
 
+    // Validate configuration before starting
+    const configValidation = this.validator.validateBookingConfig(this.config);
+    if (!configValidation.isValid) {
+      const errorMessage = `Configuration validation failed: ${configValidation.errors.join(', ')}`;
+      logger.error(errorMessage, component, { 
+        errors: configValidation.errors,
+        warnings: configValidation.warnings 
+      });
+      
+      return {
+        success: false,
+        error: errorMessage,
+        retryAttempts: 0,
+        timestamp: startTime,
+      };
+    }
+
+    // Log warnings if any
+    if (configValidation.warnings.length > 0) {
+      logger.warn('Configuration warnings detected', component, {
+        warnings: configValidation.warnings,
+        recommendations: configValidation.recommendations
+      });
+    }
+
     logger.info('Starting booking process', component, {
       config: this.config,
       mode: this.config.dryRun ? 'DRY_RUN' : 'PRODUCTION',
+      validationPassed: true
     });
 
     let attempt = 0;
