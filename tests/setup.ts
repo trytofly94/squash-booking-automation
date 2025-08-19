@@ -23,7 +23,7 @@ process.env['NODE_ENV'] = 'test';
 process.env['LOG_LEVEL'] = 'error'; // Reduce log noise in tests
 
 // Global test utilities
-global.testUtils = {
+(global as any).testUtils = {
   /**
    * Create a mock booking slot
    */
@@ -40,8 +40,8 @@ global.testUtils = {
    * Create a mock booking pair
    */
   createMockBookingPair: (overrides = {}) => {
-    const slot1 = global.testUtils.createMockBookingSlot({ startTime: '14:00' });
-    const slot2 = global.testUtils.createMockBookingSlot({ startTime: '14:30' });
+    const slot1 = (global as any).testUtils.createMockBookingSlot({ startTime: '14:00' });
+    const slot2 = (global as any).testUtils.createMockBookingSlot({ startTime: '14:30' });
 
     return {
       slot1,
