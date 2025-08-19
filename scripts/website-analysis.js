@@ -61,6 +61,12 @@ async function analyzeWebsite() {
     );
 
     console.log('✅ Analysis complete! Results saved to:', ANALYSIS_OUTPUT_DIR);
+    
+    // Test mobile view
+    await analyzeWithMobileViewport(context);
+    
+    // Test existing selectors
+    await validateExistingSelectors(page);
 
     // Keep browser open for manual inspection
     console.log('🔍 Browser kept open for manual inspection. Press Ctrl+C to close.');
@@ -338,9 +344,138 @@ async function findInteractiveElements(page) {
   return { buttons, links };
 }
 
+async function analyzeWithMobileViewport(context) {
+  console.log('📱 Analyzing mobile viewport...');
+  
+  const mobilePage = await context.newPage();
+  await mobilePage.setViewportSize({ width: 375, height: 812 }); // iPhone 13 size
+  
+  try {
+    await mobilePage.goto(BASE_URL, { waitUntil: 'networkidle' });
+    
+    // Take mobile screenshot
+    await mobilePage.screenshot({ 
+      path: path.join(ANALYSIS_OUTPUT_DIR, 'mobile-view.png'),
+      fullPage: true 
+    });
+    
+    // Analyze mobile-specific elements
+    const mobileAnalysis = await analyzePageStructure(mobilePage);
+    
+    fs.writeFileSync(
+      path.join(ANALYSIS_OUTPUT_DIR, 'mobile-analysis.json'),
+      JSON.stringify({
+        timestamp: new Date().toISOString(),
+        viewport: { width: 375, height: 812 },
+        analysis: mobileAnalysis
+      }, null, 2)
+    );
+    
+    console.log('📱 Mobile analysis complete!');
+  } finally {
+    await mobilePage.close();
+  }
+}
+
+async function validateExistingSelectors(page) {
+  console.log('🔍 Validating existing selectors from page objects...');
+  
+  // Load existing page objects to get selectors
+  const existingSelectors = await loadExistingSelectors();
+  const validationResults = {};
+  
+  for (const [component, selectors] of Object.entries(existingSelectors)) {
+    console.log(`  Testing ${component} selectors...`);
+    validationResults[component] = {};
+    
+    for (const [name, selector] of Object.entries(selectors)) {
+      try {
+        const elements = await page.$$(selector);
+        const isVisible = elements.length > 0 ? await elements[0].isVisible() : false;
+        
+        validationResults[component][name] = {
+          selector,
+          found: elements.length,
+          visible: isVisible,
+          status: elements.length > 0 ? 'FOUND' : 'NOT_FOUND'
+        };
+        
+        if (elements.length === 0) {
+          console.log(`    ❌ ${name}: ${selector} - NOT FOUND`);
+        } else {
+          console.log(`    ✅ ${name}: ${selector} - Found ${elements.length} elements`);
+        }
+      } catch (error) {
+        validationResults[component][name] = {
+          selector,
+          error: error.message,
+          status: 'ERROR'
+        };
+        console.log(`    ⚠️  ${name}: ${selector} - ERROR: ${error.message}`);
+      }
+    }
+  }
+  
+  fs.writeFileSync(
+    path.join(ANALYSIS_OUTPUT_DIR, 'selector-validation.json'),
+    JSON.stringify({
+      timestamp: new Date().toISOString(),
+      results: validationResults
+    }, null, 2)
+  );
+  
+  console.log('🔍 Selector validation complete!');
+}
+
+async function loadExistingSelectors() {
+  // Define selectors from actual page objects (based on BookingCalendarPage.ts)
+  return {
+    bookingCalendar: {
+      // Calendar and container elements
+      calendar: '#booking-calendar-container, .calendar, [data-testid="calendar"], .booking-calendar',
+      calendarContainer: '#booking-calendar-container',
+      
+      // Date navigation elements (Eversports specific)
+      dateInput: 'input[type="date"], .date-input, [data-testid="date-picker"]',
+      nextWeekButton: '#next-week, .next-week, [data-testid="next-week"]',
+      prevWeekButton: '#prev-week, .prev-week, [data-testid="prev-week"]',
+      currentDateDisplay: '.current-date, .selected-date, .date-display',
+      
+      // Court and slot elements
+      courtSelector: '[data-testid*="court"], .court-selector, .court-list',
+      timeSlot: '[data-time], .time-slot, .booking-slot, td[data-date]',
+      availableSlot: 'td[data-state="free"], .available, .slot-available, [data-available="true"]',
+      bookedSlot: 'td[data-state="booked"], .booked, .unavailable, [data-available="false"]',
+      slotContainer: '#booking-calendar-container, .slots-container, .time-slots, .calendar-slots',
+      
+      // Eversports-specific slot selectors (most important)
+      eversportsSlot: 'td[data-date][data-start][data-state="free"]',
+      eversportsSlotWithCourt: 'td[data-date][data-start][data-court][data-state="free"]',
+      
+      // Navigation controls
+      nextButton: '#next-week, .next, .btn-next, [data-testid="next"]',
+      prevButton: '#prev-week, .prev, .btn-prev, [data-testid="prev"]',
+      loading: '.loading, .spinner, [data-testid="loading"]'
+    },
+    checkout: {
+      emailInput: 'input[type="email"], input[name="email"], #email',
+      passwordInput: 'input[type="password"], input[name="password"], #password',
+      loginButton: 'button[type="submit"], .login-button, [data-testid="login"]',
+      bookingButton: '.booking-button, .book-now, [data-testid="book"]',
+      checkoutForm: 'form, .checkout-form, [data-testid="checkout"]'
+    },
+    base: {
+      loadingSpinner: '.loading, .spinner, [data-testid="loading"]',
+      errorMessage: '.error, .alert-error, [role="alert"]',
+      successMessage: '.success, .alert-success, [data-testid="success"]',
+      cookieConsent: '.cookie-consent, #cookie-consent, [data-testid="cookie-consent"]'
+    }
+  };
+}
+
 // Run the analysis
 if (require.main === module) {
   analyzeWebsite().catch(console.error);
 }
 
-module.exports = { analyzeWebsite };
+module.exports = { analyzeWebsite, analyzeWithMobileViewport, validateExistingSelectors };
