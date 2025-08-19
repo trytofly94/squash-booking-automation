@@ -124,6 +124,25 @@ tests/
 └── fixtures/      # Test data and mock responses
 ```
 
+### Advanced Testing Features
+
+The project includes comprehensive testing capabilities with modern tooling:
+
+- **Playwright UI Mode**: Interactive test running and debugging
+- **Trace Viewer**: Visual debugging with timeline and DOM snapshots  
+- **Test Artifacts**: Automatic screenshots, videos, and traces on failures
+- **Multiple Reporters**: HTML, JSON, JUnit, and line reporters
+- **Coverage Reporting**: Detailed code coverage with threshold enforcement
+- **Test Distribution**: Blob reports for distributed test execution
+
+### Test Artifacts & Reports
+
+All test results and artifacts are automatically saved:
+- `test-reports/html-report/` - Interactive HTML test reports
+- `test-reports/junit-results.xml` - JUnit format for CI/CD integration
+- `test-artifacts/` - Screenshots, videos, and traces from failed tests
+- Coverage reports with detailed metrics and threshold validation
+
 For detailed testing instructions and validation procedures, see:
 - **[Testing Instructions](TESTING_INSTRUCTIONS.md)** - Comprehensive testing guide
 - **[Test Validation Report](TEST_VALIDATION_REPORT.md)** - Latest test results and coverage
@@ -148,8 +167,20 @@ squash-booking-automation/
 │   └── utils/             # Utility functions
 │       └── logger.ts
 ├── tests/                 # Test files
+│   ├── unit/             # Jest unit tests
+│   ├── integration/      # Jest integration tests
+│   ├── e2e/              # Playwright end-to-end tests
+│   └── fixtures/         # Test data and mock responses
+├── test-artifacts/       # Generated test artifacts (screenshots, videos, traces)
+├── test-reports/         # Test reports (HTML, JSON, JUnit)
 ├── config/               # Configuration files
 ├── docs/                 # Documentation
+│   ├── DEPLOYMENT_STATUS.md    # Current deployment status
+│   ├── TESTING_INSTRUCTIONS.md # Comprehensive testing guide  
+│   └── TEST_VALIDATION_REPORT.md # Test results and coverage
+├── scratchpads/          # Development planning documents
+│   ├── active/           # Current development plans
+│   └── completed/        # Archived scratchpads
 └── scripts/              # Build and deployment scripts
 ```
 
@@ -307,18 +338,38 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 This automation tool is designed for personal use. Please ensure you comply with the terms of service of the booking platform and use responsibly. The authors are not responsible for any misuse or violations of service terms.
 
-## 🆘 Support
+## 🆘 Support & Troubleshooting
 
 If you encounter issues or need help:
 
-1. Check the [documentation](docs/)
-2. Review existing [issues](https://github.com/trytofly94/squash-booking-automation/issues)
-3. Create a new issue with detailed information about your problem
+1. **Check Documentation**: Start with the comprehensive [documentation](docs/)
+2. **Review Test Reports**: Check `test-reports/html-report/` for test failures
+3. **Debug with Tools**: Use `npm run test:debug` or `npm run dev:ui` for interactive debugging
+4. **View Test Artifacts**: Screenshots and traces in `test-artifacts/` provide visual debugging information
+5. **Check Logs**: Application logs are saved in the `logs/` directory
+6. **Review Issues**: Check existing [GitHub issues](https://github.com/trytofly94/squash-booking-automation/issues)
+7. **Create New Issue**: Provide detailed information including logs, test reports, and environment details
+
+### Common Issues
+- **Playwright Installation**: Run `npx playwright install` to install browser dependencies
+- **Test Failures**: Use `npm run test:trace` to analyze failed test traces
+- **Environment Issues**: Ensure `.env` file is properly configured from `.env.example`
+- **Performance**: Use `npm run dev:analyze` to analyze website performance and timing issues
 
 ## 📈 Roadmap
 
-- [ ] Multi-platform support (additional booking systems)
+### Completed Features ✅
+- [x] **Advanced testing framework** - Comprehensive unit, integration, and E2E testing
+- [x] **Multi-platform testing** - Support for multiple browsers and mobile devices  
+- [x] **Intelligent slot selection** - Advanced scheduling with isolation prevention
+- [x] **Enhanced debugging tools** - UI mode, trace viewer, and comprehensive reporting
+- [x] **Test automation** - Dry-run validation and comprehensive test coverage
+
+### Planned Features
+- [ ] Multi-platform support (additional booking systems beyond eversports.de)
 - [ ] Web dashboard for configuration and monitoring
-- [ ] Mobile notifications for booking status
-- [ ] Advanced scheduling with multiple time preferences
-- [ ] Integration with calendar applications
+- [ ] Mobile notifications for booking status  
+- [ ] Calendar integration (Google Calendar, Outlook)
+- [ ] Multiple booking preferences with priority system
+- [ ] Advanced retry strategies with exponential backoff
+- [ ] Booking analytics and success rate tracking
