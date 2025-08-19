@@ -112,7 +112,7 @@ export default defineConfig({
   outputDir: 'test-results/',
   
   /* Global setup and teardown */
-  globalSetup: require.resolve('./tests/setup.ts'),
+  globalSetup: require.resolve('./tests/playwright-setup.ts'),
   // globalTeardown: require.resolve('./tests/global-teardown'),
   
   /* Modern Playwright features */

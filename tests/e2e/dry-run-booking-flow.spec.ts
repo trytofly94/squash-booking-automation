@@ -24,14 +24,14 @@ test.describe('Squash Booking Automation - Dry Run End-to-End', () => {
       dryRun: true // Explicitly ensure dry run
     };
 
-    const bookingManager = new BookingManager(testConfig);
+    const bookingManager = new BookingManager(page, testConfig);
 
     let bookingResult;
     
     try {
       // Execute the full booking flow
       logger.info('Starting comprehensive booking flow test');
-      bookingResult = await bookingManager.executeBooking(page);
+      bookingResult = await bookingManager.executeBooking();
       
       // Validate that the booking process was executed
       expect(bookingResult).toBeDefined();
