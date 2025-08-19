@@ -25,12 +25,12 @@ export default defineConfig({
   },
   /* Reporter to use. See https://playwright.dev/docs/test-reporters */
   reporter: [
-    ['html', { outputFolder: 'test-results/html-report', open: 'never' }],
-    ['junit', { outputFile: 'test-results/junit-results.xml' }],
-    ['json', { outputFile: 'test-results/test-results.json' }],
+    ['html', { outputFolder: 'test-reports/html-report', open: 'never' }],
+    ['junit', { outputFile: 'test-reports/junit-results.xml' }],
+    ['json', { outputFile: 'test-reports/test-results.json' }],
     ['line'], // More concise console output
     // Modern blob reporter for advanced analysis
-    ['blob', { outputDir: 'test-results/blob-report' }]
+    ['blob', { outputDir: 'test-reports/blob-report' }]
   ],
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
   use: {
@@ -108,8 +108,8 @@ export default defineConfig({
   //   reuseExistingServer: !process.env.CI,
   // },
   
-  /* Output directories */
-  outputDir: 'test-results/',
+  /* Output directories - separate artifact and report directories */
+  outputDir: 'test-artifacts/',
   
   /* Global setup and teardown */
   globalSetup: require.resolve('./tests/playwright-setup.ts'),
