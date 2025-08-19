@@ -9,7 +9,7 @@ A modern, Playwright-based automation system for booking squash courts with inte
 - **Isolation Prevention**: Avoids creating isolated 30-minute slots that fragment the schedule
 - **Retry Mechanism**: Robust error handling with configurable retry attempts
 - **Dry-Run Mode**: Test the entire booking flow without making actual reservations
-- **Comprehensive Testing**: Unit and integration tests with mock capabilities
+- **Comprehensive Testing**: Unit, integration, and E2E tests with advanced reporting and debugging capabilities
 - **TypeScript**: Full type safety and modern development experience
 
 ## 🚀 Quick Start
@@ -103,6 +103,16 @@ npm run test:coverage
 
 # Run Playwright end-to-end tests
 npm run test:playwright
+
+# Advanced Playwright Testing
+npm run test:e2e          # Run E2E tests specifically
+npm run test:debug        # Debug tests with step-by-step execution
+npm run test:ui           # Run tests with Playwright UI mode
+npm run test:headed       # Run tests in headed browser mode
+npm run test:report       # Show latest test report
+npm run test:trace        # View trace files from failed tests
+npm run test:merge-reports # Merge distributed test reports
+npm run test:last-run     # Show last test run report
 ```
 
 ### Test Structure
@@ -113,6 +123,11 @@ tests/
 ├── integration/   # Integration tests for component interaction
 └── fixtures/      # Test data and mock responses
 ```
+
+For detailed testing instructions and validation procedures, see:
+- **[Testing Instructions](TESTING_INSTRUCTIONS.md)** - Comprehensive testing guide
+- **[Test Validation Report](TEST_VALIDATION_REPORT.md)** - Latest test results and coverage
+- **[Deployment Status](DEPLOYMENT_STATUS.md)** - Current deployment and build status
 
 ## 📁 Project Structure
 
@@ -137,6 +152,27 @@ squash-booking-automation/
 ├── docs/                 # Documentation
 └── scripts/              # Build and deployment scripts
 ```
+
+### TypeScript Path Aliases
+
+The project uses TypeScript path aliases for clean and maintainable imports:
+
+```typescript
+// Instead of: ../../core/BookingManager
+import { BookingManager } from '@/core/BookingManager';
+
+// Available aliases:
+import { BookingManager } from '@/core/BookingManager';        // src/core/*
+import { BasePage } from '@/pages/BasePage';                   // src/pages/*
+import { BookingRequest } from '@/types/booking.types';        // src/types/*
+import { logger } from '@/utils/logger';                       // src/utils/*
+import { DryRunValidator } from '@/utils/DryRunValidator';     // src/* (any)
+```
+
+These aliases are configured in `tsconfig.json` and provide:
+- **Cleaner imports**: No relative path navigation needed
+- **Better refactoring**: IDEs can easily track and update imports
+- **Consistent structure**: Clear separation of concerns by directory
 
 ## 🔧 Configuration Options
 
@@ -227,6 +263,24 @@ npm run build
 
 # Clean build artifacts
 npm run clean
+```
+
+### Developer Tools
+
+The project includes specialized developer tools for enhanced productivity:
+
+```bash
+# Playwright Development Tools
+npm run dev:ui        # Launch Playwright UI mode for interactive testing
+npm run dev:debug     # Start debugging session with Playwright
+npm run dev:codegen   # Generate test code by recording browser interactions
+npm run dev:analyze   # Analyze website structure and performance
+
+# Code Generation & Analysis
+npm run codegen             # Standard code generation for booking site
+npm run codegen:auth        # Generate code with authentication state
+npm run codegen:mobile      # Generate code for mobile device testing
+npm run analyze:website     # Analyze website structure and elements
 ```
 
 ## 🤝 Contributing
