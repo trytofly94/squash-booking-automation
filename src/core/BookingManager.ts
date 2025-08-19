@@ -26,7 +26,7 @@ export class BookingManager {
 
     // Initialize validator with strict safety for production-like environments
     this.validator = new DryRunValidator(
-      process.env.NODE_ENV === 'production' ? 'strict' : 'standard'
+      process.env['NODE_ENV'] === 'production' ? 'strict' : 'standard'
     );
   }
 

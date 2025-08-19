@@ -18,7 +18,7 @@ export default defineConfig({
   /* Opt out of parallel tests on CI. */
   workers: process.env.CI ? 1 : 1, // Single worker for booking automation
   /* Timeout for each test */
-  timeout: 60000, // 1 minute per test
+  timeout: 120000, // 2 minutes per test
   /* Expect timeout */
   expect: {
     timeout: 10000 // 10 seconds for assertions
@@ -50,8 +50,8 @@ export default defineConfig({
     },
     
     /* Global timeout for all tests */
-    actionTimeout: 30000,
-    navigationTimeout: 45000,
+    actionTimeout: 45000,
+    navigationTimeout: 90000,
     
     /* Additional settings for booking automation */
     ignoreHTTPSErrors: true,

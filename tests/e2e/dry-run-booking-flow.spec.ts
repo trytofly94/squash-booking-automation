@@ -8,7 +8,7 @@ import { logger } from '../../src/utils/logger';
  */
 test.describe('Squash Booking Automation - Dry Run End-to-End', () => {
   
-  test.beforeEach(async ({ page }) => {
+  test.beforeEach(async ({ page: _page }) => {
     // Ensure we're always in dry-run mode for safety
     process.env.DRY_RUN = 'true';
     logger.info('Starting E2E test in DRY-RUN mode');

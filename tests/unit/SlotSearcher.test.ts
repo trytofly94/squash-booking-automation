@@ -108,7 +108,7 @@ describe('SlotSearcher', () => {
 
     test('should handle different slot selector strategies', async () => {
       // Test multiple selector attempts
-      const selectors = [
+      const _selectors = [
         '.time-slot.available',
         '.slot.bookable',
         '[data-testid^="slot"]',

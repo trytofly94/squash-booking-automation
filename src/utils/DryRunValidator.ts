@@ -141,7 +141,6 @@ export class DryRunValidator {
    * Validate booking pair before selection
    */
   validateBookingPair(pair: BookingPair): DryRunValidationResult {
-    const component = 'DryRunValidator.validateBookingPair';
     const warnings: string[] = [];
     const errors: string[] = [];
     const safetyChecks: SafetyCheckResult[] = [];
@@ -233,7 +232,6 @@ export class DryRunValidator {
    * Validate final booking result
    */
   validateBookingResult(result: BookingResult): DryRunValidationResult {
-    const component = 'DryRunValidator.validateBookingResult';
     const warnings: string[] = [];
     const errors: string[] = [];
     const safetyChecks: SafetyCheckResult[] = [];
@@ -514,7 +512,7 @@ export class DryRunValidator {
     try {
       const [hours, minutes] = timeStr.split(':').map(Number);
       const date = new Date();
-      date.setHours(hours, minutes, 0, 0);
+      date.setHours(hours ?? 0, minutes ?? 0, 0, 0);
       return date;
     } catch {
       return null;

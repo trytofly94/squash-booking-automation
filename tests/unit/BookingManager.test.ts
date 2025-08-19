@@ -162,7 +162,7 @@ describe('BookingManager', () => {
       });
 
       const startTime = Date.now();
-      const result = await manager.executeBooking();
+      const _result = await manager.executeBooking();
       const endTime = Date.now();
 
       // Should have waited for exponential backoff (2s + 4s = 6s minimum)

@@ -14,14 +14,14 @@ test.describe('Squash Booking E2E Flow', () => {
   let page: Page;
   let bookingManager: BookingManager;
   let calendarPage: BookingCalendarPage;
-  let checkoutPage: CheckoutPage;
+  let _checkoutPage: CheckoutPage;
 
   test.beforeEach(async ({ page: testPage }) => {
     page = testPage;
     
     // Initialize page objects
     calendarPage = new BookingCalendarPage(page);
-    checkoutPage = new CheckoutPage(page);
+    _checkoutPage = new CheckoutPage(page);
     
     // Initialize booking manager in DRY-RUN mode
     bookingManager = new BookingManager(page, {

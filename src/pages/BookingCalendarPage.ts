@@ -639,14 +639,14 @@ export class BookingCalendarPage extends BasePage {
       // Try class-based selectors
       const classList = await slotElement.getAttribute('class');
       if (classList) {
-        const classes = classList.split(' ').filter(c => c.includes('slot') || c.includes('time'));
+        const classes = classList.split(' ').filter((c: string) => c.includes('slot') || c.includes('time'));
         if (classes.length > 0) {
           return `.${classes.join('.')}`;
         }
       }
 
       // Fallback: use tag name with unique attributes
-      const tagName = await slotElement.evaluate((el: Element) => el.tagName.toLowerCase());
+      const tagName = await slotElement.evaluate((el: any) => el.tagName.toLowerCase());
       if (tagName === 'td' && (dataDate || dataStart)) {
         const parts = [`${tagName}`];
         if (dataDate) parts.push(`[data-date='${dataDate}']`);

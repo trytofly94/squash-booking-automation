@@ -1,4 +1,4 @@
-import { chromium } from 'playwright-core';
+import { chromium } from '@playwright/test';
 import dotenv from 'dotenv';
 import { BookingManager } from './core/BookingManager';
 import { BookingConfig } from './types/booking.types';

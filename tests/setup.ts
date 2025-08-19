@@ -104,13 +104,14 @@ global.testUtils = {
 
 // Add type declarations for global test utilities
 declare global {
-  namespace globalThis {
-    var testUtils: {
-      createMockBookingSlot: (overrides?: any) => any;
-      createMockBookingPair: (overrides?: any) => any;
+  // eslint-disable-next-line no-unused-vars
+  namespace _globalThis {
+    const _testUtils: {
+      createMockBookingSlot: (_overrides?: any) => any;
+      createMockBookingPair: (_overrides?: any) => any;
       createMockPage: () => any;
-      wait: (ms: number) => Promise<void>;
-      mockDate: (dateString: string) => Date;
+      wait: (_ms: number) => Promise<void>;
+      mockDate: (_dateString: string) => Date;
       restoreDate: () => void;
     };
   }

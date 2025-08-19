@@ -3,7 +3,8 @@ module.exports = {
   env: {
     node: true,
     es2022: true,
-    jest: true
+    jest: true,
+    browser: true
   },
   extends: [
     'eslint:recommended'
@@ -24,8 +25,13 @@ module.exports = {
   overrides: [
     {
       files: ['tests/**/*.ts', '**/*.test.ts', '**/*.spec.ts'],
+      env: {
+        browser: true,
+        jest: true
+      },
       rules: {
-        'no-console': 'off'
+        'no-console': 'off',
+        'no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }]
       }
     }
   ],
