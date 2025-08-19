@@ -15,15 +15,15 @@ export class DateTimeCalculator {
     const today = new Date();
     const targetDate = new Date(today);
     targetDate.setDate(today.getDate() + daysAhead);
-    
-    const formattedDate = targetDate.toISOString().split('T')[0]; // YYYY-MM-DD format
-    
+
+    const formattedDate = targetDate.toISOString().split('T')[0]!; // YYYY-MM-DD format
+
     logger.debug('Calculated booking date', 'DateTimeCalculator', {
       today: today.toISOString().split('T')[0],
       daysAhead,
-      targetDate: formattedDate
+      targetDate: formattedDate,
     });
-    
+
     return formattedDate;
   }
 
@@ -32,30 +32,35 @@ export class DateTimeCalculator {
    * Returns two consecutive 30-minute slots starting at the specified time
    */
   static generateTimeSlots(startTime: string = this.DEFAULT_START_TIME): string[] {
-    const [hours, minutes] = startTime.split(':').map(Number);
-    
-    if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) {
+    const timeParts = startTime.split(':');
+    if (timeParts.length !== 2) {
+      throw new Error(`Invalid time format: ${startTime}`);
+    }
+    const hours = parseInt(timeParts[0]!, 10);
+    const minutes = parseInt(timeParts[1]!, 10);
+
+    if (isNaN(hours) || isNaN(minutes) || hours < 0 || hours > 23 || minutes < 0 || minutes > 59) {
       throw new Error(`Invalid start time format: ${startTime}`);
     }
 
     const slot1 = startTime;
-    
+
     // Calculate second slot (30 minutes later)
     const slot2Date = new Date();
     slot2Date.setHours(hours, minutes + this.SLOT_DURATION_MINUTES, 0, 0);
-    
+
     const slot2Hours = slot2Date.getHours().toString().padStart(2, '0');
     const slot2Minutes = slot2Date.getMinutes().toString().padStart(2, '0');
     const slot2 = `${slot2Hours}:${slot2Minutes}`;
 
     const slots = [slot1, slot2];
-    
+
     logger.debug('Generated time slots', 'DateTimeCalculator', {
       startTime,
       slots,
-      durationMinutes: this.SLOT_DURATION_MINUTES * 2
+      durationMinutes: this.SLOT_DURATION_MINUTES * 2,
     });
-    
+
     return slots;
   }
 
@@ -64,18 +69,27 @@ export class DateTimeCalculator {
    * Returns slots before and after the target slots
    */
   static calculateNeighborSlots(startTime: string): { before: string; after: string } {
-    const [hours, minutes] = startTime.split(':').map(Number);
-    
+    const timeParts = startTime.split(':');
+    if (timeParts.length !== 2) {
+      throw new Error(`Invalid time format: ${startTime}`);
+    }
+    const hours = parseInt(timeParts[0]!, 10);
+    const minutes = parseInt(timeParts[1]!, 10);
+
+    if (isNaN(hours) || isNaN(minutes)) {
+      throw new Error(`Invalid time format: ${startTime}`);
+    }
+
     // Slot before (30 minutes earlier)
     const beforeDate = new Date();
     beforeDate.setHours(hours, minutes - this.SLOT_DURATION_MINUTES, 0, 0);
     const beforeHours = beforeDate.getHours().toString().padStart(2, '0');
     const beforeMinutes = beforeDate.getMinutes().toString().padStart(2, '0');
     const before = `${beforeHours}:${beforeMinutes}`;
-    
+
     // Slot after (60 minutes later - after both target slots)
     const afterDate = new Date();
-    afterDate.setHours(hours, minutes + (this.SLOT_DURATION_MINUTES * 2), 0, 0);
+    afterDate.setHours(hours, minutes + this.SLOT_DURATION_MINUTES * 2, 0, 0);
     const afterHours = afterDate.getHours().toString().padStart(2, '0');
     const afterMinutes = afterDate.getMinutes().toString().padStart(2, '0');
     const after = `${afterHours}:${afterMinutes}`;
@@ -83,7 +97,7 @@ export class DateTimeCalculator {
     logger.debug('Calculated neighbor slots', 'DateTimeCalculator', {
       targetStart: startTime,
       before,
-      after
+      after,
     });
 
     return { before, after };
@@ -104,8 +118,15 @@ export class DateTimeCalculator {
     if (!this.isValidTime(time)) {
       throw new Error(`Invalid time format: ${time}`);
     }
-    
-    const [hours, minutes] = time.split(':').map(Number);
+
+    const timeParts = time.split(':');
+    const hours = parseInt(timeParts[0]!, 10);
+    const minutes = parseInt(timeParts[1]!, 10);
+
+    if (isNaN(hours) || isNaN(minutes)) {
+      throw new Error(`Invalid time format: ${time}`);
+    }
+
     return { hours, minutes };
   }
 
@@ -118,7 +139,7 @@ export class DateTimeCalculator {
       weekday: 'long',
       year: 'numeric',
       month: 'long',
-      day: 'numeric'
+      day: 'numeric',
     });
   }
 

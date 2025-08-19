@@ -1,4 +1,4 @@
-import { Page } from '@playwright/test';
+import type { Page } from 'playwright';
 import { BookingSlot, BookingPair, CourtSearchResult } from '../types/booking.types';
 import { DateTimeCalculator } from './DateTimeCalculator';
 import { logger } from '../utils/logger';
@@ -22,15 +22,15 @@ export class SlotSearcher {
    */
   async searchAvailableSlots(): Promise<CourtSearchResult> {
     const component = 'SlotSearcher';
-    
+
     logger.info('Starting slot search', component, {
       targetDate: this.targetDate,
-      targetTimes: this.targetTimes
+      targetTimes: this.targetTimes,
     });
 
     const availableCourts = await this.findAvailableCourts();
     const allSlots: BookingSlot[] = [];
-    
+
     for (const courtId of availableCourts) {
       const courtSlots = await this.getCourtSlots(courtId);
       allSlots.push(...courtSlots);
@@ -41,13 +41,13 @@ export class SlotSearcher {
     const result: CourtSearchResult = {
       availableCourts,
       totalSlots: allSlots.length,
-      availablePairs
+      availablePairs,
     };
 
     logger.info('Slot search completed', component, {
       availableCourts: availableCourts.length,
       totalSlots: allSlots.length,
-      availablePairs: availablePairs.length
+      availablePairs: availablePairs.length,
     });
 
     return result;
@@ -58,10 +58,13 @@ export class SlotSearcher {
    */
   private async findAvailableCourts(): Promise<string[]> {
     const component = 'SlotSearcher.findAvailableCourts';
-    
+
     try {
       // Wait for the court selection or calendar to load
-      await this.page.waitForSelector('[data-testid="court-selector"], .court-list, .calendar-view', { timeout: 10000 });
+      await this.page.waitForSelector(
+        '[data-testid="court-selector"], .court-list, .calendar-view',
+        { timeout: 10000 }
+      );
 
       // Try different selectors for court elements
       const courtSelectors = [
@@ -69,16 +72,16 @@ export class SlotSearcher {
         '[class*="court"]',
         '.court-item',
         '.calendar-court',
-        '[data-court-id]'
+        '[data-court-id]',
       ];
 
       let courtElements: any[] = [];
-      
+
       for (const selector of courtSelectors) {
         courtElements = await this.page.$$(selector);
         if (courtElements.length > 0) {
           logger.debug(`Found courts using selector: ${selector}`, component, {
-            count: courtElements.length
+            count: courtElements.length,
           });
           break;
         }
@@ -90,22 +93,23 @@ export class SlotSearcher {
       }
 
       const courts: string[] = [];
-      
+
       for (let i = 0; i < courtElements.length; i++) {
         const element = courtElements[i];
-        
+
         // Try to extract court ID from various attributes
-        let courtId = await element.getAttribute('data-court-id') || 
-                     await element.getAttribute('data-testid') ||
-                     await element.getAttribute('id') ||
-                     `court-${i + 1}`;
+        let courtId =
+          (await element.getAttribute('data-court-id')) ||
+          (await element.getAttribute('data-testid')) ||
+          (await element.getAttribute('id')) ||
+          `court-${i + 1}`;
 
         // Clean up court ID
         courtId = courtId.replace(/^(court-|data-testid-court-)/, '');
-        
+
         // Verify court has available slots for our target date
         const hasAvailableSlots = await this.checkCourtAvailability(element);
-        
+
         if (hasAvailableSlots) {
           courts.push(courtId);
         }
@@ -113,9 +117,10 @@ export class SlotSearcher {
 
       logger.info('Found available courts', component, { courts });
       return courts;
-
     } catch (error) {
-      logger.error('Error finding available courts', component, { error: error.message });
+      logger.error('Error finding available courts', component, {
+        error: error instanceof Error ? error.message : String(error),
+      });
       return [];
     }
   }
@@ -130,7 +135,7 @@ export class SlotSearcher {
         '.available',
         '.slot-available',
         '[data-available="true"]',
-        '.booking-slot:not(.booked):not(.unavailable)'
+        '.booking-slot:not(.booked):not(.unavailable)',
       ];
 
       for (const selector of availabilitySelectors) {
@@ -143,7 +148,7 @@ export class SlotSearcher {
       return false;
     } catch (error) {
       logger.warn('Error checking court availability', 'SlotSearcher.checkCourtAvailability', {
-        error: error.message
+        error: error instanceof Error ? error.message : String(error),
       });
       return false;
     }
@@ -163,31 +168,30 @@ export class SlotSearcher {
       // Find slot elements for our target times
       for (const targetTime of this.targetTimes) {
         const slotElement = await this.findSlotElement(courtId, targetTime);
-        
+
         if (slotElement) {
           const isAvailable = await this.isSlotAvailable(slotElement);
           const elementSelector = await this.getElementSelector(slotElement);
-          
+
           slots.push({
             date: this.targetDate,
             startTime: targetTime,
             courtId,
             isAvailable,
-            elementSelector
+            elementSelector,
           });
 
           logger.debug('Found slot', component, {
             courtId,
             startTime: targetTime,
-            isAvailable
+            isAvailable,
           });
         }
       }
-
     } catch (error) {
       logger.error('Error getting court slots', component, {
         courtId,
-        error: error.message
+        error: error instanceof Error ? error.message : String(error),
       });
     }
 
@@ -199,14 +203,14 @@ export class SlotSearcher {
    */
   private async navigateToCourtView(courtId: string): Promise<void> {
     const component = 'SlotSearcher.navigateToCourtView';
-    
+
     try {
       // Try different ways to select/navigate to court view
       const courtSelectors = [
         `[data-court-id="${courtId}"]`,
         `[data-testid*="${courtId}"]`,
         `#court-${courtId}`,
-        `.court-${courtId}`
+        `.court-${courtId}`,
       ];
 
       for (const selector of courtSelectors) {
@@ -223,7 +227,7 @@ export class SlotSearcher {
     } catch (error) {
       logger.error('Error navigating to court view', component, {
         courtId,
-        error: error.message
+        error: error instanceof Error ? error.message : String(error),
       });
     }
   }
@@ -236,7 +240,7 @@ export class SlotSearcher {
       `[data-time="${time}"][data-court="${courtId}"]`,
       `[data-time="${time}"]`,
       `.slot-${time.replace(':', '-')}`,
-      `[data-start-time="${time}"]`
+      `[data-start-time="${time}"]`,
     ];
 
     for (const selector of timeSelectors) {
@@ -254,19 +258,20 @@ export class SlotSearcher {
    */
   private async isSlotAvailable(slotElement: any): Promise<boolean> {
     try {
-      const classList = await slotElement.getAttribute('class') || '';
+      const classList = (await slotElement.getAttribute('class')) || '';
       const dataAvailable = await slotElement.getAttribute('data-available');
-      
+
       // Check for availability indicators
-      const isAvailable = !classList.includes('booked') &&
-                         !classList.includes('unavailable') &&
-                         !classList.includes('disabled') &&
-                         dataAvailable !== 'false';
+      const isAvailable =
+        !classList.includes('booked') &&
+        !classList.includes('unavailable') &&
+        !classList.includes('disabled') &&
+        dataAvailable !== 'false';
 
       return isAvailable;
     } catch (error) {
       logger.warn('Error checking slot availability', 'SlotSearcher.isSlotAvailable', {
-        error: error.message
+        error: error instanceof Error ? error.message : String(error),
       });
       return false;
     }
@@ -290,7 +295,9 @@ export class SlotSearcher {
 
       const className = await slotElement.getAttribute('class');
       if (className) {
-        const uniqueClass = className.split(' ').find(cls => cls.includes('slot') || cls.includes('time'));
+        const uniqueClass = className
+          .split(' ')
+          .find((cls: string) => cls.includes('slot') || cls.includes('time'));
         if (uniqueClass) {
           return `.${uniqueClass}`;
         }
@@ -310,38 +317,41 @@ export class SlotSearcher {
     const pairs: BookingPair[] = [];
 
     // Group slots by court
-    const slotsByCourt = allSlots.reduce((acc, slot) => {
-      if (!acc[slot.courtId]) {
-        acc[slot.courtId] = [];
-      }
-      acc[slot.courtId].push(slot);
-      return acc;
-    }, {} as Record<string, BookingSlot[]>);
+    const slotsByCourt = allSlots.reduce(
+      (acc, slot) => {
+        if (!acc[slot.courtId]) {
+          acc[slot.courtId] = [];
+        }
+        acc[slot.courtId]!.push(slot);
+        return acc;
+      },
+      {} as Record<string, BookingSlot[]>
+    );
 
     // Find pairs for each court
     Object.entries(slotsByCourt).forEach(([courtId, courtSlots]) => {
       const availableSlots = courtSlots.filter(slot => slot.isAvailable);
-      
+
       if (availableSlots.length >= 2) {
         // Sort slots by time
         availableSlots.sort((a, b) => a.startTime.localeCompare(b.startTime));
-        
+
         // Look for consecutive slots
         for (let i = 0; i < availableSlots.length - 1; i++) {
           const slot1 = availableSlots[i];
           const slot2 = availableSlots[i + 1];
-          
-          if (this.areConsecutiveSlots(slot1.startTime, slot2.startTime)) {
+
+          if (slot1 && slot2 && this.areConsecutiveSlots(slot1.startTime, slot2.startTime)) {
             pairs.push({
               slot1,
               slot2,
-              courtId
+              courtId,
             });
-            
+
             logger.debug('Found available slot pair', component, {
               courtId,
               slot1Time: slot1.startTime,
-              slot2Time: slot2.startTime
+              slot2Time: slot2.startTime,
             });
           }
         }
@@ -357,10 +367,10 @@ export class SlotSearcher {
   private areConsecutiveSlots(time1: string, time2: string): boolean {
     const time1Parsed = DateTimeCalculator.parseTime(time1);
     const time2Parsed = DateTimeCalculator.parseTime(time2);
-    
+
     const time1Minutes = time1Parsed.hours * 60 + time1Parsed.minutes;
     const time2Minutes = time2Parsed.hours * 60 + time2Parsed.minutes;
-    
+
     return time2Minutes - time1Minutes === 30;
   }
 }

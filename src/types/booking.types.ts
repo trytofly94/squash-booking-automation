@@ -68,15 +68,9 @@ export interface CourtSearchResult {
   availablePairs: BookingPair[];
 }
 
-export enum LogLevel {
-  DEBUG = 'debug',
-  INFO = 'info',
-  WARN = 'warn',
-  ERROR = 'error'
-}
-
+// LogLevel enum removed as it's not being used
 export interface LogEntry {
-  level: LogLevel;
+  level: string;
   message: string;
   timestamp: Date;
   component?: string;
