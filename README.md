@@ -174,10 +174,10 @@ squash-booking-automation/
 ├── test-artifacts/       # Generated test artifacts (screenshots, videos, traces)
 ├── test-reports/         # Test reports (HTML, JSON, JUnit)
 ├── config/               # Configuration files
-├── docs/                 # Documentation
-│   ├── DEPLOYMENT_STATUS.md    # Current deployment status
-│   ├── TESTING_INSTRUCTIONS.md # Comprehensive testing guide  
-│   └── TEST_VALIDATION_REPORT.md # Test results and coverage
+├── docs/                 # Documentation directory
+├── DEPLOYMENT_STATUS.md  # Current deployment status
+├── TESTING_INSTRUCTIONS.md # Comprehensive testing guide  
+├── TEST_VALIDATION_REPORT.md # Test results and coverage
 ├── scratchpads/          # Development planning documents
 │   ├── active/           # Current development plans
 │   └── completed/        # Archived scratchpads
@@ -342,7 +342,7 @@ This automation tool is designed for personal use. Please ensure you comply with
 
 If you encounter issues or need help:
 
-1. **Check Documentation**: Start with the comprehensive [documentation](docs/)
+1. **Check Documentation**: Start with the comprehensive project documentation
 2. **Review Test Reports**: Check `test-reports/html-report/` for test failures
 3. **Debug with Tools**: Use `npm run test:debug` or `npm run dev:ui` for interactive debugging
 4. **View Test Artifacts**: Screenshots and traces in `test-artifacts/` provide visual debugging information
