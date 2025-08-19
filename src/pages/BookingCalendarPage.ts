@@ -8,15 +8,26 @@ import { logger } from '../utils/logger';
  */
 export class BookingCalendarPage extends BasePage {
   private readonly selectors = {
-    calendar: '.calendar, [data-testid="calendar"], .booking-calendar',
-    dateNavigator: '[data-testid="date-picker"], .date-picker, input[type="date"]',
+    // Calendar and container elements
+    calendar: '#booking-calendar-container, .calendar, [data-testid="calendar"], .booking-calendar',
+    calendarContainer: '#booking-calendar-container',
+    
+    // Date navigation elements (Eversports specific)
+    dateInput: 'input[type="date"], .date-input, [data-testid="date-picker"]',
+    nextWeekButton: '#next-week, .next-week, [data-testid="next-week"]',
+    prevWeekButton: '#prev-week, .prev-week, [data-testid="prev-week"]',
+    currentDateDisplay: '.current-date, .selected-date, .date-display',
+    
+    // Court and slot elements
     courtSelector: '[data-testid*="court"], .court-selector, .court-list',
-    timeSlot: '[data-time], .time-slot, .booking-slot',
-    availableSlot: '.available, .slot-available, [data-available="true"]',
-    bookedSlot: '.booked, .unavailable, [data-available="false"]',
-    slotContainer: '.slots-container, .time-slots, .calendar-slots',
-    nextButton: '.next, .btn-next, [data-testid="next"]',
-    prevButton: '.prev, .btn-prev, [data-testid="prev"]',
+    timeSlot: '[data-time], .time-slot, .booking-slot, td[data-date]',
+    availableSlot: 'td[data-state="free"], .available, .slot-available, [data-available="true"]',
+    bookedSlot: 'td[data-state="booked"], .booked, .unavailable, [data-available="false"]',
+    slotContainer: '#booking-calendar-container, .slots-container, .time-slots, .calendar-slots',
+    
+    // Navigation controls
+    nextButton: '#next-week, .next, .btn-next, [data-testid="next"]',
+    prevButton: '#prev-week, .prev, .btn-prev, [data-testid="prev"]',
     loading: '.loading, .spinner, [data-testid="loading"]',
   };
 
@@ -67,7 +78,7 @@ export class BookingCalendarPage extends BasePage {
   }
 
   /**
-   * Navigate to a specific date
+   * Navigate to a specific date using direct input or button clicks
    */
   async navigateToDate(targetDate: string): Promise<void> {
     const component = 'BookingCalendarPage.navigateToDate';
@@ -75,15 +86,20 @@ export class BookingCalendarPage extends BasePage {
     logger.info('Navigating to target date', component, { targetDate });
 
     try {
-      // Try direct date input
-      if (await this.elementExists(this.selectors.dateNavigator)) {
-        await this.safeFill(this.selectors.dateNavigator, targetDate);
-        await this.page.keyboard.press('Enter');
-        await this.waitForCalendarToLoad();
+      // Method 1: Try direct date input first (preferred method)
+      if (await this.tryDirectDateInput(targetDate)) {
+        logger.info('Successfully navigated using direct date input', component);
         return;
       }
 
-      // Try alternative navigation methods
+      // Method 2: Try URL parameter approach
+      if (await this.tryUrlDateNavigation(targetDate)) {
+        logger.info('Successfully navigated using URL parameters', component);
+        return;
+      }
+
+      // Method 3: Fallback to clicking navigation buttons
+      logger.info('Falling back to click navigation', component);
       await this.navigateToDateByClicking(targetDate);
     } catch (error) {
       logger.error('Error navigating to date', component, {
@@ -95,7 +111,92 @@ export class BookingCalendarPage extends BasePage {
   }
 
   /**
-   * Navigate to date by clicking through calendar
+   * Try to navigate by directly entering the date in an input field
+   */
+  private async tryDirectDateInput(targetDate: string): Promise<boolean> {
+    const component = 'BookingCalendarPage.tryDirectDateInput';
+
+    try {
+      // Look for date input fields
+      const dateInputSelectors = [
+        this.selectors.dateInput,
+        'input[type="date"]',
+        '.datepicker input',
+        '[data-date-input]',
+        '#date-picker',
+        '.date-picker input'
+      ];
+
+      for (const selector of dateInputSelectors) {
+        if (await this.elementExists(selector)) {
+          logger.debug('Found date input field', component, { selector });
+          
+          // Clear and fill the date input
+          await this.page.locator(selector).clear();
+          await this.page.locator(selector).fill(targetDate);
+          
+          // Try different ways to trigger the date change
+          await this.page.keyboard.press('Enter');
+          await this.page.waitForTimeout(1000);
+          
+          // Check if the calendar updated
+          await this.waitForCalendarToLoad();
+          
+          // Verify the date was set correctly
+          const currentDate = await this.getCurrentSelectedDate();
+          if (currentDate === targetDate) {
+            logger.info('Date input successful', component, { targetDate });
+            return true;
+          }
+        }
+      }
+
+      return false;
+    } catch (error) {
+      logger.debug('Direct date input failed', component, {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return false;
+    }
+  }
+
+  /**
+   * Try to navigate using URL parameters
+   */
+  private async tryUrlDateNavigation(targetDate: string): Promise<boolean> {
+    const component = 'BookingCalendarPage.tryUrlDateNavigation';
+
+    try {
+      const currentUrl = this.page.url();
+      const urlParams = new URLSearchParams();
+      urlParams.set('date', targetDate);
+      urlParams.set('view', 'calendar');
+      
+      const newUrl = `${currentUrl.split('?')[0]}?${urlParams.toString()}`;
+      
+      logger.debug('Trying URL navigation', component, { newUrl });
+      
+      await this.page.goto(newUrl, { waitUntil: 'networkidle' });
+      await this.waitForCalendarToLoad();
+      
+      // Verify we're on the correct date
+      const currentDate = await this.getCurrentSelectedDate();
+      if (currentDate === targetDate) {
+        logger.info('URL navigation successful', component, { targetDate });
+        return true;
+      }
+      
+      return false;
+    } catch (error) {
+      logger.debug('URL navigation failed', component, {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return false;
+    }
+  }
+
+  /**
+   * Navigate to date by clicking through calendar (improved for Eversports)
    */
   private async navigateToDateByClicking(targetDate: string): Promise<void> {
     const component = 'BookingCalendarPage.navigateToDateByClicking';
@@ -108,22 +209,129 @@ export class BookingCalendarPage extends BasePage {
       currentDate: currentDate.toISOString(),
     });
 
-    // Calculate how many days to navigate forward
+    // Calculate how many weeks to navigate forward (Eversports uses weekly navigation)
     const daysDifference = Math.ceil(
       (targetDateObj.getTime() - currentDate.getTime()) / (1000 * 60 * 60 * 24)
     );
+    
+    const weeksToNavigate = Math.ceil(daysDifference / 7);
 
-    if (daysDifference > 0) {
-      // Navigate forward
-      for (let i = 0; i < daysDifference; i++) {
-        if (await this.elementExists(this.selectors.nextButton)) {
-          await this.safeClick(this.selectors.nextButton);
-          await this.page.waitForTimeout(1000);
+    logger.debug('Navigation calculation', component, {
+      daysDifference,
+      weeksToNavigate,
+    });
+
+    if (weeksToNavigate > 0) {
+      // Navigate forward using next-week button (Eversports specific)
+      for (let i = 0; i < weeksToNavigate; i++) {
+        await this.clickNextWeek();
+        await this.page.waitForTimeout(2000); // Wait for calendar to update
+        await this.waitForCalendarToLoad();
+        
+        // Check if we've reached or passed the target date
+        const currentCalendarDate = await this.getCurrentSelectedDate();
+        if (currentCalendarDate >= targetDate) {
+          logger.debug('Reached target date range', component, { 
+            currentCalendarDate, 
+            targetDate, 
+            iteration: i + 1 
+          });
+          break;
         }
+      }
+    } else if (weeksToNavigate < 0) {
+      // Navigate backward if needed
+      const weeksBack = Math.abs(weeksToNavigate);
+      for (let i = 0; i < weeksBack; i++) {
+        await this.clickPrevWeek();
+        await this.page.waitForTimeout(2000);
+        await this.waitForCalendarToLoad();
       }
     }
 
     await this.waitForCalendarToLoad();
+    logger.info('Navigation by clicking completed', component, { targetDate });
+  }
+
+  /**
+   * Click the next week button (Eversports specific)
+   */
+  private async clickNextWeek(): Promise<void> {
+    const component = 'BookingCalendarPage.clickNextWeek';
+
+    try {
+      // Try different selectors for the next week button
+      const nextWeekSelectors = [
+        '#next-week',
+        '.next-week',
+        '[data-testid="next-week"]',
+        'button[aria-label*="next"]',
+        '.calendar-nav-next',
+        this.selectors.nextWeekButton
+      ];
+
+      for (const selector of nextWeekSelectors) {
+        if (await this.elementExists(selector)) {
+          await this.safeClick(selector);
+          logger.debug('Clicked next week button', component, { selector });
+          return;
+        }
+      }
+
+      // Fallback to generic next button
+      if (await this.elementExists(this.selectors.nextButton)) {
+        await this.safeClick(this.selectors.nextButton);
+        logger.debug('Used fallback next button', component);
+        return;
+      }
+
+      throw new Error('No next week button found');
+    } catch (error) {
+      logger.error('Error clicking next week', component, {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * Click the previous week button (Eversports specific)
+   */
+  private async clickPrevWeek(): Promise<void> {
+    const component = 'BookingCalendarPage.clickPrevWeek';
+
+    try {
+      const prevWeekSelectors = [
+        '#prev-week',
+        '.prev-week',
+        '[data-testid="prev-week"]',
+        'button[aria-label*="prev"]',
+        '.calendar-nav-prev',
+        this.selectors.prevWeekButton
+      ];
+
+      for (const selector of prevWeekSelectors) {
+        if (await this.elementExists(selector)) {
+          await this.safeClick(selector);
+          logger.debug('Clicked prev week button', component, { selector });
+          return;
+        }
+      }
+
+      // Fallback to generic prev button
+      if (await this.elementExists(this.selectors.prevButton)) {
+        await this.safeClick(this.selectors.prevButton);
+        logger.debug('Used fallback prev button', component);
+        return;
+      }
+
+      throw new Error('No prev week button found');
+    } catch (error) {
+      logger.error('Error clicking prev week', component, {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      throw error;
+    }
   }
 
   /**
@@ -248,44 +456,96 @@ export class BookingCalendarPage extends BasePage {
   }
 
   /**
-   * Find a specific time slot
+   * Find a specific time slot (optimized for Eversports)
    */
-  async findTimeSlot(courtId: string, time: string): Promise<BookingSlot | null> {
+  async findTimeSlot(courtId: string, time: string, targetDate?: string): Promise<BookingSlot | null> {
     const component = 'BookingCalendarPage.findTimeSlot';
 
+    const currentDate = targetDate || await this.getCurrentSelectedDate();
+
     try {
+      // Convert time format if needed (e.g., "14:00" to "1400")
+      const timeVariants = [
+        time,
+        time.replace(':', ''),
+        time.replace(':', '')
+      ];
+
+      // Eversports-specific selectors based on the original JSON automation
       const timeSelectors = [
+        // Primary Eversports selector (from JSON automation)
+        `td[data-date='${currentDate}'][data-start='${time.replace(':', '')}'][data-court='${courtId}'][data-state='free']`,
+        `td[data-date='${currentDate}'][data-start='${time.replace(':', '')}'][data-state='free']`,
+        
+        // Alternative formats
+        ...timeVariants.map(timeVar => `td[data-date='${currentDate}'][data-start='${timeVar}'][data-court='${courtId}']`),
+        ...timeVariants.map(timeVar => `td[data-date='${currentDate}'][data-start='${timeVar}']`),
+        
+        // Generic selectors
         `[data-time="${time}"][data-court="${courtId}"]`,
         `[data-time="${time}"]`,
         `.slot-${time.replace(':', '-')}`,
         `[data-start-time="${time}"]`,
+        
+        // Backup selectors
+        `td[data-time="${time}"]`,
+        `td.time-slot[data-start="${time}"]`,
       ];
 
+      logger.debug('Searching for time slot', component, { 
+        courtId, 
+        time, 
+        currentDate,
+        timeVariants,
+        totalSelectors: timeSelectors.length 
+      });
+
       for (const selector of timeSelectors) {
-        const element = await this.page.$(selector);
-        if (element) {
-          const isAvailable = await this.isSlotAvailable(element);
-          const elementSelector = await this.getSlotSelector(element);
+        const elements = await this.page.$$(selector);
+        
+        if (elements.length > 0) {
+          logger.debug('Found potential slot elements', component, { 
+            selector, 
+            count: elements.length 
+          });
 
-          const slot: BookingSlot = {
-            date: new Date().toISOString().split('T')[0]!, // Current date, will be updated by caller
-            startTime: time,
-            courtId,
-            isAvailable,
-            elementSelector,
-          };
+          for (const element of elements) {
+            const isAvailable = await this.isSlotAvailable(element);
+            const elementSelector = await this.getSlotSelector(element);
+            const elementCourtId = await element.getAttribute('data-court') || courtId;
 
-          logger.debug('Found time slot', component, { courtId, time, isAvailable });
-          return slot;
+            // If court-specific search and court doesn't match, skip
+            if (courtId && elementCourtId && elementCourtId !== courtId) {
+              continue;
+            }
+
+            const slot: BookingSlot = {
+              date: currentDate,
+              startTime: time,
+              courtId: elementCourtId || courtId,
+              isAvailable,
+              elementSelector,
+            };
+
+            logger.debug('Found time slot', component, { 
+              courtId: slot.courtId, 
+              time, 
+              isAvailable, 
+              selector: elementSelector 
+            });
+            
+            return slot;
+          }
         }
       }
 
-      logger.warn('Time slot not found', component, { courtId, time });
+      logger.warn('Time slot not found', component, { courtId, time, currentDate });
       return null;
     } catch (error) {
       logger.error('Error finding time slot', component, {
         courtId,
         time,
+        currentDate,
         error: error instanceof Error ? error.message : String(error),
       });
       return null;
@@ -293,32 +553,80 @@ export class BookingCalendarPage extends BasePage {
   }
 
   /**
-   * Check if a slot is available
+   * Check if a slot is available (optimized for Eversports)
    */
   private async isSlotAvailable(slotElement: any): Promise<boolean> {
     try {
+      // Eversports-specific availability check (data-state attribute)
+      const dataState = await slotElement.getAttribute('data-state');
+      if (dataState === 'free') {
+        return true;
+      }
+      if (dataState === 'booked' || dataState === 'unavailable') {
+        return false;
+      }
+
+      // Generic availability checks
       const classList = (await slotElement.getAttribute('class')) || '';
       const dataAvailable = await slotElement.getAttribute('data-available');
 
-      return (
+      // Check for availability indicators
+      const isAvailable = (
         !classList.includes('booked') &&
         !classList.includes('unavailable') &&
         !classList.includes('disabled') &&
-        dataAvailable !== 'false'
+        !classList.includes('blocked') &&
+        dataAvailable !== 'false' &&
+        dataState !== 'booked'
       );
-    } catch {
+
+      // Additional checks for positive availability indicators
+      const hasAvailableClass = (
+        classList.includes('available') ||
+        classList.includes('free') ||
+        classList.includes('slot-available') ||
+        dataAvailable === 'true' ||
+        dataState === 'free'
+      );
+
+      return isAvailable || hasAvailableClass;
+    } catch (error) {
+      // If we can't determine availability, assume it's not available for safety
       return false;
     }
   }
 
   /**
-   * Get selector for a slot element
+   * Get selector for a slot element (optimized for Eversports)
    */
   private async getSlotSelector(slotElement: any): Promise<string> {
     try {
+      // Try ID first
       const id = await slotElement.getAttribute('id');
       if (id) return `#${id}`;
 
+      // Eversports-specific attributes (from original JSON automation)
+      const dataDate = await slotElement.getAttribute('data-date');
+      const dataStart = await slotElement.getAttribute('data-start');
+      const dataCourt = await slotElement.getAttribute('data-court');
+      const dataState = await slotElement.getAttribute('data-state');
+
+      // Build Eversports-specific selector
+      if (dataDate && dataStart) {
+        let selector = `td[data-date='${dataDate}'][data-start='${dataStart}']`;
+        
+        if (dataCourt) {
+          selector += `[data-court='${dataCourt}']`;
+        }
+        
+        if (dataState) {
+          selector += `[data-state='${dataState}']`;
+        }
+        
+        return selector;
+      }
+
+      // Generic data attributes
       const testId = await slotElement.getAttribute('data-testid');
       if (testId) return `[data-testid="${testId}"]`;
 
@@ -328,8 +636,26 @@ export class BookingCalendarPage extends BasePage {
 
       if (time) return `[data-time="${time}"]`;
 
-      return 'slot-element';
-    } catch {
+      // Try class-based selectors
+      const classList = await slotElement.getAttribute('class');
+      if (classList) {
+        const classes = classList.split(' ').filter(c => c.includes('slot') || c.includes('time'));
+        if (classes.length > 0) {
+          return `.${classes.join('.')}`;
+        }
+      }
+
+      // Fallback: use tag name with unique attributes
+      const tagName = await slotElement.evaluate((el: Element) => el.tagName.toLowerCase());
+      if (tagName === 'td' && (dataDate || dataStart)) {
+        const parts = [`${tagName}`];
+        if (dataDate) parts.push(`[data-date='${dataDate}']`);
+        if (dataStart) parts.push(`[data-start='${dataStart}']`);
+        return parts.join('');
+      }
+
+      return 'td'; // Fallback for table cells
+    } catch (error) {
       return 'slot-element';
     }
   }
@@ -377,24 +703,101 @@ export class BookingCalendarPage extends BasePage {
   }
 
   /**
-   * Get current selected date
+   * Get current selected date from the calendar
    */
   async getCurrentSelectedDate(): Promise<string> {
+    const component = 'BookingCalendarPage.getCurrentSelectedDate';
+
     try {
-      // Try to extract date from date picker
-      if (await this.elementExists(this.selectors.dateNavigator)) {
-        const dateValue = await this.page.inputValue(this.selectors.dateNavigator);
-        if (dateValue) return dateValue;
+      // Method 1: Try to extract date from date input field
+      const dateInputSelectors = [
+        this.selectors.dateInput,
+        'input[type="date"]',
+        '.date-input',
+        '[data-date-input]'
+      ];
+
+      for (const selector of dateInputSelectors) {
+        if (await this.elementExists(selector)) {
+          const dateValue = await this.page.inputValue(selector);
+          if (dateValue && dateValue.match(/^\d{4}-\d{2}-\d{2}$/)) {
+            logger.debug('Found date from input field', component, { dateValue, selector });
+            return dateValue;
+          }
+        }
       }
 
-      // Try to extract date from page title or header
-      const title = await this.getPageTitle();
-      const dateMatch = title.match(/(\d{4}-\d{2}-\d{2})/);
-      if (dateMatch) return dateMatch[1]!;
+      // Method 2: Try to extract from current date display
+      const dateDisplaySelectors = [
+        this.selectors.currentDateDisplay,
+        '.current-date',
+        '.selected-date',
+        '.date-display',
+        '.calendar-header .date',
+        '[data-current-date]'
+      ];
 
-      // Return current date as fallback
-      return new Date().toISOString().split('T')[0]!;
-    } catch {
+      for (const selector of dateDisplaySelectors) {
+        if (await this.elementExists(selector)) {
+          const dateText = await this.page.textContent(selector);
+          if (dateText) {
+            const dateMatch = dateText.match(/(\d{4}-\d{2}-\d{2})/);
+            if (dateMatch) {
+              logger.debug('Found date from display element', component, { dateText, selector });
+              return dateMatch[1]!;
+            }
+          }
+        }
+      }
+
+      // Method 3: Try to extract from URL parameters
+      const url = this.page.url();
+      const urlParams = new URLSearchParams(url.split('?')[1] || '');
+      const urlDate = urlParams.get('date');
+      if (urlDate && urlDate.match(/^\d{4}-\d{2}-\d{2}$/)) {
+        logger.debug('Found date from URL parameters', component, { urlDate });
+        return urlDate;
+      }
+
+      // Method 4: Try to extract from page title or header
+      const title = await this.getPageTitle();
+      const titleDateMatch = title.match(/(\d{4}-\d{2}-\d{2})/);
+      if (titleDateMatch) {
+        logger.debug('Found date from page title', component, { title });
+        return titleDateMatch[1]!;
+      }
+
+      // Method 5: Check for any calendar cells with current date indicators
+      const todaySelectors = [
+        '.today',
+        '.current',
+        '.selected',
+        '[data-today]',
+        '[aria-current="date"]'
+      ];
+
+      for (const selector of todaySelectors) {
+        if (await this.elementExists(selector)) {
+          const element = await this.page.$(selector);
+          if (element) {
+            const dataDate = await element.getAttribute('data-date');
+            if (dataDate && dataDate.match(/^\d{4}-\d{2}-\d{2}$/)) {
+              logger.debug('Found date from current date cell', component, { dataDate, selector });
+              return dataDate;
+            }
+          }
+        }
+      }
+
+      // Fallback: Return current date
+      const fallbackDate = new Date().toISOString().split('T')[0]!;
+      logger.debug('Using fallback current date', component, { fallbackDate });
+      return fallbackDate;
+    } catch (error) {
+      logger.error('Error getting current selected date', component, {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      // Fallback: Return current date
       return new Date().toISOString().split('T')[0]!;
     }
   }
