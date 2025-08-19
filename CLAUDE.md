@@ -23,6 +23,16 @@
   - Integration-Tests: `npm run test:integration`
   - Playwright E2E-Tests: `npm run test:playwright`
   - Tests mit Coverage: `npm run test:coverage`
+  - E2E-Tests spezifisch: `npm run test:e2e`
+  - Tests mit Debug-Modus: `npm run test:debug`
+  - Tests mit UI-Modus: `npm run test:ui`
+  - Test-Reports anzeigen: `npm run test:report`
+  - Test-Reports zusammenführen: `npm run test:merge-reports`
+- **Entwickler-Tools**:
+  - Playwright UI-Modus: `npm run dev:ui`
+  - Debug-Modus: `npm run dev:debug`
+  - Code-Generierung: `npm run dev:codegen`
+  - Website-Analyse: `npm run dev:analyze`
 - **Linter ausführen**: `npm run lint`
 - **Code formatieren**: `npm run format`
 - **TypeScript-Typen prüfen**: `npm run type-check`
@@ -39,7 +49,9 @@
   - `BookingCalendarPage.ts`: Kalender-Interaktionen
   - `CheckoutPage.ts`: Login, Checkout und Zahlungsabwicklung
 - **Typ-Definitionen**: `src/types/booking.types.ts`
-- **Utilities**: `src/utils/logger.ts` - Winston-basiertes Logging
+- **Utilities**: `src/utils/` - Hilfsfunktionen und Validator
+  - `logger.ts`: Winston-basiertes Logging
+  - `DryRunValidator.ts`: Dry-Run-Validierung und Test-Assertions
 - **Tests Struktur**:
   - `tests/unit/`: Unit-Tests für einzelne Komponenten
   - `tests/integration/`: Integration-Tests für Komponenteninteraktion
@@ -58,6 +70,8 @@
 - **Path Aliases**: TypeScript-Pfad-Aliase (@/, @/core/, @/pages/, @/types/, @/utils/)
 - **Comprehensive Logging**: Winston-basiertes Logging mit verschiedenen Log-Levels
 - **Environment-basierte Konfiguration**: Vollständig über .env-Datei konfigurierbar
+- **Erweiterte Testing-Features**: UI-Mode, Trace-Viewer, Test-Reports und Debugging-Tools
+- **Test-Artefakte**: Automatische Generierung von Screenshots, Videos und Traces bei Fehlern
 
 ## 5. Umgebungsvariablen
 - **DAYS_AHEAD**: Wie viele Tage im Voraus gebucht wird (Standard: 20)
@@ -88,9 +102,15 @@
 - Integration-Tests: `npm run test:integration` 
 - E2E-Tests mit Playwright: `npm run test:playwright`
 - Coverage-Report: `npm run test:coverage`
+- Erweiterte Playwright-Features:
+  - Debug-Modus: `npm run test:debug`
+  - UI-Modus: `npm run test:ui`
+  - Test-Reports: `npm run test:report`
+  - Trace-Viewer: `npm run test:trace`
 - Teste immer zuerst im Dry-Run-Modus
 - Mock-Daten gehören in `tests/fixtures/`
 - Achte auf die Coverage-Schwellenwerte (80% für alle Metriken)
+- Test-Artefakte werden automatisch in `test-artifacts/` und `test-reports/` gespeichert
 
 ### Für den Deployer-Agent:
 - Build mit `npm run build` erstellt `dist/`-Verzeichnis
