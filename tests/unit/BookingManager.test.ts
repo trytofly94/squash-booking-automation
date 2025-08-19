@@ -1,7 +1,7 @@
 import { jest } from '@jest/globals';
 import { BookingManager } from '../../src/core/BookingManager';
 import { DateTimeCalculator } from '../../src/core/DateTimeCalculator';
-import type { Page } from 'playwright';
+import type { Page } from '@playwright/test';
 import type { BookingConfig, BookingPair } from '../../src/types/booking.types';
 
 // Mock dependencies

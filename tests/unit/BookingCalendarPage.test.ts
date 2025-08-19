@@ -1,5 +1,5 @@
 import { BookingCalendarPage } from '../../src/pages/BookingCalendarPage';
-import { Page } from 'playwright';
+import { Page } from '@playwright/test';
 
 describe('BookingCalendarPage - Date Navigation', () => {
   let mockPage: jest.Mocked<Page>;

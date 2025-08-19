@@ -1,4 +1,4 @@
-import type { Page, Locator } from 'playwright';
+import type { Page, Locator } from '@playwright/test';
 import { logger } from '../utils/logger';
 
 /**

@@ -1,6 +1,6 @@
 import { jest } from '@jest/globals';
 import { SlotSearcher } from '../../src/core/SlotSearcher';
-import type { Page } from 'playwright';
+import type { Page } from '@playwright/test';
 
 // Mock dependencies
 jest.mock('../../src/utils/logger');
