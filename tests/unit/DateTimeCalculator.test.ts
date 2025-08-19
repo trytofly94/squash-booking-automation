@@ -136,4 +136,129 @@ describe('DateTimeCalculator', () => {
       expect(result.getTime()).toBeLessThanOrEqual(after.getTime());
     });
   });
+
+  describe('Edge Cases and Timezone Handling', () => {
+    it('should handle month transitions correctly', () => {
+      const originalDate = Date;
+      global.Date = jest.fn(() => new originalDate('2025-01-31T10:00:00.000Z')) as any;
+      global.Date.UTC = originalDate.UTC;
+      global.Date.parse = originalDate.parse;
+      global.Date.now = () => new originalDate('2025-01-31T10:00:00.000Z').getTime();
+
+      const result = DateTimeCalculator.calculateBookingDate(15);
+      expect(result).toBe('2025-02-15');
+
+      global.Date = originalDate;
+    });
+
+    it('should handle year transitions correctly', () => {
+      const originalDate = Date;
+      global.Date = jest.fn(() => new originalDate('2024-12-25T10:00:00.000Z')) as any;
+      global.Date.UTC = originalDate.UTC;
+      global.Date.parse = originalDate.parse;
+      global.Date.now = () => new originalDate('2024-12-25T10:00:00.000Z').getTime();
+
+      const result = DateTimeCalculator.calculateBookingDate(20);
+      expect(result).toBe('2025-01-14');
+
+      global.Date = originalDate;
+    });
+
+    it('should handle negative time calculations correctly', () => {
+      const result = DateTimeCalculator.calculateNeighborSlots('00:00');
+      expect(result.before).toBe('23:30'); // Previous day
+      expect(result.after).toBe('01:00');
+    });
+
+    it('should handle late evening slots correctly', () => {
+      const result = DateTimeCalculator.calculateNeighborSlots('23:30');
+      expect(result.before).toBe('23:00');
+      expect(result.after).toBe('00:30'); // Next day
+    });
+
+    it('should generate consistent slot times across different systems', () => {
+      const originalTimezone = process.env.TZ;
+      
+      // Test in different timezone contexts
+      process.env.TZ = 'Europe/Berlin';
+      const berlinSlots = DateTimeCalculator.generateTimeSlots('14:00');
+      
+      process.env.TZ = 'America/New_York';
+      const nySlots = DateTimeCalculator.generateTimeSlots('14:00');
+      
+      process.env.TZ = 'Asia/Tokyo';
+      const tokyoSlots = DateTimeCalculator.generateTimeSlots('14:00');
+      
+      // Should be identical regardless of timezone for time calculations
+      expect(berlinSlots).toEqual(['14:00', '14:30']);
+      expect(nySlots).toEqual(['14:00', '14:30']);
+      expect(tokyoSlots).toEqual(['14:00', '14:30']);
+      
+      // Restore original timezone
+      if (originalTimezone) {
+        process.env.TZ = originalTimezone;
+      } else {
+        delete process.env.TZ;
+      }
+    });
+
+    it('should handle weekend and holiday dates correctly', () => {
+      // Test on a Sunday
+      const originalDate = Date;
+      global.Date = jest.fn(() => new originalDate('2025-08-17T10:00:00.000Z')) as any; // Sunday
+      global.Date.UTC = originalDate.UTC;
+      global.Date.parse = originalDate.parse;
+      global.Date.now = () => new originalDate('2025-08-17T10:00:00.000Z').getTime();
+
+      const result = DateTimeCalculator.calculateBookingDate(20);
+      expect(result).toBe('2025-09-06');
+
+      global.Date = originalDate;
+    });
+
+    it('should validate boundary conditions for slot generation', () => {
+      // Test earliest possible slot
+      const earlySlots = DateTimeCalculator.generateTimeSlots('00:00');
+      expect(earlySlots).toEqual(['00:00', '00:30']);
+
+      // Test latest sensible slot (before midnight boundary)
+      const lateSlots = DateTimeCalculator.generateTimeSlots('23:30');
+      expect(lateSlots).toEqual(['23:30', '00:00']);
+
+      // Test hour transition edge cases
+      const edgeSlots = DateTimeCalculator.generateTimeSlots('12:30');
+      expect(edgeSlots).toEqual(['12:30', '13:00']);
+    });
+
+    it('should handle invalid edge cases gracefully', () => {
+      expect(() => DateTimeCalculator.generateTimeSlots('24:00')).toThrow();
+      expect(() => DateTimeCalculator.generateTimeSlots('-1:00')).toThrow();
+      expect(() => DateTimeCalculator.generateTimeSlots('12:60')).toThrow();
+      expect(() => DateTimeCalculator.generateTimeSlots('12:-30')).toThrow();
+    });
+
+    it('should maintain precision in date calculations', () => {
+      // Test with large number of days ahead
+      const result = DateTimeCalculator.calculateBookingDate(365);
+      const today = new Date();
+      const expected = new Date(today);
+      expected.setDate(today.getDate() + 365);
+      
+      expect(result).toBe(expected.toISOString().split('T')[0]);
+    });
+
+    it('should handle DST transitions correctly', () => {
+      // Mock date during DST transition (example: Spring forward in EU)
+      const originalDate = Date;
+      global.Date = jest.fn(() => new originalDate('2025-03-30T01:00:00.000Z')) as any;
+      global.Date.UTC = originalDate.UTC;
+      global.Date.parse = originalDate.parse;
+      global.Date.now = () => new originalDate('2025-03-30T01:00:00.000Z').getTime();
+
+      const result = DateTimeCalculator.calculateBookingDate(1);
+      expect(result).toBe('2025-03-31');
+
+      global.Date = originalDate;
+    });
+  });
 });
