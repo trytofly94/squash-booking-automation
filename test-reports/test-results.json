@@ -210,7 +210,7 @@
           "column": 6,
           "specs": [
             {
-              "title": "should validate DateTimeCalculator with current date",
+              "title": "should attempt booking flow in dry-run mode",
               "ok": true,
               "tags": [],
               "tests": [
@@ -225,41 +225,99 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 337,
+                      "duration": 5152,
                       "errors": [],
                       "stdout": [
                         {
-                          "text": "2025-08-20T18:52:36.156Z \u001b[32minfo\u001b[39m: [DryRunValidator] DryRunValidator initialized {\"service\":\"squash-booking-automation\",\"safetyLevel\":\"standard\"}\n"
+                          "text": "2025-08-20T18:58:05.882Z \u001b[32minfo\u001b[39m: [DryRunValidator] DryRunValidator initialized {\"service\":\"squash-booking-automation\",\"safetyLevel\":\"standard\"}\n"
+                        },
+                        {
+                          "text": "2025-08-20T18:58:05.895Z \u001b[32minfo\u001b[39m: [DryRunValidator] Validation point: Configuration Validation Configuration validation passed {\"service\":\"squash-booking-automation\",\"status\":\"success\"}\n"
+                        },
+                        {
+                          "text": "2025-08-20T18:58:05.895Z \u001b[32minfo\u001b[39m: [DryRunValidator.validateBookingConfig] Configuration validation completed {\"service\":\"squash-booking-automation\",\"isValid\":true,\"warningCount\":0,\"errorCount\":0,\"safetyChecksPassed\":5,\"totalSafetyChecks\":5}\n"
+                        },
+                        {
+                          "text": "2025-08-20T18:58:05.896Z \u001b[32minfo\u001b[39m: [BookingManager] Starting booking process {\"service\":\"squash-booking-automation\",\"config\":{\"daysAhead\":20,\"targetStartTime\":\"14:00\",\"duration\":60,\"maxRetries\":3,\"dryRun\":true},\"mode\":\"DRY_RUN\",\"validationPassed\":true}\n"
+                        },
+                        {
+                          "text": "2025-08-20T18:58:05.897Z \u001b[32minfo\u001b[39m: [BookingManager] Booking attempt 1/3 {\"service\":\"squash-booking-automation\"}\n"
+                        },
+                        {
+                          "text": "2025-08-20T18:58:05.899Z \u001b[32minfo\u001b[39m: [BookingManager.attemptBooking] Calculated booking parameters {\"service\":\"squash-booking-automation\",\"targetDate\":\"2025-09-09\",\"timeSlots\":[\"14:00\",\"15:00\"],\"daysAhead\":20}\n"
+                        },
+                        {
+                          "text": "2025-08-20T18:58:07.045Z \u001b[32minfo\u001b[39m: [BookingManager.navigateToBookingPage] Navigated to booking page {\"service\":\"squash-booking-automation\",\"baseUrl\":\"https://www.eversports.de/sb/sportcenter-kautz?sport=squash\"}\n"
+                        },
+                        {
+                          "text": "2025-08-20T18:58:08.929Z \u001b[32minfo\u001b[39m: [BookingManager.navigateToDateAlternative] Using alternative date navigation {\"service\":\"squash-booking-automation\",\"targetDate\":\"2025-09-09\"}\n"
+                        },
+                        {
+                          "text": "2025-08-20T18:58:08.929Z \u001b[32minfo\u001b[39m: [BookingManager.navigateToTargetDate] Navigated to target date {\"service\":\"squash-booking-automation\",\"targetDate\":\"2025-09-09\"}\n"
+                        },
+                        {
+                          "text": "2025-08-20T18:58:08.930Z \u001b[32minfo\u001b[39m: [SlotSearcher] Starting slot search {\"service\":\"squash-booking-automation\",\"targetDate\":\"2025-09-09\",\"targetTimes\":[\"14:00\",\"15:00\"]}\n"
+                        },
+                        {
+                          "text": "2025-08-20T18:58:09.129Z \u001b[33mwarn\u001b[39m: [SlotSearcher.findAvailableCourts] Selector [class*=\"court\"] found too many elements (148), skipping {\"service\":\"squash-booking-automation\"}\n"
+                        },
+                        {
+                          "text": "2025-08-20T18:58:09.292Z \u001b[33mwarn\u001b[39m: [SlotSearcher.findAvailableCourts] Selector [class*=\"calendar\"] [class*=\"court\"]:not(.btn) found too many elements (148), skipping {\"service\":\"squash-booking-automation\"}\n"
+                        },
+                        {
+                          "text": "2025-08-20T18:58:09.292Z \u001b[33mwarn\u001b[39m: [SlotSearcher.findAvailableCourts] No specific court elements found, using simulation mode for dry-run {\"service\":\"squash-booking-automation\"}\n"
+                        },
+                        {
+                          "text": "2025-08-20T18:58:09.293Z \u001b[32minfo\u001b[39m: [SlotSearcher.generateSimulatedSlots] Generating simulated slots for dry-run mode {\"service\":\"squash-booking-automation\",\"courtId\":\"squash-court-1\",\"targetDate\":\"2025-09-09\",\"targetTimes\":[\"14:00\",\"15:00\"]}\n"
+                        },
+                        {
+                          "text": "2025-08-20T18:58:09.294Z \u001b[32minfo\u001b[39m: [SlotSearcher.generateSimulatedSlots] Generating simulated slots for dry-run mode {\"service\":\"squash-booking-automation\",\"courtId\":\"squash-court-2\",\"targetDate\":\"2025-09-09\",\"targetTimes\":[\"14:00\",\"15:00\"]}\n"
+                        },
+                        {
+                          "text": "2025-08-20T18:58:09.294Z \u001b[32minfo\u001b[39m: [SlotSearcher.generateSimulatedSlots] Generating simulated slots for dry-run mode {\"service\":\"squash-booking-automation\",\"courtId\":\"squash-court-3\",\"targetDate\":\"2025-09-09\",\"targetTimes\":[\"14:00\",\"15:00\"]}\n"
+                        },
+                        {
+                          "text": "2025-08-20T18:58:09.324Z \u001b[32minfo\u001b[39m: [SlotSearcher] Slot search completed {\"service\":\"squash-booking-automation\",\"availableCourts\":3,\"totalSlots\":6,\"availablePairs\":1}\n"
+                        },
+                        {
+                          "text": "2025-08-20T18:58:09.324Z \u001b[32minfo\u001b[39m: [IsolationChecker] Finding best non-isolating pair {\"service\":\"squash-booking-automation\",\"availablePairsCount\":1}\n"
+                        },
+                        {
+                          "text": "2025-08-20T18:58:09.324Z \u001b[32minfo\u001b[39m: [IsolationChecker] Isolation check completed {\"service\":\"squash-booking-automation\",\"hasIsolation\":false,\"isolatedSlotsCount\":0,\"recommendation\":\"✅ Safe to book squash-court-1 at 14:00-15:00. No isolated slots created.\"}\n"
+                        },
+                        {
+                          "text": "2025-08-20T18:58:09.325Z \u001b[32minfo\u001b[39m: [IsolationChecker] Found non-isolating pair {\"service\":\"squash-booking-automation\",\"courtId\":\"squash-court-1\",\"startTime\":\"14:00\"}\n"
+                        },
+                        {
+                          "text": "2025-08-20T18:58:09.325Z \u001b[32minfo\u001b[39m: [BookingManager.simulateBooking] Simulating booking (DRY RUN) {\"service\":\"squash-booking-automation\",\"courtId\":\"squash-court-1\",\"slot1\":\"14:00\",\"slot2\":\"15:00\",\"date\":\"2025-09-09\"}\n"
+                        },
+                        {
+                          "text": "2025-08-20T18:58:10.346Z \u001b[32minfo\u001b[39m: [BookingManager] Booking successful {\"service\":\"squash-booking-automation\",\"courtId\":\"squash-court-1\",\"date\":\"2025-09-09\",\"startTime\":\"14:00\"}\n"
+                        },
+                        {
+                          "text": "2025-08-20T18:58:10.359Z \u001b[32minfo\u001b[39m: [E2E Test] Dry-run booking successful {\"service\":\"squash-booking-automation\",\"bookedPair\":{\"slot1\":{\"date\":\"2025-09-09\",\"startTime\":\"14:00\",\"courtId\":\"squash-court-1\",\"isAvailable\":true,\"elementSelector\":\"[data-simulated-slot=\\\"squash-court-1-14:00\\\"]\"},\"slot2\":{\"date\":\"2025-09-09\",\"startTime\":\"15:00\",\"courtId\":\"squash-court-1\",\"isAvailable\":true,\"elementSelector\":\"[data-simulated-slot=\\\"squash-court-1-15:00\\\"]\"},\"courtId\":\"squash-court-1\"},\"retryAttempts\":1}\n"
                         }
                       ],
                       "stderr": [],
                       "retry": 0,
                       "steps": [
                         {
-                          "title": "Calculate booking date",
-                          "duration": 6
-                        },
-                        {
-                          "title": "Generate time slots",
-                          "duration": 6
-                        },
-                        {
-                          "title": "Validate timestamp generation",
-                          "duration": 10
+                          "title": "Execute booking process",
+                          "duration": 4469
                         }
                       ],
-                      "startTime": "2025-08-20T18:52:35.745Z",
+                      "startTime": "2025-08-20T18:58:05.246Z",
                       "annotations": [],
                       "attachments": [
                         {
                           "name": "screenshot",
                           "contentType": "image/png",
-                          "path": "/Volumes/SSD-MacMini/ClaudeCode/Squash-Buchen/test-artifacts/booking-flow-Squash-Bookin-bdda5-alculator-with-current-date-chromium/test-finished-1.png"
+                          "path": "/Volumes/SSD-MacMini/ClaudeCode/Squash-Buchen/test-artifacts/booking-flow-Squash-Bookin-745f4-ooking-flow-in-dry-run-mode-chromium/test-finished-1.png"
                         },
                         {
                           "name": "video",
                           "contentType": "video/webm",
-                          "path": "/Volumes/SSD-MacMini/ClaudeCode/Squash-Buchen/test-artifacts/booking-flow-Squash-Bookin-bdda5-alculator-with-current-date-chromium/video.webm"
+                          "path": "/Volumes/SSD-MacMini/ClaudeCode/Squash-Buchen/test-artifacts/booking-flow-Squash-Bookin-745f4-ooking-flow-in-dry-run-mode-chromium/video.webm"
                         }
                       ]
                     }
@@ -267,9 +325,9 @@
                   "status": "expected"
                 }
               ],
-              "id": "e6ed7267b3ac8668a6a7-706bea2c97988611597f",
+              "id": "e6ed7267b3ac8668a6a7-3d86011c5ba9c772966a",
               "file": "booking-flow.spec.ts",
-              "line": 185,
+              "line": 226,
               "column": 7
             }
           ]
@@ -279,8 +337,8 @@
   ],
   "errors": [],
   "stats": {
-    "startTime": "2025-08-20T18:52:34.720Z",
-    "duration": 1638.2179999999998,
+    "startTime": "2025-08-20T18:58:03.978Z",
+    "duration": 6927.759,
     "expected": 1,
     "skipped": 0,
     "unexpected": 0,
