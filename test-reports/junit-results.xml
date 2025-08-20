@@ -1,2 +1,14 @@
-<testsuites id="" name="" tests="0" failures="0" skipped="0" errors="0" time="4.090049999999999">
+<testsuites id="" name="" tests="1" failures="0" skipped="0" errors="0" time="1.638218">
+<testsuite name="booking-flow.spec.ts" timestamp="2025-08-20T18:52:35.093Z" hostname="chromium" tests="1" failures="0" skipped="0" time="0.337" errors="0">
+<testcase name="Squash Booking E2E Flow › should validate DateTimeCalculator with current date" classname="booking-flow.spec.ts" time="0.337">
+<system-out>
+<![CDATA[2025-08-20T18:52:36.156Z [32minfo[39m: [DryRunValidator] DryRunValidator initialized {"service":"squash-booking-automation","safetyLevel":"standard"}
+
+[[ATTACHMENT|../test-artifacts/booking-flow-Squash-Bookin-bdda5-alculator-with-current-date-chromium/test-finished-1.png]]
+
+[[ATTACHMENT|../test-artifacts/booking-flow-Squash-Bookin-bdda5-alculator-with-current-date-chromium/video.webm]]
+]]>
+</system-out>
+</testcase>
+</testsuite>
 </testsuites>

@@ -41,11 +41,11 @@ export class BookingManager {
     const configValidation = this.validator.validateBookingConfig(this.config);
     if (!configValidation.isValid) {
       const errorMessage = `Configuration validation failed: ${configValidation.errors.join(', ')}`;
-      logger.error(errorMessage, component, { 
+      logger.error(errorMessage, component, {
         errors: configValidation.errors,
-        warnings: configValidation.warnings 
+        warnings: configValidation.warnings,
       });
-      
+
       return {
         success: false,
         error: errorMessage,
@@ -58,14 +58,14 @@ export class BookingManager {
     if (configValidation.warnings.length > 0) {
       logger.warn('Configuration warnings detected', component, {
         warnings: configValidation.warnings,
-        recommendations: configValidation.recommendations
+        recommendations: configValidation.recommendations,
       });
     }
 
     logger.info('Starting booking process', component, {
       config: this.config,
       mode: this.config.dryRun ? 'DRY_RUN' : 'PRODUCTION',
-      validationPassed: true
+      validationPassed: true,
     });
 
     let attempt = 0;

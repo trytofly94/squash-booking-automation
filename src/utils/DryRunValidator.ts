@@ -44,14 +44,14 @@ export class DryRunValidator {
   addValidationPoint(point: Omit<ValidationPoint, 'timestamp'>): void {
     const validationPoint: ValidationPoint = {
       ...point,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     };
 
     this.validationPoints.push(validationPoint);
-    
+
     logger.info(`Validation point: ${point.stepName}`, 'DryRunValidator', {
       status: point.status,
-      message: point.message
+      message: point.message,
     });
   }
 
@@ -117,7 +117,7 @@ export class DryRunValidator {
       stepName: 'Configuration Validation',
       status: isValid ? 'success' : 'error',
       message: `Configuration validation ${isValid ? 'passed' : 'failed'}`,
-      data: { warnings: warnings.length, errors: errors.length }
+      data: { warnings: warnings.length, errors: errors.length },
     });
 
     logger.info('Configuration validation completed', component, {
@@ -125,7 +125,7 @@ export class DryRunValidator {
       warningCount: warnings.length,
       errorCount: errors.length,
       safetyChecksPassed: safetyChecks.filter(c => c.passed).length,
-      totalSafetyChecks: safetyChecks.length
+      totalSafetyChecks: safetyChecks.length,
     });
 
     return {
@@ -133,7 +133,7 @@ export class DryRunValidator {
       warnings,
       errors,
       safetyChecks,
-      recommendations
+      recommendations,
     };
   }
 
@@ -153,32 +153,33 @@ export class DryRunValidator {
         checkName: 'Pair Structure',
         passed: false,
         message: 'Booking pair missing required properties',
-        severity: 'error'
+        severity: 'error',
       });
     } else {
       safetyChecks.push({
         checkName: 'Pair Structure',
         passed: true,
         message: 'Booking pair structure is valid',
-        severity: 'info'
+        severity: 'info',
       });
     }
 
     // Check time continuity
     const slot1Time = this.parseTime(pair.slot1.startTime);
     const slot2Time = this.parseTime(pair.slot2.startTime);
-    
+
     if (slot1Time && slot2Time) {
       const timeDiff = slot2Time.getTime() - slot1Time.getTime();
       const expectedDiff = 60 * 60 * 1000; // 1 hour in milliseconds
-      
-      if (Math.abs(timeDiff - expectedDiff) > 5 * 60 * 1000) { // 5 minute tolerance
+
+      if (Math.abs(timeDiff - expectedDiff) > 5 * 60 * 1000) {
+        // 5 minute tolerance
         warnings.push('Time slots are not consecutive (expected 1-hour difference)');
         safetyChecks.push({
           checkName: 'Time Continuity',
           passed: false,
           message: `Time gap is ${Math.round(timeDiff / (60 * 1000))} minutes instead of 60`,
-          severity: 'warning'
+          severity: 'warning',
         });
         recommendations.push('Verify that consecutive slots are selected for seamless booking');
       } else {
@@ -186,7 +187,7 @@ export class DryRunValidator {
           checkName: 'Time Continuity',
           passed: true,
           message: 'Time slots are properly consecutive',
-          severity: 'info'
+          severity: 'info',
         });
       }
     }
@@ -198,7 +199,7 @@ export class DryRunValidator {
         checkName: 'Element Selectors',
         passed: false,
         message: 'Missing element selectors - may impact booking reliability',
-        severity: 'warning'
+        severity: 'warning',
       });
       recommendations.push('Update slot detection to include element selectors');
     } else {
@@ -206,7 +207,7 @@ export class DryRunValidator {
         checkName: 'Element Selectors',
         passed: true,
         message: 'Element selectors are available',
-        severity: 'info'
+        severity: 'info',
       });
     }
 
@@ -216,7 +217,7 @@ export class DryRunValidator {
       stepName: 'Booking Pair Validation',
       status: isValid ? (warnings.length > 0 ? 'warning' : 'success') : 'error',
       message: `Pair validation for ${pair.courtId} at ${pair.slot1.startTime}`,
-      data: { courtId: pair.courtId, slot1: pair.slot1.startTime, slot2: pair.slot2.startTime }
+      data: { courtId: pair.courtId, slot1: pair.slot1.startTime, slot2: pair.slot2.startTime },
     });
 
     return {
@@ -224,7 +225,7 @@ export class DryRunValidator {
       warnings,
       errors,
       safetyChecks,
-      recommendations
+      recommendations,
     };
   }
 
@@ -258,14 +259,14 @@ export class DryRunValidator {
           checkName: 'Success Data Integrity',
           passed: false,
           message: 'Successful result lacks booking details',
-          severity: 'error'
+          severity: 'error',
         });
       } else {
         safetyChecks.push({
           checkName: 'Success Data Integrity',
           passed: true,
           message: 'Successful result contains complete booking details',
-          severity: 'info'
+          severity: 'info',
         });
       }
     } else {
@@ -276,7 +277,7 @@ export class DryRunValidator {
           checkName: 'Failure Data Integrity',
           passed: false,
           message: 'Failed result lacks error details',
-          severity: 'warning'
+          severity: 'warning',
         });
         recommendations.push('Include detailed error messages for better debugging');
       } else {
@@ -284,7 +285,7 @@ export class DryRunValidator {
           checkName: 'Failure Data Integrity',
           passed: true,
           message: 'Failed result contains error details',
-          severity: 'info'
+          severity: 'info',
         });
       }
     }
@@ -301,12 +302,12 @@ export class DryRunValidator {
       stepName: 'Booking Result Validation',
       status: isValid ? 'success' : 'error',
       message: `Result validation for ${result.success ? 'successful' : 'failed'} booking`,
-      data: { 
-        success: result.success, 
+      data: {
+        success: result.success,
         retryAttempts: result.retryAttempts,
         hasError: !!result.error,
-        hasBookedPair: !!result.bookedPair
-      }
+        hasBookedPair: !!result.bookedPair,
+      },
     });
 
     return {
@@ -314,7 +315,7 @@ export class DryRunValidator {
       warnings,
       errors,
       safetyChecks,
-      recommendations
+      recommendations,
     };
   }
 
@@ -333,11 +334,11 @@ export class DryRunValidator {
         successfulPoints: successPoints,
         warningPoints: warningPoints,
         errorPoints: errorPoints,
-        successRate: totalPoints > 0 ? Math.round((successPoints / totalPoints) * 100) : 0
+        successRate: totalPoints > 0 ? Math.round((successPoints / totalPoints) * 100) : 0,
       },
       validationPoints: this.validationPoints,
       generatedAt: new Date().toISOString(),
-      safetyLevel: this.safetyLevel
+      safetyLevel: this.safetyLevel,
     };
 
     logger.info('Validation report generated', 'DryRunValidator', report.summary);
@@ -357,14 +358,14 @@ export class DryRunValidator {
 
   private checkDryRunMode(config: any): SafetyCheckResult {
     const isDryRun = config.dryRun === true;
-    
+
     return {
       checkName: 'Dry Run Mode',
       passed: isDryRun,
-      message: isDryRun 
-        ? 'Running in safe dry-run mode' 
+      message: isDryRun
+        ? 'Running in safe dry-run mode'
         : 'WARNING: Running in PRODUCTION mode - real bookings will be made',
-      severity: isDryRun ? 'info' : 'error'
+      severity: isDryRun ? 'info' : 'error',
     };
   }
 
@@ -374,7 +375,7 @@ export class DryRunValidator {
         checkName: 'Days Ahead',
         passed: false,
         message: 'Days ahead must be a positive integer',
-        severity: 'error'
+        severity: 'error',
       };
     }
 
@@ -383,7 +384,7 @@ export class DryRunValidator {
         checkName: 'Days Ahead',
         passed: false,
         message: 'Days ahead is unusually high (>30 days)',
-        severity: 'warning'
+        severity: 'warning',
       };
     }
 
@@ -392,7 +393,7 @@ export class DryRunValidator {
         checkName: 'Days Ahead',
         passed: false,
         message: 'Booking for same day may not be possible',
-        severity: 'warning'
+        severity: 'warning',
       };
     }
 
@@ -400,19 +401,19 @@ export class DryRunValidator {
       checkName: 'Days Ahead',
       passed: true,
       message: `Booking ${daysAhead} days ahead is valid`,
-      severity: 'info'
+      severity: 'info',
     };
   }
 
   private validateTimeFormat(time: string): SafetyCheckResult {
     const timeRegex = /^([01]?[0-9]|2[0-3]):[0-5][0-9]$/;
-    
+
     if (!timeRegex.test(time)) {
       return {
         checkName: 'Time Format',
         passed: false,
         message: 'Time format must be HH:MM (24-hour format)',
-        severity: 'error'
+        severity: 'error',
       };
     }
 
@@ -420,7 +421,7 @@ export class DryRunValidator {
       checkName: 'Time Format',
       passed: true,
       message: 'Time format is valid',
-      severity: 'info'
+      severity: 'info',
     };
   }
 
@@ -430,7 +431,7 @@ export class DryRunValidator {
         checkName: 'Duration',
         passed: false,
         message: 'Duration must be a positive integer (minutes)',
-        severity: 'error'
+        severity: 'error',
       };
     }
 
@@ -439,7 +440,7 @@ export class DryRunValidator {
         checkName: 'Duration',
         passed: false,
         message: 'Duration less than 30 minutes may not be practical',
-        severity: 'warning'
+        severity: 'warning',
       };
     }
 
@@ -448,7 +449,7 @@ export class DryRunValidator {
         checkName: 'Duration',
         passed: false,
         message: 'Duration over 3 hours is unusually long',
-        severity: 'warning'
+        severity: 'warning',
       };
     }
 
@@ -456,7 +457,7 @@ export class DryRunValidator {
       checkName: 'Duration',
       passed: true,
       message: `Duration of ${duration} minutes is valid`,
-      severity: 'info'
+      severity: 'info',
     };
   }
 
@@ -466,7 +467,7 @@ export class DryRunValidator {
         checkName: 'Retry Configuration',
         passed: false,
         message: 'Max retries must be a non-negative integer',
-        severity: 'error'
+        severity: 'error',
       };
     }
 
@@ -475,7 +476,7 @@ export class DryRunValidator {
         checkName: 'Retry Configuration',
         passed: false,
         message: 'No retries configured - may reduce reliability',
-        severity: 'warning'
+        severity: 'warning',
       };
     }
 
@@ -483,7 +484,7 @@ export class DryRunValidator {
       checkName: 'Retry Configuration',
       passed: true,
       message: `Retry configuration with ${maxRetries} attempts is valid`,
-      severity: 'info'
+      severity: 'info',
     };
   }
 
@@ -492,17 +493,17 @@ export class DryRunValidator {
 
     // Check for production environment variables
     const prodEnvVars = ['PRODUCTION', 'PROD', 'NODE_ENV'];
-    const hasProdEnv = prodEnvVars.some(envVar => 
-      process.env[envVar] === 'production' || process.env[envVar] === 'prod'
+    const hasProdEnv = prodEnvVars.some(
+      envVar => process.env[envVar] === 'production' || process.env[envVar] === 'prod'
     );
 
     checks.push({
       checkName: 'Environment Variables',
       passed: !hasProdEnv,
-      message: hasProdEnv 
+      message: hasProdEnv
         ? 'Production environment detected - extra caution required'
         : 'Development environment detected',
-      severity: hasProdEnv ? 'warning' : 'info'
+      severity: hasProdEnv ? 'warning' : 'info',
     });
 
     return checks;

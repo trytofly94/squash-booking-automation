@@ -29,7 +29,7 @@ export class DateTimeCalculator {
 
   /**
    * Generate time slots for the target booking period
-   * Returns two consecutive 30-minute slots starting at the specified time
+   * Returns start and end time for a 60-minute booking slot
    */
   static generateTimeSlots(startTime: string = this.DEFAULT_START_TIME): string[] {
     const timeParts = startTime.split(':');
@@ -45,9 +45,9 @@ export class DateTimeCalculator {
 
     const slot1 = startTime;
 
-    // Calculate second slot (30 minutes later)
+    // Calculate end slot (60 minutes later for full hour booking)
     const slot2Date = new Date();
-    slot2Date.setHours(hours, minutes + this.SLOT_DURATION_MINUTES, 0, 0);
+    slot2Date.setHours(hours, minutes + 60, 0, 0);
 
     const slot2Hours = slot2Date.getHours().toString().padStart(2, '0');
     const slot2Minutes = slot2Date.getMinutes().toString().padStart(2, '0');
@@ -58,7 +58,7 @@ export class DateTimeCalculator {
     logger.debug('Generated time slots', 'DateTimeCalculator', {
       startTime,
       slots,
-      durationMinutes: this.SLOT_DURATION_MINUTES * 2,
+      durationMinutes: 60,
     });
 
     return slots;
@@ -87,9 +87,9 @@ export class DateTimeCalculator {
     const beforeMinutes = beforeDate.getMinutes().toString().padStart(2, '0');
     const before = `${beforeHours}:${beforeMinutes}`;
 
-    // Slot after (60 minutes later - after both target slots)
+    // Slot after (90 minutes later - 30 minutes buffer after 60-minute slot)
     const afterDate = new Date();
-    afterDate.setHours(hours, minutes + this.SLOT_DURATION_MINUTES * 2, 0, 0);
+    afterDate.setHours(hours, minutes + 90, 0, 0);
     const afterHours = afterDate.getHours().toString().padStart(2, '0');
     const afterMinutes = afterDate.getMinutes().toString().padStart(2, '0');
     const after = `${afterHours}:${afterMinutes}`;
@@ -146,7 +146,15 @@ export class DateTimeCalculator {
   /**
    * Get current timestamp for logging
    */
-  static getCurrentTimestamp(): Date {
-    return new Date();
+  static getCurrentTimestamp(): string {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    const seconds = String(now.getSeconds()).padStart(2, '0');
+    
+    return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
   }
 }

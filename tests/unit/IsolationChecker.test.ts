@@ -145,10 +145,10 @@ describe('IsolationChecker', () => {
     it('should identify chain isolation scenarios', () => {
       const chainSlots = [
         createMockSlot('12:00', false),
-        createMockSlot('12:30', true),  // Would be isolated
-        createMockSlot('13:00', true),  // Target slot 1
-        createMockSlot('13:30', true),  // Target slot 2
-        createMockSlot('14:00', true),  // Would be isolated
+        createMockSlot('12:30', true), // Would be isolated
+        createMockSlot('13:00', true), // Target slot 1
+        createMockSlot('13:30', true), // Target slot 2
+        createMockSlot('14:00', true), // Would be isolated
         createMockSlot('14:30', false),
       ];
 
@@ -164,7 +164,7 @@ describe('IsolationChecker', () => {
     it('should handle edge-of-day boundary conditions', () => {
       const boundarySlots = [
         createMockSlot('23:00', true),
-        createMockSlot('23:30', true),  // Target slot 1
+        createMockSlot('23:30', true), // Target slot 1
         // Next day would be 00:00 (not in our slot list)
       ];
 
@@ -181,16 +181,16 @@ describe('IsolationChecker', () => {
 
     it('should handle sparse availability patterns', () => {
       const sparseSlots = [
-        createMockSlot('10:00', true),   // Available
-        createMockSlot('10:30', false),  // Unavailable
-        createMockSlot('11:00', false),  // Unavailable
-        createMockSlot('11:30', false),  // Unavailable
-        createMockSlot('12:00', true),   // Available - target 1
-        createMockSlot('12:30', true),   // Available - target 2
-        createMockSlot('13:00', false),  // Unavailable
-        createMockSlot('13:30', false),  // Unavailable
-        createMockSlot('14:00', false),  // Unavailable
-        createMockSlot('14:30', true),   // Available
+        createMockSlot('10:00', true), // Available
+        createMockSlot('10:30', false), // Unavailable
+        createMockSlot('11:00', false), // Unavailable
+        createMockSlot('11:30', false), // Unavailable
+        createMockSlot('12:00', true), // Available - target 1
+        createMockSlot('12:30', true), // Available - target 2
+        createMockSlot('13:00', false), // Unavailable
+        createMockSlot('13:30', false), // Unavailable
+        createMockSlot('14:00', false), // Unavailable
+        createMockSlot('14:30', true), // Available
       ];
 
       const sparsePair = createMockPair('12:00', '12:30');
@@ -202,9 +202,9 @@ describe('IsolationChecker', () => {
 
     it('should prioritize pairs based on isolation score', () => {
       const pairs = [
-        createMockPair('10:00', '10:30'),  // Would isolate many slots
-        createMockPair('14:00', '14:30'),  // Better choice - middle of day
-        createMockPair('18:00', '18:30'),  // Would isolate end-of-day slots
+        createMockPair('10:00', '10:30'), // Would isolate many slots
+        createMockPair('14:00', '14:30'), // Better choice - middle of day
+        createMockPair('18:00', '18:30'), // Would isolate end-of-day slots
       ];
 
       const complexSlots = [
@@ -227,23 +227,24 @@ describe('IsolationChecker', () => {
 
       expect(best).toBeDefined();
       expect(analysis).toHaveLength(3);
-      
+
       // Should prefer pairs with less isolation impact
-      const sortedAnalysis = analysis.sort((a, b) => 
-        a.isolation.isolatedSlots.length - b.isolation.isolatedSlots.length
+      const sortedAnalysis = analysis.sort(
+        (a, b) => a.isolation.isolatedSlots.length - b.isolation.isolatedSlots.length
       );
-      
-      expect(sortedAnalysis[0]!.isolation.isolatedSlots.length)
-        .toBeLessThanOrEqual(sortedAnalysis[2]!.isolation.isolatedSlots.length);
+
+      expect(sortedAnalysis[0]!.isolation.isolatedSlots.length).toBeLessThanOrEqual(
+        sortedAnalysis[2]!.isolation.isolatedSlots.length
+      );
     });
 
     it('should handle single slot gaps correctly', () => {
       const singleGapSlots = [
         createMockSlot('13:00', true),
-        createMockSlot('13:30', false),  // Single unavailable slot
-        createMockSlot('14:00', true),   // Target 1
-        createMockSlot('14:30', true),   // Target 2
-        createMockSlot('15:00', false),  // Single unavailable slot
+        createMockSlot('13:30', false), // Single unavailable slot
+        createMockSlot('14:00', true), // Target 1
+        createMockSlot('14:30', true), // Target 2
+        createMockSlot('15:00', false), // Single unavailable slot
         createMockSlot('15:30', true),
       ];
 
@@ -258,9 +259,9 @@ describe('IsolationChecker', () => {
     it('should validate recommendation messages are helpful', () => {
       const isolatingSlots = [
         createMockSlot('13:00', false),
-        createMockSlot('13:30', true),  // Will be isolated
-        createMockSlot('14:00', true),  // Target
-        createMockSlot('14:30', true),  // Target
+        createMockSlot('13:30', true), // Will be isolated
+        createMockSlot('14:00', true), // Target
+        createMockSlot('14:30', true), // Target
         createMockSlot('15:00', false),
       ];
 
@@ -269,7 +270,7 @@ describe('IsolationChecker', () => {
 
       expect(result.recommendation).toBeDefined();
       expect(result.recommendation.length).toBeGreaterThan(10);
-      
+
       if (result.hasIsolation) {
         expect(result.recommendation).toContain('would create isolated slots');
         expect(result.isolatedSlots.length).toBeGreaterThan(0);

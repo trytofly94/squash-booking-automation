@@ -37,7 +37,7 @@ describe('BookingCalendarPage - Date Navigation', () => {
   describe('navigateToDate', () => {
     it('should try direct date input first', async () => {
       const targetDate = '2025-09-08';
-      
+
       // Mock elementExists to return true for date input
       jest.spyOn(calendarPage as any, 'elementExists').mockResolvedValue(true);
       jest.spyOn(calendarPage as any, 'waitForCalendarToLoad').mockResolvedValue(undefined);
@@ -45,18 +45,16 @@ describe('BookingCalendarPage - Date Navigation', () => {
 
       await calendarPage.navigateToDate(targetDate);
 
-      expect(mockPage.locator).toHaveBeenCalledWith(
-        expect.stringContaining('input[type="date"]')
-      );
+      expect(mockPage.locator).toHaveBeenCalledWith(expect.stringContaining('input[type="date"]'));
     });
 
     it('should fallback to URL navigation if direct input fails', async () => {
       const targetDate = '2025-09-08';
-      
+
       // Mock direct input failure
       jest.spyOn(calendarPage as any, 'tryDirectDateInput').mockResolvedValue(false);
       jest.spyOn(calendarPage as any, 'tryUrlDateNavigation').mockResolvedValue(true);
-      
+
       await calendarPage.navigateToDate(targetDate);
 
       expect(mockPage.goto).toHaveBeenCalledWith(
@@ -67,12 +65,12 @@ describe('BookingCalendarPage - Date Navigation', () => {
 
     it('should fallback to click navigation if other methods fail', async () => {
       const targetDate = '2025-09-08';
-      
+
       // Mock all advanced methods failing
       jest.spyOn(calendarPage as any, 'tryDirectDateInput').mockResolvedValue(false);
       jest.spyOn(calendarPage as any, 'tryUrlDateNavigation').mockResolvedValue(false);
       jest.spyOn(calendarPage as any, 'navigateToDateByClicking').mockResolvedValue(undefined);
-      
+
       await calendarPage.navigateToDate(targetDate);
 
       expect(calendarPage['navigateToDateByClicking']).toHaveBeenCalledWith(targetDate);
@@ -82,7 +80,7 @@ describe('BookingCalendarPage - Date Navigation', () => {
   describe('getCurrentSelectedDate', () => {
     it('should extract date from input field', async () => {
       const expectedDate = '2025-09-08';
-      
+
       jest.spyOn(calendarPage as any, 'elementExists').mockResolvedValue(true);
       mockPage.inputValue.mockResolvedValue(expectedDate);
 
@@ -93,7 +91,7 @@ describe('BookingCalendarPage - Date Navigation', () => {
 
     it('should extract date from URL parameters', async () => {
       const expectedDate = '2025-09-08';
-      
+
       jest.spyOn(calendarPage as any, 'elementExists').mockResolvedValue(false);
       mockPage.url.mockReturnValue(`https://example.com?date=${expectedDate}&view=calendar`);
 
@@ -104,7 +102,7 @@ describe('BookingCalendarPage - Date Navigation', () => {
 
     it('should return current date as fallback', async () => {
       const today = new Date().toISOString().split('T')[0]!;
-      
+
       jest.spyOn(calendarPage as any, 'elementExists').mockResolvedValue(false);
       mockPage.url.mockReturnValue('https://example.com');
       jest.spyOn(calendarPage as any, 'getPageTitle').mockResolvedValue('Calendar');
@@ -120,24 +118,31 @@ describe('BookingCalendarPage - Date Navigation', () => {
       const courtId = '1';
       const time = '14:00';
       const targetDate = '2025-09-08';
-      
+
       const mockElement = {
         getAttribute: jest.fn((attr: string) => {
           switch (attr) {
-            case 'data-date': return targetDate;
-            case 'data-start': return '1400';
-            case 'data-court': return courtId;
-            case 'data-state': return 'free';
-            default: return null;
+            case 'data-date':
+              return targetDate;
+            case 'data-start':
+              return '1400';
+            case 'data-court':
+              return courtId;
+            case 'data-state':
+              return 'free';
+            default:
+              return null;
           }
-        })
+        }),
       };
 
       mockPage.$$.mockResolvedValue([mockElement] as any);
       jest.spyOn(calendarPage as any, 'isSlotAvailable').mockResolvedValue(true);
-      jest.spyOn(calendarPage as any, 'getSlotSelector').mockResolvedValue(
-        `td[data-date='${targetDate}'][data-start='1400'][data-court='${courtId}'][data-state='free']`
-      );
+      jest
+        .spyOn(calendarPage as any, 'getSlotSelector')
+        .mockResolvedValue(
+          `td[data-date='${targetDate}'][data-start='1400'][data-court='${courtId}'][data-state='free']`
+        );
 
       const result = await calendarPage.findTimeSlot(courtId, time, targetDate);
 
@@ -154,9 +159,9 @@ describe('BookingCalendarPage - Date Navigation', () => {
       const courtId = '1';
       const time = '14:00';
       const targetDate = '2025-09-08';
-      
+
       mockPage.$$.mockImplementation((selector: string) => {
-        if (selector.includes('data-start=\'1400\'')) {
+        if (selector.includes("data-start='1400'")) {
           return Promise.resolve([{ getAttribute: jest.fn() }] as any);
         }
         return Promise.resolve([] as any);
@@ -167,9 +172,7 @@ describe('BookingCalendarPage - Date Navigation', () => {
 
       await calendarPage.findTimeSlot(courtId, time, targetDate);
 
-      expect(mockPage.$$).toHaveBeenCalledWith(
-        expect.stringContaining('data-start=\'1400\'')
-      );
+      expect(mockPage.$$).toHaveBeenCalledWith(expect.stringContaining("data-start='1400'"));
     });
   });
 
@@ -182,7 +185,8 @@ describe('BookingCalendarPage - Date Navigation', () => {
 
       jest.spyOn(calendarPage as any, 'clickNextWeek').mockResolvedValue(undefined);
       jest.spyOn(calendarPage as any, 'waitForCalendarToLoad').mockResolvedValue(undefined);
-      jest.spyOn(calendarPage, 'getCurrentSelectedDate')
+      jest
+        .spyOn(calendarPage, 'getCurrentSelectedDate')
         .mockResolvedValueOnce('2025-08-19') // First check
         .mockResolvedValueOnce('2025-08-26') // After first click
         .mockResolvedValueOnce('2025-09-02') // After second click
@@ -201,7 +205,7 @@ describe('BookingCalendarPage - Date Navigation', () => {
         getAttribute: jest.fn((attr: string) => {
           if (attr === 'data-state') return 'free';
           return null;
-        })
+        }),
       };
 
       const result = await calendarPage['isSlotAvailable'](mockElement);
@@ -214,7 +218,7 @@ describe('BookingCalendarPage - Date Navigation', () => {
         getAttribute: jest.fn((attr: string) => {
           if (attr === 'data-state') return 'booked';
           return null;
-        })
+        }),
       };
 
       const result = await calendarPage['isSlotAvailable'](mockElement);
@@ -227,7 +231,7 @@ describe('BookingCalendarPage - Date Navigation', () => {
         getAttribute: jest.fn((attr: string) => {
           if (attr === 'class') return 'available slot';
           return null;
-        })
+        }),
       };
 
       const result = await calendarPage['isSlotAvailable'](mockElement);
@@ -241,32 +245,43 @@ describe('BookingCalendarPage - Date Navigation', () => {
       const mockElement = {
         getAttribute: jest.fn((attr: string) => {
           switch (attr) {
-            case 'data-date': return '2025-09-08';
-            case 'data-start': return '1400';
-            case 'data-court': return '1';
-            case 'data-state': return 'free';
-            default: return null;
+            case 'data-date':
+              return '2025-09-08';
+            case 'data-start':
+              return '1400';
+            case 'data-court':
+              return '1';
+            case 'data-state':
+              return 'free';
+            default:
+              return null;
           }
         }),
-        evaluate: jest.fn()
+        evaluate: jest.fn(),
       };
 
       const result = await calendarPage['getSlotSelector'](mockElement);
 
-      expect(result).toBe("td[data-date='2025-09-08'][data-start='1400'][data-court='1'][data-state='free']");
+      expect(result).toBe(
+        "td[data-date='2025-09-08'][data-start='1400'][data-court='1'][data-state='free']"
+      );
     });
 
     it('should handle missing court attribute', async () => {
       const mockElement = {
         getAttribute: jest.fn((attr: string) => {
           switch (attr) {
-            case 'data-date': return '2025-09-08';
-            case 'data-start': return '1400';
-            case 'data-state': return 'free';
-            default: return null;
+            case 'data-date':
+              return '2025-09-08';
+            case 'data-start':
+              return '1400';
+            case 'data-state':
+              return 'free';
+            default:
+              return null;
           }
         }),
-        evaluate: jest.fn()
+        evaluate: jest.fn(),
       };
 
       const result = await calendarPage['getSlotSelector'](mockElement);

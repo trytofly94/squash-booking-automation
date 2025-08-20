@@ -11,20 +11,20 @@ export class BookingCalendarPage extends BasePage {
     // Calendar and container elements
     calendar: '#booking-calendar-container, .calendar, [data-testid="calendar"], .booking-calendar',
     calendarContainer: '#booking-calendar-container',
-    
+
     // Date navigation elements (Eversports specific)
     dateInput: 'input[type="date"], .date-input, [data-testid="date-picker"]',
     nextWeekButton: '#next-week, .next-week, [data-testid="next-week"]',
     prevWeekButton: '#prev-week, .prev-week, [data-testid="prev-week"]',
     currentDateDisplay: '.current-date, .selected-date, .date-display',
-    
+
     // Court and slot elements
     courtSelector: '[data-testid*="court"], .court-selector, .court-list',
     timeSlot: '[data-time], .time-slot, .booking-slot, td[data-date]',
     availableSlot: 'td[data-state="free"], .available, .slot-available, [data-available="true"]',
     bookedSlot: 'td[data-state="booked"], .booked, .unavailable, [data-available="false"]',
     slotContainer: '#booking-calendar-container, .slots-container, .time-slots, .calendar-slots',
-    
+
     // Navigation controls
     nextButton: '#next-week, .next, .btn-next, [data-testid="next"]',
     prevButton: '#prev-week, .prev, .btn-prev, [data-testid="prev"]',
@@ -124,24 +124,24 @@ export class BookingCalendarPage extends BasePage {
         '.datepicker input',
         '[data-date-input]',
         '#date-picker',
-        '.date-picker input'
+        '.date-picker input',
       ];
 
       for (const selector of dateInputSelectors) {
         if (await this.elementExists(selector)) {
           logger.debug('Found date input field', component, { selector });
-          
+
           // Clear and fill the date input
           await this.page.locator(selector).clear();
           await this.page.locator(selector).fill(targetDate);
-          
+
           // Try different ways to trigger the date change
           await this.page.keyboard.press('Enter');
           await this.page.waitForTimeout(1000);
-          
+
           // Check if the calendar updated
           await this.waitForCalendarToLoad();
-          
+
           // Verify the date was set correctly
           const currentDate = await this.getCurrentSelectedDate();
           if (currentDate === targetDate) {
@@ -171,21 +171,21 @@ export class BookingCalendarPage extends BasePage {
       const urlParams = new URLSearchParams();
       urlParams.set('date', targetDate);
       urlParams.set('view', 'calendar');
-      
+
       const newUrl = `${currentUrl.split('?')[0]}?${urlParams.toString()}`;
-      
+
       logger.debug('Trying URL navigation', component, { newUrl });
-      
+
       await this.page.goto(newUrl, { waitUntil: 'networkidle' });
       await this.waitForCalendarToLoad();
-      
+
       // Verify we're on the correct date
       const currentDate = await this.getCurrentSelectedDate();
       if (currentDate === targetDate) {
         logger.info('URL navigation successful', component, { targetDate });
         return true;
       }
-      
+
       return false;
     } catch (error) {
       logger.debug('URL navigation failed', component, {
@@ -213,7 +213,7 @@ export class BookingCalendarPage extends BasePage {
     const daysDifference = Math.ceil(
       (targetDateObj.getTime() - currentDate.getTime()) / (1000 * 60 * 60 * 24)
     );
-    
+
     const weeksToNavigate = Math.ceil(daysDifference / 7);
 
     logger.debug('Navigation calculation', component, {
@@ -227,14 +227,14 @@ export class BookingCalendarPage extends BasePage {
         await this.clickNextWeek();
         await this.page.waitForTimeout(2000); // Wait for calendar to update
         await this.waitForCalendarToLoad();
-        
+
         // Check if we've reached or passed the target date
         const currentCalendarDate = await this.getCurrentSelectedDate();
         if (currentCalendarDate >= targetDate) {
-          logger.debug('Reached target date range', component, { 
-            currentCalendarDate, 
-            targetDate, 
-            iteration: i + 1 
+          logger.debug('Reached target date range', component, {
+            currentCalendarDate,
+            targetDate,
+            iteration: i + 1,
           });
           break;
         }
@@ -267,7 +267,7 @@ export class BookingCalendarPage extends BasePage {
         '[data-testid="next-week"]',
         'button[aria-label*="next"]',
         '.calendar-nav-next',
-        this.selectors.nextWeekButton
+        this.selectors.nextWeekButton,
       ];
 
       for (const selector of nextWeekSelectors) {
@@ -307,7 +307,7 @@ export class BookingCalendarPage extends BasePage {
         '[data-testid="prev-week"]',
         'button[aria-label*="prev"]',
         '.calendar-nav-prev',
-        this.selectors.prevWeekButton
+        this.selectors.prevWeekButton,
       ];
 
       for (const selector of prevWeekSelectors) {
@@ -458,61 +458,64 @@ export class BookingCalendarPage extends BasePage {
   /**
    * Find a specific time slot (optimized for Eversports)
    */
-  async findTimeSlot(courtId: string, time: string, targetDate?: string): Promise<BookingSlot | null> {
+  async findTimeSlot(
+    courtId: string,
+    time: string,
+    targetDate?: string
+  ): Promise<BookingSlot | null> {
     const component = 'BookingCalendarPage.findTimeSlot';
 
-    const currentDate = targetDate || await this.getCurrentSelectedDate();
+    const currentDate = targetDate || (await this.getCurrentSelectedDate());
 
     try {
       // Convert time format if needed (e.g., "14:00" to "1400")
-      const timeVariants = [
-        time,
-        time.replace(':', ''),
-        time.replace(':', '')
-      ];
+      const timeVariants = [time, time.replace(':', ''), time.replace(':', '')];
 
       // Eversports-specific selectors based on the original JSON automation
       const timeSelectors = [
         // Primary Eversports selector (from JSON automation)
         `td[data-date='${currentDate}'][data-start='${time.replace(':', '')}'][data-court='${courtId}'][data-state='free']`,
         `td[data-date='${currentDate}'][data-start='${time.replace(':', '')}'][data-state='free']`,
-        
+
         // Alternative formats
-        ...timeVariants.map(timeVar => `td[data-date='${currentDate}'][data-start='${timeVar}'][data-court='${courtId}']`),
+        ...timeVariants.map(
+          timeVar =>
+            `td[data-date='${currentDate}'][data-start='${timeVar}'][data-court='${courtId}']`
+        ),
         ...timeVariants.map(timeVar => `td[data-date='${currentDate}'][data-start='${timeVar}']`),
-        
+
         // Generic selectors
         `[data-time="${time}"][data-court="${courtId}"]`,
         `[data-time="${time}"]`,
         `.slot-${time.replace(':', '-')}`,
         `[data-start-time="${time}"]`,
-        
+
         // Backup selectors
         `td[data-time="${time}"]`,
         `td.time-slot[data-start="${time}"]`,
       ];
 
-      logger.debug('Searching for time slot', component, { 
-        courtId, 
-        time, 
+      logger.debug('Searching for time slot', component, {
+        courtId,
+        time,
         currentDate,
         timeVariants,
-        totalSelectors: timeSelectors.length 
+        totalSelectors: timeSelectors.length,
       });
 
       for (const selector of timeSelectors) {
         const elements = await this.page.$$(selector);
-        
+
         if (elements.length > 0) {
-          logger.debug('Found potential slot elements', component, { 
-            selector, 
-            count: elements.length 
+          logger.debug('Found potential slot elements', component, {
+            selector,
+            count: elements.length,
           });
 
           for (const element of elements) {
             const isAvailable = await this.isSlotAvailable(element);
             const elementSelector = await this.getSlotSelector(element);
-            const elementCourtId = await element.getAttribute('data-court') || courtId;
+            const elementCourtId = (await element.getAttribute('data-court')) || courtId;
 
             // If court-specific search and court doesn't match, skip
             if (courtId && elementCourtId && elementCourtId !== courtId) {
@@ -527,13 +530,13 @@ export class BookingCalendarPage extends BasePage {
               elementSelector,
             };
 
-            logger.debug('Found time slot', component, { 
-              courtId: slot.courtId, 
-              time, 
-              isAvailable, 
-              selector: elementSelector 
+            logger.debug('Found time slot', component, {
+              courtId: slot.courtId,
+              time,
+              isAvailable,
+              selector: elementSelector,
             });
-            
+
             return slot;
           }
         }
@@ -571,23 +574,21 @@ export class BookingCalendarPage extends BasePage {
       const dataAvailable = await slotElement.getAttribute('data-available');
 
       // Check for availability indicators
-      const isAvailable = (
+      const isAvailable =
         !classList.includes('booked') &&
         !classList.includes('unavailable') &&
         !classList.includes('disabled') &&
         !classList.includes('blocked') &&
         dataAvailable !== 'false' &&
-        dataState !== 'booked'
-      );
+        dataState !== 'booked';
 
       // Additional checks for positive availability indicators
-      const hasAvailableClass = (
+      const hasAvailableClass =
         classList.includes('available') ||
         classList.includes('free') ||
         classList.includes('slot-available') ||
         dataAvailable === 'true' ||
-        dataState === 'free'
-      );
+        dataState === 'free';
 
       return isAvailable || hasAvailableClass;
     } catch (error) {
@@ -614,15 +615,15 @@ export class BookingCalendarPage extends BasePage {
       // Build Eversports-specific selector
       if (dataDate && dataStart) {
         let selector = `td[data-date='${dataDate}'][data-start='${dataStart}']`;
-        
+
         if (dataCourt) {
           selector += `[data-court='${dataCourt}']`;
         }
-        
+
         if (dataState) {
           selector += `[data-state='${dataState}']`;
         }
-        
+
         return selector;
       }
 
@@ -639,7 +640,9 @@ export class BookingCalendarPage extends BasePage {
       // Try class-based selectors
       const classList = await slotElement.getAttribute('class');
       if (classList) {
-        const classes = classList.split(' ').filter((c: string) => c.includes('slot') || c.includes('time'));
+        const classes = classList
+          .split(' ')
+          .filter((c: string) => c.includes('slot') || c.includes('time'));
         if (classes.length > 0) {
           return `.${classes.join('.')}`;
         }
@@ -714,7 +717,7 @@ export class BookingCalendarPage extends BasePage {
         this.selectors.dateInput,
         'input[type="date"]',
         '.date-input',
-        '[data-date-input]'
+        '[data-date-input]',
       ];
 
       for (const selector of dateInputSelectors) {
@@ -734,7 +737,7 @@ export class BookingCalendarPage extends BasePage {
         '.selected-date',
         '.date-display',
         '.calendar-header .date',
-        '[data-current-date]'
+        '[data-current-date]',
       ];
 
       for (const selector of dateDisplaySelectors) {
@@ -773,7 +776,7 @@ export class BookingCalendarPage extends BasePage {
         '.current',
         '.selected',
         '[data-today]',
-        '[aria-current="date"]'
+        '[aria-current="date"]',
       ];
 
       for (const selector of todaySelectors) {

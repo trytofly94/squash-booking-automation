@@ -35,19 +35,19 @@ describe('DateTimeCalculator', () => {
   });
 
   describe('generateTimeSlots', () => {
-    it('should generate two consecutive 30-minute slots with default time', () => {
+    it('should generate 60-minute booking slot with default time', () => {
       const result = DateTimeCalculator.generateTimeSlots();
-      expect(result).toEqual(['14:00', '14:30']);
+      expect(result).toEqual(['14:00', '15:00']);
     });
 
     it('should generate correct slots for custom start time', () => {
       const result = DateTimeCalculator.generateTimeSlots('16:30');
-      expect(result).toEqual(['16:30', '17:00']);
+      expect(result).toEqual(['16:30', '17:30']);
     });
 
     it('should handle hour transition correctly', () => {
       const result = DateTimeCalculator.generateTimeSlots('15:30');
-      expect(result).toEqual(['15:30', '16:00']);
+      expect(result).toEqual(['15:30', '16:30']);
     });
 
     it('should throw error for invalid time format', () => {
@@ -65,7 +65,7 @@ describe('DateTimeCalculator', () => {
       const result = DateTimeCalculator.calculateNeighborSlots('14:00');
       expect(result).toEqual({
         before: '13:30',
-        after: '15:00',
+        after: '15:30',
       });
     });
 
@@ -73,7 +73,7 @@ describe('DateTimeCalculator', () => {
       const result = DateTimeCalculator.calculateNeighborSlots('16:00');
       expect(result).toEqual({
         before: '15:30',
-        after: '17:00',
+        after: '17:30',
       });
     });
 
@@ -81,7 +81,7 @@ describe('DateTimeCalculator', () => {
       const result = DateTimeCalculator.calculateNeighborSlots('00:30');
       expect(result).toEqual({
         before: '00:00',
-        after: '01:30',
+        after: '02:00',
       });
     });
   });
@@ -126,14 +126,19 @@ describe('DateTimeCalculator', () => {
   });
 
   describe('getCurrentTimestamp', () => {
-    it('should return current date', () => {
-      const before = new Date();
+    it('should return current timestamp string in correct format', () => {
       const result = DateTimeCalculator.getCurrentTimestamp();
-      const after = new Date();
 
-      expect(result).toBeInstanceOf(Date);
-      expect(result.getTime()).toBeGreaterThanOrEqual(before.getTime());
-      expect(result.getTime()).toBeLessThanOrEqual(after.getTime());
+      // Should match YYYY-MM-DD HH:MM:SS format
+      expect(result).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/);
+      
+      // Should be close to current time
+      const timestampDate = new Date(result.replace(' ', 'T'));
+      const now = new Date();
+      const timeDiff = Math.abs(now.getTime() - timestampDate.getTime());
+      
+      // Allow up to 1 second difference
+      expect(timeDiff).toBeLessThan(1000);
     });
   });
 
@@ -167,33 +172,33 @@ describe('DateTimeCalculator', () => {
     it('should handle negative time calculations correctly', () => {
       const result = DateTimeCalculator.calculateNeighborSlots('00:00');
       expect(result.before).toBe('23:30'); // Previous day
-      expect(result.after).toBe('01:00');
+      expect(result.after).toBe('01:30');
     });
 
     it('should handle late evening slots correctly', () => {
       const result = DateTimeCalculator.calculateNeighborSlots('23:30');
       expect(result.before).toBe('23:00');
-      expect(result.after).toBe('00:30'); // Next day
+      expect(result.after).toBe('01:00'); // Next day
     });
 
     it('should generate consistent slot times across different systems', () => {
       const originalTimezone = process.env.TZ;
-      
+
       // Test in different timezone contexts
       process.env.TZ = 'Europe/Berlin';
       const berlinSlots = DateTimeCalculator.generateTimeSlots('14:00');
-      
+
       process.env.TZ = 'America/New_York';
       const nySlots = DateTimeCalculator.generateTimeSlots('14:00');
-      
+
       process.env.TZ = 'Asia/Tokyo';
       const tokyoSlots = DateTimeCalculator.generateTimeSlots('14:00');
-      
+
       // Should be identical regardless of timezone for time calculations
-      expect(berlinSlots).toEqual(['14:00', '14:30']);
-      expect(nySlots).toEqual(['14:00', '14:30']);
-      expect(tokyoSlots).toEqual(['14:00', '14:30']);
-      
+      expect(berlinSlots).toEqual(['14:00', '15:00']);
+      expect(nySlots).toEqual(['14:00', '15:00']);
+      expect(tokyoSlots).toEqual(['14:00', '15:00']);
+
       // Restore original timezone
       if (originalTimezone) {
         process.env.TZ = originalTimezone;
@@ -219,15 +224,15 @@ describe('DateTimeCalculator', () => {
     it('should validate boundary conditions for slot generation', () => {
       // Test earliest possible slot
       const earlySlots = DateTimeCalculator.generateTimeSlots('00:00');
-      expect(earlySlots).toEqual(['00:00', '00:30']);
+      expect(earlySlots).toEqual(['00:00', '01:00']);
 
       // Test latest sensible slot (before midnight boundary)
       const lateSlots = DateTimeCalculator.generateTimeSlots('23:30');
-      expect(lateSlots).toEqual(['23:30', '00:00']);
+      expect(lateSlots).toEqual(['23:30', '00:30']);
 
       // Test hour transition edge cases
       const edgeSlots = DateTimeCalculator.generateTimeSlots('12:30');
-      expect(edgeSlots).toEqual(['12:30', '13:00']);
+      expect(edgeSlots).toEqual(['12:30', '13:30']);
     });
 
     it('should handle invalid edge cases gracefully', () => {
@@ -243,7 +248,7 @@ describe('DateTimeCalculator', () => {
       const today = new Date();
       const expected = new Date(today);
       expected.setDate(today.getDate() + 365);
-      
+
       expect(result).toBe(expected.toISOString().split('T')[0]);
     });
 
