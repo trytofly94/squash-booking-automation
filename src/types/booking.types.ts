@@ -47,7 +47,7 @@ export interface BookingResult {
   /** Number of retry attempts made */
   retryAttempts: number;
   /** Timestamp of the booking attempt */
-  timestamp: Date;
+  timestamp: string;
 }
 
 export interface IsolationCheckResult {
@@ -62,6 +62,8 @@ export interface IsolationCheckResult {
 export interface CourtSearchResult {
   /** Available court IDs */
   availableCourts: string[];
+  /** Courts that were searched */
+  searchedCourts: string[];
   /** Total slots found */
   totalSlots: number;
   /** Available booking pairs */

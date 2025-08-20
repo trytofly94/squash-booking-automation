@@ -40,6 +40,7 @@ export class SlotSearcher {
 
     const result: CourtSearchResult = {
       availableCourts,
+      searchedCourts: availableCourts,
       totalSlots: allSlots.length,
       availablePairs,
     };
