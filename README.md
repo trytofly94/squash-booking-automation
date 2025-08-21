@@ -9,7 +9,7 @@ A modern, Playwright-based automation system for booking squash courts with inte
 - **Isolation Prevention**: Avoids creating isolated 30-minute slots that fragment the schedule
 - **Retry Mechanism**: Robust error handling with configurable retry attempts
 - **Dry-Run Mode**: Test the entire booking flow without making actual reservations
-- **Comprehensive Testing**: Unit and integration tests with mock capabilities
+- **Comprehensive Testing**: Unit, integration, and E2E tests with advanced reporting and debugging capabilities
 - **TypeScript**: Full type safety and modern development experience
 
 ## 🚀 Quick Start
@@ -103,6 +103,16 @@ npm run test:coverage
 
 # Run Playwright end-to-end tests
 npm run test:playwright
+
+# Advanced Playwright Testing
+npm run test:e2e          # Run E2E tests specifically
+npm run test:debug        # Debug tests with step-by-step execution
+npm run test:ui           # Run tests with Playwright UI mode
+npm run test:headed       # Run tests in headed browser mode
+npm run test:report       # Show latest test report
+npm run test:trace        # View trace files from failed tests
+npm run test:merge-reports # Merge distributed test reports
+npm run test:last-run     # Show last test run report
 ```
 
 ### Test Structure
@@ -113,6 +123,30 @@ tests/
 ├── integration/   # Integration tests for component interaction
 └── fixtures/      # Test data and mock responses
 ```
+
+### Advanced Testing Features
+
+The project includes comprehensive testing capabilities with modern tooling:
+
+- **Playwright UI Mode**: Interactive test running and debugging
+- **Trace Viewer**: Visual debugging with timeline and DOM snapshots  
+- **Test Artifacts**: Automatic screenshots, videos, and traces on failures
+- **Multiple Reporters**: HTML, JSON, JUnit, and line reporters
+- **Coverage Reporting**: Detailed code coverage with threshold enforcement
+- **Test Distribution**: Blob reports for distributed test execution
+
+### Test Artifacts & Reports
+
+All test results and artifacts are automatically saved:
+- `test-reports/html-report/` - Interactive HTML test reports
+- `test-reports/junit-results.xml` - JUnit format for CI/CD integration
+- `test-artifacts/` - Screenshots, videos, and traces from failed tests
+- Coverage reports with detailed metrics and threshold validation
+
+For detailed testing instructions and validation procedures, see:
+- **[Testing Instructions](TESTING_INSTRUCTIONS.md)** - Comprehensive testing guide
+- **[Test Validation Report](TEST_VALIDATION_REPORT.md)** - Latest test results and coverage
+- **[Deployment Status](DEPLOYMENT_STATUS.md)** - Current deployment and build status
 
 ## 📁 Project Structure
 
@@ -133,10 +167,43 @@ squash-booking-automation/
 │   └── utils/             # Utility functions
 │       └── logger.ts
 ├── tests/                 # Test files
+│   ├── unit/             # Jest unit tests
+│   ├── integration/      # Jest integration tests
+│   ├── e2e/              # Playwright end-to-end tests
+│   └── fixtures/         # Test data and mock responses
+├── test-artifacts/       # Generated test artifacts (screenshots, videos, traces)
+├── test-reports/         # Test reports (HTML, JSON, JUnit)
 ├── config/               # Configuration files
-├── docs/                 # Documentation
+├── docs/                 # Documentation directory
+├── DEPLOYMENT_STATUS.md  # Current deployment status
+├── TESTING_INSTRUCTIONS.md # Comprehensive testing guide  
+├── TEST_VALIDATION_REPORT.md # Test results and coverage
+├── scratchpads/          # Development planning documents
+│   ├── active/           # Current development plans
+│   └── completed/        # Archived scratchpads
 └── scripts/              # Build and deployment scripts
 ```
+
+### TypeScript Path Aliases
+
+The project uses TypeScript path aliases for clean and maintainable imports:
+
+```typescript
+// Instead of: ../../core/BookingManager
+import { BookingManager } from '@/core/BookingManager';
+
+// Available aliases:
+import { BookingManager } from '@/core/BookingManager';        // src/core/*
+import { BasePage } from '@/pages/BasePage';                   // src/pages/*
+import { BookingRequest } from '@/types/booking.types';        // src/types/*
+import { logger } from '@/utils/logger';                       // src/utils/*
+import { DryRunValidator } from '@/utils/DryRunValidator';     // src/* (any)
+```
+
+These aliases are configured in `tsconfig.json` and provide:
+- **Cleaner imports**: No relative path navigation needed
+- **Better refactoring**: IDEs can easily track and update imports
+- **Consistent structure**: Clear separation of concerns by directory
 
 ## 🔧 Configuration Options
 
@@ -229,6 +296,24 @@ npm run build
 npm run clean
 ```
 
+### Developer Tools
+
+The project includes specialized developer tools for enhanced productivity:
+
+```bash
+# Playwright Development Tools
+npm run dev:ui        # Launch Playwright UI mode for interactive testing
+npm run dev:debug     # Start debugging session with Playwright
+npm run dev:codegen   # Generate test code by recording browser interactions
+npm run dev:analyze   # Analyze website structure and performance
+
+# Code Generation & Analysis
+npm run codegen             # Standard code generation for booking site
+npm run codegen:auth        # Generate code with authentication state
+npm run codegen:mobile      # Generate code for mobile device testing
+npm run analyze:website     # Analyze website structure and elements
+```
+
 ## 🤝 Contributing
 
 1. Fork the repository
@@ -253,18 +338,38 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 This automation tool is designed for personal use. Please ensure you comply with the terms of service of the booking platform and use responsibly. The authors are not responsible for any misuse or violations of service terms.
 
-## 🆘 Support
+## 🆘 Support & Troubleshooting
 
 If you encounter issues or need help:
 
-1. Check the [documentation](docs/)
-2. Review existing [issues](https://github.com/trytofly94/squash-booking-automation/issues)
-3. Create a new issue with detailed information about your problem
+1. **Check Documentation**: Start with the comprehensive project documentation
+2. **Review Test Reports**: Check `test-reports/html-report/` for test failures
+3. **Debug with Tools**: Use `npm run test:debug` or `npm run dev:ui` for interactive debugging
+4. **View Test Artifacts**: Screenshots and traces in `test-artifacts/` provide visual debugging information
+5. **Check Logs**: Application logs are saved in the `logs/` directory
+6. **Review Issues**: Check existing [GitHub issues](https://github.com/trytofly94/squash-booking-automation/issues)
+7. **Create New Issue**: Provide detailed information including logs, test reports, and environment details
+
+### Common Issues
+- **Playwright Installation**: Run `npx playwright install` to install browser dependencies
+- **Test Failures**: Use `npm run test:trace` to analyze failed test traces
+- **Environment Issues**: Ensure `.env` file is properly configured from `.env.example`
+- **Performance**: Use `npm run dev:analyze` to analyze website performance and timing issues
 
 ## 📈 Roadmap
 
-- [ ] Multi-platform support (additional booking systems)
+### Completed Features ✅
+- [x] **Advanced testing framework** - Comprehensive unit, integration, and E2E testing
+- [x] **Multi-platform testing** - Support for multiple browsers and mobile devices  
+- [x] **Intelligent slot selection** - Advanced scheduling with isolation prevention
+- [x] **Enhanced debugging tools** - UI mode, trace viewer, and comprehensive reporting
+- [x] **Test automation** - Dry-run validation and comprehensive test coverage
+
+### Planned Features
+- [ ] Multi-platform support (additional booking systems beyond eversports.de)
 - [ ] Web dashboard for configuration and monitoring
-- [ ] Mobile notifications for booking status
-- [ ] Advanced scheduling with multiple time preferences
-- [ ] Integration with calendar applications
+- [ ] Mobile notifications for booking status  
+- [ ] Calendar integration (Google Calendar, Outlook)
+- [ ] Multiple booking preferences with priority system
+- [ ] Advanced retry strategies with exponential backoff
+- [ ] Booking analytics and success rate tracking

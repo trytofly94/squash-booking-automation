@@ -6,19 +6,15 @@ module.exports = {
   // Root directory for tests
   rootDir: '.',
   
-  // Test file patterns
+  // Test file patterns - ONLY unit tests
   testMatch: [
-    '<rootDir>/tests/**/*.test.ts',
-    '<rootDir>/tests/**/*.spec.ts'
+    '<rootDir>/tests/unit/**/*.test.ts',
+    '<rootDir>/tests/unit/**/*.spec.ts'
   ],
   
   // Module file extensions
   moduleFileExtensions: ['ts', 'js', 'json'],
   
-  // Transform configuration
-  transform: {
-    '^.+\\.ts$': 'ts-jest'
-  },
   
   // Module name mapping for path aliases
   moduleNameMapper: {
@@ -61,11 +57,11 @@ module.exports = {
   // Verbose output
   verbose: true,
   
-  // Globals
-  globals: {
-    'ts-jest': {
+  // TypeScript configuration for ts-jest
+  transform: {
+    '^.+\\.ts$': ['ts-jest', {
       tsconfig: 'tsconfig.json'
-    }
+    }]
   },
   
   // Test environment options

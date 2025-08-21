@@ -15,17 +15,17 @@ export class IsolationChecker {
     allSlotsForDate: BookingSlot[]
   ): IsolationCheckResult {
     const component = 'IsolationChecker';
-    
+
     logger.debug('Starting isolation check', component, {
       courtId: targetPair.courtId,
       slot1Time: targetPair.slot1.startTime,
       slot2Time: targetPair.slot2.startTime,
-      totalSlotsToCheck: allSlotsForDate.length
+      totalSlotsToCheck: allSlotsForDate.length,
     });
 
     const courtSlots = allSlotsForDate.filter(slot => slot.courtId === targetPair.courtId);
     const neighborSlots = DateTimeCalculator.calculateNeighborSlots(targetPair.slot1.startTime);
-    
+
     const isolatedSlots: BookingSlot[] = [];
     let hasIsolation = false;
 
@@ -38,7 +38,7 @@ export class IsolationChecker {
         hasIsolation = true;
         logger.warn('Found isolated slot before target pair', component, {
           isolatedSlot: slotBefore.startTime,
-          courtId: targetPair.courtId
+          courtId: targetPair.courtId,
         });
       }
     }
@@ -52,23 +52,23 @@ export class IsolationChecker {
         hasIsolation = true;
         logger.warn('Found isolated slot after target pair', component, {
           isolatedSlot: slotAfter.startTime,
-          courtId: targetPair.courtId
+          courtId: targetPair.courtId,
         });
       }
     }
 
     const recommendation = this.generateRecommendation(hasIsolation, isolatedSlots, targetPair);
-    
+
     logger.info('Isolation check completed', component, {
       hasIsolation,
       isolatedSlotsCount: isolatedSlots.length,
-      recommendation
+      recommendation,
     });
 
     return {
       hasIsolation,
       isolatedSlots,
-      recommendation
+      recommendation,
     };
   }
 
@@ -81,12 +81,12 @@ export class IsolationChecker {
     slotsToBook: BookingSlot[]
   ): boolean {
     const slotTime = DateTimeCalculator.parseTime(slot.startTime);
-    
+
     // Calculate adjacent slot times
     const prevSlotTime = new Date();
     prevSlotTime.setHours(slotTime.hours, slotTime.minutes - 30, 0, 0);
     const prevSlotTimeStr = `${prevSlotTime.getHours().toString().padStart(2, '0')}:${prevSlotTime.getMinutes().toString().padStart(2, '0')}`;
-    
+
     const nextSlotTime = new Date();
     nextSlotTime.setHours(slotTime.hours, slotTime.minutes + 30, 0, 0);
     const nextSlotTimeStr = `${nextSlotTime.getHours().toString().padStart(2, '0')}:${nextSlotTime.getMinutes().toString().padStart(2, '0')}`;
@@ -96,8 +96,14 @@ export class IsolationChecker {
     const nextSlot = allCourtSlots.find(s => s.startTime === nextSlotTimeStr);
 
     // Check if adjacent slots will be unavailable (either already booked or about to be booked)
-    const prevWillBeUnavailable = prevSlot && (!prevSlot.isAvailable || slotsToBook.some(s => s.startTime === prevSlot.startTime));
-    const nextWillBeUnavailable = nextSlot && (!nextSlot.isAvailable || slotsToBook.some(s => s.startTime === nextSlot.startTime));
+    const prevWillBeUnavailable = Boolean(
+      prevSlot &&
+        (!prevSlot.isAvailable || slotsToBook.some(s => s.startTime === prevSlot.startTime))
+    );
+    const nextWillBeUnavailable = Boolean(
+      nextSlot &&
+        (!nextSlot.isAvailable || slotsToBook.some(s => s.startTime === nextSlot.startTime))
+    );
 
     // Slot is isolated if both adjacent slots are unavailable
     return prevWillBeUnavailable && nextWillBeUnavailable;
@@ -127,27 +133,27 @@ export class IsolationChecker {
     allSlotsForDate: BookingSlot[]
   ): BookingPair | null {
     const component = 'IsolationChecker';
-    
+
     logger.info('Finding best non-isolating pair', component, {
-      availablePairsCount: availablePairs.length
+      availablePairsCount: availablePairs.length,
     });
 
     for (const pair of availablePairs) {
       const isolationResult = this.checkForIsolation(pair, allSlotsForDate);
-      
+
       if (!isolationResult.hasIsolation) {
         logger.info('Found non-isolating pair', component, {
           courtId: pair.courtId,
-          startTime: pair.slot1.startTime
+          startTime: pair.slot1.startTime,
         });
         return pair;
       }
     }
 
     logger.warn('No non-isolating pairs found', component, {
-      checkedPairs: availablePairs.length
+      checkedPairs: availablePairs.length,
     });
-    
+
     return null;
   }
 
@@ -160,7 +166,7 @@ export class IsolationChecker {
   ): Array<{ pair: BookingPair; isolation: IsolationCheckResult }> {
     return availablePairs.map(pair => ({
       pair,
-      isolation: this.checkForIsolation(pair, allSlotsForDate)
+      isolation: this.checkForIsolation(pair, allSlotsForDate),
     }));
   }
 }

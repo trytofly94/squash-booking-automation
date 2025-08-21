@@ -1,0 +1,145 @@
+# Page snapshot
+
+```yaml
+- banner:
+  - link "Skip to main content":
+    - /url: "#main"
+  - link "Eversports start page":
+    - /url: /
+    - img
+  - link "Search for a sport or facility":
+    - /url: /?show=search
+    - img
+    - text: Search for a sport or facility
+  - navigation:
+    - list:
+      - listitem:
+        - link "For companies":
+          - /url: https://www.eversportsmanager.com/de/corporate-fitness/
+      - listitem:
+        - link "For sport providers":
+          - /url: https://www.eversportsmanager.com/de/partner-werden/?utm_source=Referrals&utm_medium=marketplace-for-studios&utm_campaign=mp-b2b-landingpage
+      - listitem: "|"
+      - listitem:
+        - link "Login":
+          - /url: /auth/
+      - listitem:
+        - link "Register":
+          - /url: /auth/register
+- main:
+  - text: 
+  - img "Sportcenter Kautz"
+  - img "Sportcenter Kautz"
+  - text: 
+  - link "Back to Sportcenter Kautz profile":
+    - /url: /s/sportcenter-kautz
+  - list:
+    - listitem:
+      - link "Overview":
+        - /url: /s/sportcenter-kautz
+    - listitem:
+      - link "Sports fields":
+        - /url: "#"
+    - listitem:
+      - link "Matches":
+        - /url: "#"
+    - listitem:
+      - link "Prices":
+        - /url: "#"
+    - listitem:
+      - link "Ratings":
+        - /url: /s/sportcenter-kautz#gotoratings
+  - heading "Sportcenter Kautz - Booking plan" [level=1]
+  - navigation "Select sport":
+    - list:
+      - listitem: Tennis
+      - listitem: Badminton
+      - listitem: Squash
+      - listitem: Table tennis
+  - textbox "Choose date": 19/08/2025
+  - text: 
+  - button "" [disabled]
+  - button "Today"
+  - button ""
+  - progressbar: load calendar...
+- contentinfo:
+  - heading "More of Eversports" [level=2]
+  - list:
+    - listitem:
+      - link "About us":
+        - /url: https://www.eversportsmanager.com/de/uber-uns/
+    - listitem:
+      - link "Blog":
+        - /url: https://blog.eversports.com/?utm_source=marketplace&utm_medium=footer_link&utm_campaign=b2c_blog_footer_link
+    - listitem:
+      - link "Career":
+        - /url: https://www.eversportsmanager.com/de/jobs/
+    - listitem:
+      - link "Security":
+        - /url: /h/security
+    - listitem:
+      - link "For companies":
+        - /url: https://www.eversportsmanager.com/de/corporate-fitness/
+  - heading "Eversports Manager" [level=2]
+  - list:
+    - listitem:
+      - link "Visit the website":
+        - /url: https://www.eversportsmanager.com/de/partner-werden/?utm_source=Referrals&utm_medium=marketplace-website-footer&utm_campaign=mp-b2b-landingpage
+    - listitem:
+      - link "Pricing":
+        - /url: https://www.eversportsmanager.com/de/preise/?utm_source=Referrals&utm_medium=marketplace-pricing-footer&utm_campaign=mp-b2b-pricingpage
+    - listitem:
+      - link "Get a free demo":
+        - /url: https://www.eversportsmanager.com/de/demo/?utm_source=Referrals&utm_medium=marketplace-demo-footer&utm_campaign=mp-b2b-demopage
+  - heading "Contact" [level=2]
+  - list:
+    - listitem:
+      - link "Contact":
+        - /url: /h/contact
+    - listitem:
+      - link "Impressum":
+        - /url: /h/about
+    - listitem:
+      - link "Data protection":
+        - /url: /h/privacy
+    - listitem:
+      - link "Terms and conditions":
+        - /url: /h/terms
+    - listitem:
+      - link "Accessibility Statement":
+        - /url: /h/accessibility
+    - listitem:
+      - link "Cookie Settings":
+        - /url: "#"
+    - listitem:
+      - link "Cancel a membership":
+        - /url: /h/cancel-membership
+  - heading "Social Media" [level=2]
+  - link "Facebook Profile":
+    - /url: //fb.com/eversports
+    - img
+  - link "YouTube Profile":
+    - /url: https://www.youtube.com/channel/UCJvG0QxfPt33Ds1bx436-vQ
+    - img
+  - link "Instagram Profile":
+    - /url: https://www.instagram.com/eversports_official
+    - img
+  - heading "Apps" [level=2]
+  - link "iOS App Store":
+    - /url: https://apps.apple.com/us/app/id946460861
+    - img "iOS App Store"
+  - link "Android":
+    - /url: https://play.google.com/store/apps/details?id=at.eversport&hl=us
+    - img "Android"
+  - img
+  - paragraph: 2025 Eversports Gmbh. All rights reserved
+- dialog:
+  - document:
+    - heading "Cookie Settings" [level=3]
+    - button "Close"
+    - paragraph: We use cookies so that we can offer you the best possible website experience. You are free to decide which categories you would like to permit. You can edit your cookie settings at any time.
+    - button "Cookie Preferences":
+      - text: Cookie Preferences
+      - img
+    - button "Accept all"
+```

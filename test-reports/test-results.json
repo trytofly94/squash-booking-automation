@@ -1,0 +1,251 @@
+{
+  "config": {
+    "configFile": "/Volumes/Dokumente/Projekte/Coding/Web-Automationen/Squash-Buchen/playwright.config.ts",
+    "rootDir": "/Volumes/Dokumente/Projekte/Coding/Web-Automationen/Squash-Buchen/tests",
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": "/Volumes/Dokumente/Projekte/Coding/Web-Automationen/Squash-Buchen/tests/playwright-setup.ts",
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "project": "Squash Booking Automation",
+      "version": "2.0",
+      "environment": "development"
+    },
+    "preserveOutput": "always",
+    "reporter": [
+      [
+        "html",
+        {
+          "outputFolder": "test-reports/html-report",
+          "open": "never"
+        }
+      ],
+      [
+        "junit",
+        {
+          "outputFile": "test-reports/junit-results.xml"
+        }
+      ],
+      [
+        "json",
+        {
+          "outputFile": "test-reports/test-results.json"
+        }
+      ],
+      [
+        "line",
+        null
+      ],
+      [
+        "blob",
+        {
+          "outputDir": "test-reports/blob-report"
+        }
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "quiet": false,
+    "projects": [
+      {
+        "outputDir": "/Volumes/Dokumente/Projekte/Coding/Web-Automationen/Squash-Buchen/test-artifacts",
+        "repeatEach": 1,
+        "retries": 1,
+        "metadata": {
+          "project": "Squash Booking Automation",
+          "version": "2.0",
+          "environment": "development"
+        },
+        "id": "chromium",
+        "name": "chromium",
+        "testDir": "/Volumes/Dokumente/Projekte/Coding/Web-Automationen/Squash-Buchen/tests",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 60000
+      },
+      {
+        "outputDir": "/Volumes/Dokumente/Projekte/Coding/Web-Automationen/Squash-Buchen/test-artifacts",
+        "repeatEach": 1,
+        "retries": 1,
+        "metadata": {
+          "project": "Squash Booking Automation",
+          "version": "2.0",
+          "environment": "development"
+        },
+        "id": "firefox",
+        "name": "firefox",
+        "testDir": "/Volumes/Dokumente/Projekte/Coding/Web-Automationen/Squash-Buchen/tests",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 60000
+      },
+      {
+        "outputDir": "/Volumes/Dokumente/Projekte/Coding/Web-Automationen/Squash-Buchen/test-artifacts",
+        "repeatEach": 1,
+        "retries": 1,
+        "metadata": {
+          "project": "Squash Booking Automation",
+          "version": "2.0",
+          "environment": "development"
+        },
+        "id": "webkit",
+        "name": "webkit",
+        "testDir": "/Volumes/Dokumente/Projekte/Coding/Web-Automationen/Squash-Buchen/tests",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 60000
+      },
+      {
+        "outputDir": "/Volumes/Dokumente/Projekte/Coding/Web-Automationen/Squash-Buchen/test-artifacts",
+        "repeatEach": 1,
+        "retries": 1,
+        "metadata": {
+          "project": "Squash Booking Automation",
+          "version": "2.0",
+          "environment": "development"
+        },
+        "id": "Mobile Chrome",
+        "name": "Mobile Chrome",
+        "testDir": "/Volumes/Dokumente/Projekte/Coding/Web-Automationen/Squash-Buchen/tests",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 60000
+      },
+      {
+        "outputDir": "/Volumes/Dokumente/Projekte/Coding/Web-Automationen/Squash-Buchen/test-artifacts",
+        "repeatEach": 1,
+        "retries": 1,
+        "metadata": {
+          "project": "Squash Booking Automation",
+          "version": "2.0",
+          "environment": "development"
+        },
+        "id": "Mobile Safari",
+        "name": "Mobile Safari",
+        "testDir": "/Volumes/Dokumente/Projekte/Coding/Web-Automationen/Squash-Buchen/tests",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 60000
+      },
+      {
+        "outputDir": "/Volumes/Dokumente/Projekte/Coding/Web-Automationen/Squash-Buchen/test-artifacts",
+        "repeatEach": 1,
+        "retries": 1,
+        "metadata": {
+          "project": "Squash Booking Automation",
+          "version": "2.0",
+          "environment": "development"
+        },
+        "id": "Microsoft Edge",
+        "name": "Microsoft Edge",
+        "testDir": "/Volumes/Dokumente/Projekte/Coding/Web-Automationen/Squash-Buchen/tests",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 60000
+      },
+      {
+        "outputDir": "/Volumes/Dokumente/Projekte/Coding/Web-Automationen/Squash-Buchen/test-artifacts",
+        "repeatEach": 1,
+        "retries": 1,
+        "metadata": {
+          "project": "Squash Booking Automation",
+          "version": "2.0",
+          "environment": "development"
+        },
+        "id": "Google Chrome",
+        "name": "Google Chrome",
+        "testDir": "/Volumes/Dokumente/Projekte/Coding/Web-Automationen/Squash-Buchen/tests",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 60000
+      }
+    ],
+    "shard": null,
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.54.2",
+    "workers": 1,
+    "webServer": null
+  },
+  "suites": [],
+  "errors": [
+    {
+      "message": "ReferenceError: describe is not defined",
+      "stack": "ReferenceError: describe is not defined\n    at Object.<anonymous> (/Volumes/Dokumente/Projekte/Coding/Web-Automationen/Squash-Buchen/tests/unit/BookingCalendarPage.test.ts:4:1)",
+      "location": {
+        "file": "/Volumes/Dokumente/Projekte/Coding/Web-Automationen/Squash-Buchen/tests/unit/BookingCalendarPage.test.ts",
+        "column": 1,
+        "line": 4
+      },
+      "snippet": "\u001b[90m   at \u001b[39munit/BookingCalendarPage.test.ts:4\n\n  2 | import { Page } from '@playwright/test';\n  3 |\n> 4 | describe('BookingCalendarPage - Date Navigation', () => {\n    | ^\n  5 |   let mockPage: jest.Mocked<Page>;\n  6 |   let calendarPage: BookingCalendarPage;\n  7 |"
+    },
+    {
+      "message": "Error: Do not import `@jest/globals` outside of the Jest test environment",
+      "stack": "Error: Do not import `@jest/globals` outside of the Jest test environment\n    at Object.<anonymous> (/Volumes/Dokumente/Projekte/Coding/Web-Automationen/Squash-Buchen/node_modules/@jest/globals/build/index.js:12:7)\n    at Object.<anonymous> (/Volumes/Dokumente/Projekte/Coding/Web-Automationen/Squash-Buchen/tests/unit/BookingManager.test.ts:1:1)",
+      "location": {
+        "file": "/Volumes/Dokumente/Projekte/Coding/Web-Automationen/Squash-Buchen/tests/unit/BookingManager.test.ts",
+        "column": 1,
+        "line": 1
+      },
+      "snippet": "\u001b[90m   at \u001b[39munit/BookingManager.test.ts:1\n\n> 1 | import { jest } from '@jest/globals';\n    | ^\n  2 | import { BookingManager } from '../../src/core/BookingManager';\n  3 | import { DateTimeCalculator } from '../../src/core/DateTimeCalculator';\n  4 | import type { Page } from '@playwright/test';"
+    },
+    {
+      "message": "ReferenceError: describe is not defined",
+      "stack": "ReferenceError: describe is not defined\n    at Object.<anonymous> (/Volumes/Dokumente/Projekte/Coding/Web-Automationen/Squash-Buchen/tests/unit/DateTimeCalculator.test.ts:3:1)",
+      "location": {
+        "file": "/Volumes/Dokumente/Projekte/Coding/Web-Automationen/Squash-Buchen/tests/unit/DateTimeCalculator.test.ts",
+        "column": 1,
+        "line": 3
+      },
+      "snippet": "\u001b[90m   at \u001b[39munit/DateTimeCalculator.test.ts:3\n\n  1 | import { DateTimeCalculator } from '../../src/core/DateTimeCalculator';\n  2 |\n> 3 | describe('DateTimeCalculator', () => {\n    | ^\n  4 |   // Remove global date mocking for now - tests will use current date\n  5 |\n  6 |   describe('calculateBookingDate', () => {"
+    },
+    {
+      "message": "ReferenceError: describe is not defined",
+      "stack": "ReferenceError: describe is not defined\n    at Object.<anonymous> (/Volumes/Dokumente/Projekte/Coding/Web-Automationen/Squash-Buchen/tests/unit/IsolationChecker.test.ts:4:1)",
+      "location": {
+        "file": "/Volumes/Dokumente/Projekte/Coding/Web-Automationen/Squash-Buchen/tests/unit/IsolationChecker.test.ts",
+        "column": 1,
+        "line": 4
+      },
+      "snippet": "\u001b[90m   at \u001b[39munit/IsolationChecker.test.ts:4\n\n  2 | import { BookingSlot, BookingPair } from '../../src/types/booking.types';\n  3 |\n> 4 | describe('IsolationChecker', () => {\n    | ^\n  5 |   const createMockSlot = (startTime: string, isAvailable: boolean = true): BookingSlot => ({\n  6 |     date: '2025-09-07',\n  7 |     startTime,"
+    },
+    {
+      "message": "Error: Do not import `@jest/globals` outside of the Jest test environment",
+      "stack": "Error: Do not import `@jest/globals` outside of the Jest test environment\n    at Object.<anonymous> (/Volumes/Dokumente/Projekte/Coding/Web-Automationen/Squash-Buchen/node_modules/@jest/globals/build/index.js:12:7)\n    at Object.<anonymous> (/Volumes/Dokumente/Projekte/Coding/Web-Automationen/Squash-Buchen/tests/unit/SlotSearcher.test.ts:1:1)",
+      "location": {
+        "file": "/Volumes/Dokumente/Projekte/Coding/Web-Automationen/Squash-Buchen/tests/unit/SlotSearcher.test.ts",
+        "column": 1,
+        "line": 1
+      },
+      "snippet": "\u001b[90m   at \u001b[39munit/SlotSearcher.test.ts:1\n\n> 1 | import { jest } from '@jest/globals';\n    | ^\n  2 | import { SlotSearcher } from '../../src/core/SlotSearcher';\n  3 | import type { Page } from '@playwright/test';\n  4 |"
+    }
+  ],
+  "stats": {
+    "startTime": "2025-08-19T16:37:50.644Z",
+    "duration": 4090.0499999999993,
+    "expected": 0,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  }
+}

@@ -1,4 +1,4 @@
-import { Page, Locator } from '@playwright/test';
+import type { Page, Locator } from '@playwright/test';
 import { logger } from '../utils/logger';
 
 /**
@@ -19,7 +19,7 @@ export abstract class BasePage {
   async navigateTo(path: string = ''): Promise<void> {
     const fullUrl = path.startsWith('http') ? path : `${this.baseUrl}${path}`;
     logger.info('Navigating to URL', 'BasePage', { url: fullUrl });
-    
+
     await this.page.goto(fullUrl);
     await this.waitForPageLoad();
   }
@@ -37,7 +37,9 @@ export abstract class BasePage {
    */
   async waitForElement(selector: string, timeout: number = 10000): Promise<Locator> {
     logger.debug('Waiting for element', 'BasePage', { selector, timeout });
-    return this.page.locator(selector).waitFor({ state: 'visible', timeout });
+    const locator = this.page.locator(selector);
+    await locator.waitFor({ state: 'visible', timeout });
+    return locator;
   }
 
   /**
@@ -45,7 +47,7 @@ export abstract class BasePage {
    */
   async safeClick(selector: string, retries: number = 3): Promise<void> {
     const component = 'BasePage.safeClick';
-    
+
     for (let attempt = 1; attempt <= retries; attempt++) {
       try {
         await this.waitForElement(selector);
@@ -53,15 +55,15 @@ export abstract class BasePage {
         logger.debug('Clicked element successfully', component, { selector, attempt });
         return;
       } catch (error) {
-        logger.warn(`Click attempt ${attempt} failed`, component, { 
-          selector, 
-          error: error.message 
+        logger.warn(`Click attempt ${attempt} failed`, component, {
+          selector,
+          error: error instanceof Error ? error.message : String(error),
         });
-        
+
         if (attempt === retries) {
           throw new Error(`Failed to click ${selector} after ${retries} attempts`);
         }
-        
+
         await this.page.waitForTimeout(1000 * attempt);
       }
     }
@@ -72,21 +74,25 @@ export abstract class BasePage {
    */
   async safeFill(selector: string, value: string, validateFill: boolean = true): Promise<void> {
     const component = 'BasePage.safeFill';
-    
+
     try {
       await this.waitForElement(selector);
       await this.page.fill(selector, value);
-      
+
       if (validateFill) {
         const actualValue = await this.page.inputValue(selector);
         if (actualValue !== value) {
           throw new Error(`Fill validation failed. Expected: ${value}, Actual: ${actualValue}`);
         }
       }
-      
+
       logger.debug('Filled element successfully', component, { selector, value });
     } catch (error) {
-      logger.error('Fill operation failed', component, { selector, value, error: error.message });
+      logger.error('Fill operation failed', component, {
+        selector,
+        value,
+        error: error instanceof Error ? error.message : String(error),
+      });
       throw error;
     }
   }
@@ -130,19 +136,25 @@ export abstract class BasePage {
    */
   async waitForAnySelector(selectors: string[], timeout: number = 10000): Promise<string> {
     const component = 'BasePage.waitForAnySelector';
-    
+
     logger.debug('Waiting for any selector', component, { selectors, timeout });
-    
-    const promises = selectors.map(selector => 
-      this.page.locator(selector).waitFor({ state: 'visible', timeout }).then(() => selector)
+
+    const promises = selectors.map(selector =>
+      this.page
+        .locator(selector)
+        .waitFor({ state: 'visible', timeout })
+        .then(() => selector)
     );
-    
+
     try {
       const foundSelector = await Promise.race(promises);
       logger.debug('Found selector', component, { foundSelector });
       return foundSelector;
     } catch (error) {
-      logger.error('No selectors found', component, { selectors, error: error.message });
+      logger.error('No selectors found', component, {
+        selectors,
+        error: error instanceof Error ? error.message : String(error),
+      });
       throw new Error(`None of the selectors found within ${timeout}ms: ${selectors.join(', ')}`);
     }
   }
@@ -153,10 +165,10 @@ export abstract class BasePage {
   async takeScreenshot(name: string = 'debug'): Promise<string> {
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     const filename = `screenshots/${name}-${timestamp}.png`;
-    
+
     await this.page.screenshot({ path: filename, fullPage: true });
     logger.info('Screenshot taken', 'BasePage', { filename });
-    
+
     return filename;
   }
 
@@ -182,14 +194,14 @@ export abstract class BasePage {
    */
   async handleCookieConsent(): Promise<void> {
     const component = 'BasePage.handleCookieConsent';
-    
+
     const cookieSelectors = [
       'button[data-testid="accept-cookies"]',
       '.cookie-accept',
       '.consent-accept',
       'button:has-text("Accept")',
       'button:has-text("Akzeptieren")',
-      '#CybotCookiebotDialogBodyLevelButtonLevelOptinAllowAll'
+      '#CybotCookiebotDialogBodyLevelButtonLevelOptinAllowAll',
     ];
 
     try {

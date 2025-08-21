@@ -19,11 +19,11 @@ afterAll(() => {
 });
 
 // Mock environment variables for testing
-process.env.NODE_ENV = 'test';
-process.env.LOG_LEVEL = 'error'; // Reduce log noise in tests
+process.env['NODE_ENV'] = 'test';
+process.env['LOG_LEVEL'] = 'error'; // Reduce log noise in tests
 
 // Global test utilities
-global.testUtils = {
+(global as any).testUtils = {
   /**
    * Create a mock booking slot
    */
@@ -33,21 +33,21 @@ global.testUtils = {
     courtId: 'court-1',
     isAvailable: true,
     elementSelector: '#slot-14-00-court-1',
-    ...overrides
+    ...overrides,
   }),
 
   /**
    * Create a mock booking pair
    */
   createMockBookingPair: (overrides = {}) => {
-    const slot1 = global.testUtils.createMockBookingSlot({ startTime: '14:00' });
-    const slot2 = global.testUtils.createMockBookingSlot({ startTime: '14:30' });
-    
+    const slot1 = (global as any).testUtils.createMockBookingSlot({ startTime: '14:00' });
+    const slot2 = (global as any).testUtils.createMockBookingSlot({ startTime: '14:30' });
+
     return {
       slot1,
       slot2,
       courtId: 'court-1',
-      ...overrides
+      ...overrides,
     };
   },
 
@@ -65,11 +65,11 @@ global.testUtils = {
     $$: jest.fn().mockResolvedValue([]),
     waitForTimeout: jest.fn().mockResolvedValue(undefined),
     keyboard: {
-      press: jest.fn().mockResolvedValue(undefined)
+      press: jest.fn().mockResolvedValue(undefined),
     },
     locator: jest.fn().mockReturnValue({
       waitFor: jest.fn().mockResolvedValue(undefined),
-      scrollIntoViewIfNeeded: jest.fn().mockResolvedValue(undefined)
+      scrollIntoViewIfNeeded: jest.fn().mockResolvedValue(undefined),
     }),
     screenshot: jest.fn().mockResolvedValue(Buffer.from('')),
     url: jest.fn().mockReturnValue('https://test.example.com'),
@@ -77,7 +77,7 @@ global.testUtils = {
     reload: jest.fn().mockResolvedValue(undefined),
     inputValue: jest.fn().mockResolvedValue(''),
     isChecked: jest.fn().mockResolvedValue(false),
-    getAttribute: jest.fn().mockResolvedValue(null)
+    getAttribute: jest.fn().mockResolvedValue(null),
   }),
 
   /**
@@ -99,18 +99,19 @@ global.testUtils = {
    */
   restoreDate: () => {
     jest.restoreAllMocks();
-  }
+  },
 };
 
 // Add type declarations for global test utilities
 declare global {
-  namespace globalThis {
-    var testUtils: {
-      createMockBookingSlot: (overrides?: any) => any;
-      createMockBookingPair: (overrides?: any) => any;
+  // eslint-disable-next-line no-unused-vars
+  namespace _globalThis {
+    const _testUtils: {
+      createMockBookingSlot: (_overrides?: any) => any;
+      createMockBookingPair: (_overrides?: any) => any;
       createMockPage: () => any;
-      wait: (ms: number) => Promise<void>;
-      mockDate: (dateString: string) => Date;
+      wait: (_ms: number) => Promise<void>;
+      mockDate: (_dateString: string) => Date;
       restoreDate: () => void;
     };
   }
