@@ -1,0 +1,274 @@
+{
+  "results": [
+    {
+      "selector": "[data-court]",
+      "count": 1477,
+      "samples": [
+        {
+          "attributes": {
+            "data-court": "45674"
+          },
+          "textContent": "Court 1",
+          "isVisible": true
+        },
+        {
+          "attributes": {
+            "data-court": "45674",
+            "data-date": "2025-08-21",
+            "data-start": "0800",
+            "data-state": "booked",
+            "class": "es-tooltip"
+          },
+          "textContent": "",
+          "isVisible": true
+        },
+        {
+          "attributes": {
+            "data-court": "45674",
+            "data-date": "2025-08-21",
+            "data-start": "0830",
+            "data-state": "booked",
+            "class": "es-tooltip"
+          },
+          "textContent": "",
+          "isVisible": true
+        }
+      ]
+    },
+    {
+      "selector": "td[data-court]",
+      "count": 1477,
+      "samples": [
+        {
+          "attributes": {
+            "data-court": "45674"
+          },
+          "textContent": "Court 1",
+          "isVisible": true
+        },
+        {
+          "attributes": {
+            "data-court": "45674",
+            "data-date": "2025-08-21",
+            "data-start": "0800",
+            "data-state": "booked",
+            "class": "es-tooltip"
+          },
+          "textContent": "",
+          "isVisible": true
+        },
+        {
+          "attributes": {
+            "data-court": "45674",
+            "data-date": "2025-08-21",
+            "data-start": "0830",
+            "data-state": "booked",
+            "class": "es-tooltip"
+          },
+          "textContent": "",
+          "isVisible": true
+        }
+      ]
+    },
+    {
+      "selector": "td[data-date]",
+      "count": 1428,
+      "samples": [
+        {
+          "attributes": {
+            "data-court": "45674",
+            "data-date": "2025-08-21",
+            "data-start": "0800",
+            "data-state": "booked",
+            "class": "es-tooltip"
+          },
+          "textContent": "",
+          "isVisible": true
+        },
+        {
+          "attributes": {
+            "data-court": "45674",
+            "data-date": "2025-08-21",
+            "data-start": "0830",
+            "data-state": "booked",
+            "class": "es-tooltip"
+          },
+          "textContent": "",
+          "isVisible": true
+        },
+        {
+          "attributes": {
+            "data-court": "45674",
+            "data-date": "2025-08-21",
+            "data-start": "0900",
+            "data-state": "booked",
+            "class": "es-tooltip"
+          },
+          "textContent": "",
+          "isVisible": true
+        }
+      ]
+    },
+    {
+      "selector": "td[data-start]",
+      "count": 1428,
+      "samples": [
+        {
+          "attributes": {
+            "data-court": "45674",
+            "data-date": "2025-08-21",
+            "data-start": "0800",
+            "data-state": "booked",
+            "class": "es-tooltip"
+          },
+          "textContent": "",
+          "isVisible": true
+        },
+        {
+          "attributes": {
+            "data-court": "45674",
+            "data-date": "2025-08-21",
+            "data-start": "0830",
+            "data-state": "booked",
+            "class": "es-tooltip"
+          },
+          "textContent": "",
+          "isVisible": true
+        },
+        {
+          "attributes": {
+            "data-court": "45674",
+            "data-date": "2025-08-21",
+            "data-start": "0900",
+            "data-state": "booked",
+            "class": "es-tooltip"
+          },
+          "textContent": "",
+          "isVisible": true
+        }
+      ]
+    },
+    {
+      "selector": "td[data-state]",
+      "count": 1428,
+      "samples": [
+        {
+          "attributes": {
+            "data-court": "45674",
+            "data-date": "2025-08-21",
+            "data-start": "0800",
+            "data-state": "booked",
+            "class": "es-tooltip"
+          },
+          "textContent": "",
+          "isVisible": true
+        },
+        {
+          "attributes": {
+            "data-court": "45674",
+            "data-date": "2025-08-21",
+            "data-start": "0830",
+            "data-state": "booked",
+            "class": "es-tooltip"
+          },
+          "textContent": "",
+          "isVisible": true
+        },
+        {
+          "attributes": {
+            "data-court": "45674",
+            "data-date": "2025-08-21",
+            "data-start": "0900",
+            "data-state": "booked",
+            "class": "es-tooltip"
+          },
+          "textContent": "",
+          "isVisible": true
+        }
+      ]
+    },
+    {
+      "selector": "td[data-date][data-court]",
+      "count": 1428,
+      "samples": [
+        {
+          "attributes": {
+            "data-court": "45674",
+            "data-date": "2025-08-21",
+            "data-start": "0800",
+            "data-state": "booked",
+            "class": "es-tooltip"
+          },
+          "textContent": "",
+          "isVisible": true
+        },
+        {
+          "attributes": {
+            "data-court": "45674",
+            "data-date": "2025-08-21",
+            "data-start": "0830",
+            "data-state": "booked",
+            "class": "es-tooltip"
+          },
+          "textContent": "",
+          "isVisible": true
+        },
+        {
+          "attributes": {
+            "data-court": "45674",
+            "data-date": "2025-08-21",
+            "data-start": "0900",
+            "data-state": "booked",
+            "class": "es-tooltip"
+          },
+          "textContent": "",
+          "isVisible": true
+        }
+      ]
+    },
+    {
+      "selector": "td[data-start][data-court]",
+      "count": 1428,
+      "samples": [
+        {
+          "attributes": {
+            "data-court": "45674",
+            "data-date": "2025-08-21",
+            "data-start": "0800",
+            "data-state": "booked",
+            "class": "es-tooltip"
+          },
+          "textContent": "",
+          "isVisible": true
+        },
+        {
+          "attributes": {
+            "data-court": "45674",
+            "data-date": "2025-08-21",
+            "data-start": "0830",
+            "data-state": "booked",
+            "class": "es-tooltip"
+          },
+          "textContent": "",
+          "isVisible": true
+        },
+        {
+          "attributes": {
+            "data-court": "45674",
+            "data-date": "2025-08-21",
+            "data-start": "0900",
+            "data-state": "booked",
+            "class": "es-tooltip"
+          },
+          "textContent": "",
+          "isVisible": true
+        }
+      ]
+    }
+  ],
+  "optimizedSelectors": [
+    "td[data-court][data-date]",
+    "td[data-court][data-start]",
+    "td[data-court][data-state]"
+  ]
+}
