@@ -1,37 +1,128 @@
 import type { Page } from '@playwright/test';
-import { BookingConfig, BookingResult, BookingPair } from '../types/booking.types';
+import { 
+  BookingConfig, 
+  BookingResult, 
+  BookingPair,
+  AdvancedBookingConfig,
+  CourtScoringWeights,
+  TimePreference,
+  BookingPattern
+} from '../types/booking.types';
 import { DateTimeCalculator } from './DateTimeCalculator';
 import { SlotSearcher } from './SlotSearcher';
 import { IsolationChecker } from './IsolationChecker';
+import { CourtScorer } from './CourtScorer';
+import { PatternStorage } from './PatternStorage';
+import { TimeSlotGenerator } from './TimeSlotGenerator';
 import { logger } from '../utils/logger';
 import { DryRunValidator } from '../utils/DryRunValidator';
+import { getDay } from 'date-fns';
 
 /**
- * Main orchestrator for the squash court booking automation
+ * Enhanced main orchestrator for squash court booking automation
+ * Integrates advanced booking logic with court scoring, pattern learning, and intelligent fallbacks
  */
 export class BookingManager {
   private page: Page;
-  private config: BookingConfig;
+  private config: AdvancedBookingConfig;
   private validator: DryRunValidator;
+  private courtScorer: CourtScorer;
+  private patternStorage: PatternStorage;
+  private timeSlotGenerator: TimeSlotGenerator;
+  private patternLearningEnabled: boolean;
 
-  constructor(page: Page, config: Partial<BookingConfig> = {}) {
+  constructor(page: Page, config: Partial<AdvancedBookingConfig> = {}) {
     this.page = page;
+    
+    // Extended configuration with new advanced features
     this.config = {
+      // Basic configuration
       daysAhead: config.daysAhead || 20,
       targetStartTime: config.targetStartTime || '14:00',
       duration: config.duration || 60,
       maxRetries: config.maxRetries || 3,
       dryRun: config.dryRun !== false, // Default to true for safety
+      
+      // Advanced configuration
+      timezone: config.timezone || process.env.TIMEZONE || 'Europe/Berlin',
+      preferredCourts: config.preferredCourts || this.parsePreferredCourts(),
+      enablePatternLearning: config.enablePatternLearning ?? 
+        (process.env.BOOKING_PATTERN_LEARNING === 'true'),
+      fallbackTimeRange: config.fallbackTimeRange || 
+        parseInt(process.env.FALLBACK_TIME_RANGE || '120'),
+      courtScoringWeights: config.courtScoringWeights || {
+        availability: 0.4,
+        historical: 0.3,
+        preference: 0.2,
+        position: 0.1
+      },
+      timePreferences: config.timePreferences || this.generateDefaultTimePreferences(),
+      holidayProvider: config.holidayProvider
     };
 
-    // Initialize validator with strict safety for production-like environments
+    this.patternLearningEnabled = this.config.enablePatternLearning;
+
+    // Initialize enhanced components
     this.validator = new DryRunValidator(
       process.env['NODE_ENV'] === 'production' ? 'strict' : 'standard'
     );
+    this.courtScorer = new CourtScorer(this.config.courtScoringWeights);
+    this.patternStorage = new PatternStorage();
+    this.timeSlotGenerator = new TimeSlotGenerator();
+
+    // Initialize pattern learning if enabled
+    if (this.patternLearningEnabled) {
+      this.initializePatternLearning();
+    }
+
+    logger.info('BookingManager initialized with advanced features', 'BookingManager', {
+      timezone: this.config.timezone,
+      preferredCourts: this.config.preferredCourts,
+      patternLearning: this.patternLearningEnabled,
+      fallbackRange: this.config.fallbackTimeRange,
+      scoringWeights: this.config.courtScoringWeights
+    });
   }
 
   /**
-   * Execute the complete booking process
+   * Initialize pattern learning system
+   */
+  private async initializePatternLearning(): Promise<void> {
+    try {
+      const patterns = await this.patternStorage.loadPatterns();
+      this.courtScorer.loadPatterns(patterns);
+      
+      logger.info('Pattern learning initialized', 'BookingManager', {
+        loadedPatterns: patterns.length
+      });
+    } catch (error) {
+      logger.warn('Failed to initialize pattern learning', 'BookingManager', {
+        error: (error as Error).message
+      });
+    }
+  }
+
+  /**
+   * Parse preferred courts from environment variable
+   */
+  private parsePreferredCourts(): string[] {
+    const prefCourts = process.env.PREFERRED_COURTS || '';
+    return prefCourts.split(',').map(c => c.trim()).filter(c => c.length > 0);
+  }
+
+  /**
+   * Generate default time preferences based on target time
+   */
+  private generateDefaultTimePreferences(): TimePreference[] {
+    const targetTime = this.config?.targetStartTime || '14:00';
+    
+    return [
+      { startTime: targetTime, priority: 10, flexibility: 30 }
+    ];
+  }
+
+  /**
+   * Execute the complete booking process with enhanced intelligence
    */
   async executeBooking(): Promise<BookingResult> {
     const component = 'BookingManager';
@@ -125,21 +216,99 @@ export class BookingManager {
   }
 
   /**
-   * Single booking attempt
+   * Enhanced booking attempt with intelligent court selection and fallback strategies
    */
   private async attemptBooking(): Promise<BookingResult> {
     const component = 'BookingManager.attemptBooking';
 
     try {
-      // Calculate target date and time slots
-      const targetDate = DateTimeCalculator.calculateBookingDate(this.config.daysAhead);
-      const timeSlots = DateTimeCalculator.generateTimeSlots(this.config.targetStartTime);
+      // Calculate target date with timezone awareness
+      const targetDate = DateTimeCalculator.calculateBookingDate(
+        this.config.daysAhead,
+        this.config.timezone
+      );
+      
+      const dayOfWeek = getDay(DateTimeCalculator.getCurrentTimestamp(this.config.timezone));
 
-      logger.info('Calculated booking parameters', component, {
+      // Generate prioritized time slots with fallback alternatives
+      const prioritizedTimeSlots = this.timeSlotGenerator.generatePrioritizedTimeSlots(
+        this.config.targetStartTime,
+        this.config.timePreferences,
+        this.config.fallbackTimeRange
+      );
+
+      logger.info('Calculated enhanced booking parameters', component, {
         targetDate,
-        timeSlots,
+        timezone: this.config.timezone,
+        dayOfWeek,
+        primaryTime: this.config.targetStartTime,
+        alternativeSlots: prioritizedTimeSlots.length,
         daysAhead: this.config.daysAhead,
       });
+
+      // Try booking with prioritized time slots (fallback strategy)
+      for (const timeSlot of prioritizedTimeSlots) {
+        const result = await this.attemptBookingForTimeSlot(
+          targetDate,
+          timeSlot,
+          dayOfWeek
+        );
+        
+        if (result.success) {
+          // Update pattern learning on success
+          if (this.patternLearningEnabled && result.bookedPair) {
+            await this.updateBookingPattern(
+              result.bookedPair.courtId,
+              timeSlot.startTime,
+              dayOfWeek,
+              true
+            );
+          }
+          
+          return result;
+        }
+        
+        // Log failed attempt but continue to next time slot
+        logger.debug('Time slot attempt failed, trying next', component, {
+          attemptedTime: timeSlot.startTime,
+          priority: timeSlot.priority,
+          error: result.error
+        });
+      }
+
+      // All time slots failed
+      return {
+        success: false,
+        error: `No bookings possible for any of ${prioritizedTimeSlots.length} time alternatives`,
+        retryAttempts: 0,
+        timestamp: DateTimeCalculator.getCurrentTimestamp(this.config.timezone),
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: `Enhanced booking attempt failed: ${error instanceof Error ? error.message : String(error)}`,
+        retryAttempts: 0,
+        timestamp: DateTimeCalculator.getCurrentTimestamp(this.config.timezone),
+      };
+    }
+  }
+
+  /**
+   * Attempt booking for a specific time slot with intelligent court selection
+   */
+  private async attemptBookingForTimeSlot(
+    targetDate: string,
+    timeSlot: { startTime: string; endTime: string; priority: number },
+    dayOfWeek: number
+  ): Promise<BookingResult> {
+    const component = 'BookingManager.attemptBookingForTimeSlot';
+    
+    try {
+      // Generate time slots for this specific time
+      const timeSlots = DateTimeCalculator.generateTimeSlots(
+        timeSlot.startTime,
+        this.config.duration
+      );
 
       // Navigate to booking page
       await this.navigateToBookingPage(targetDate);
@@ -149,36 +318,36 @@ export class BookingManager {
       const searchResult = await slotSearcher.searchAvailableSlots();
 
       if (searchResult.availablePairs.length === 0) {
+        // Update pattern learning on failure
+        if (this.patternLearningEnabled) {
+          // Update patterns for all preferred courts as failed
+          for (const courtId of this.config.preferredCourts) {
+            await this.updateBookingPattern(courtId, timeSlot.startTime, dayOfWeek, false);
+          }
+        }
+        
         return {
           success: false,
-          error: 'No available slot pairs found for the target date and time',
+          error: `No available slot pairs found for ${timeSlot.startTime}`,
           retryAttempts: 0,
-          timestamp: DateTimeCalculator.getCurrentTimestamp(),
+          timestamp: DateTimeCalculator.getCurrentTimestamp(this.config.timezone),
         };
       }
 
-      // Check for isolation and select best pair
-      const bestPair = IsolationChecker.findBestNonIsolatingPair(
-        searchResult.availablePairs,
-        this.getAllSlotsFromSearchResult(searchResult)
+      // Use intelligent court selection
+      const selectedPair = await this.selectOptimalCourt(
+        searchResult,
+        timeSlot.startTime,
+        dayOfWeek
       );
-
-      const selectedPair = bestPair || searchResult.availablePairs[0];
 
       if (!selectedPair) {
         return {
           success: false,
-          error: 'No available slots found',
+          error: 'No suitable courts available after intelligent selection',
           retryAttempts: 0,
-          timestamp: DateTimeCalculator.getCurrentTimestamp(),
+          timestamp: DateTimeCalculator.getCurrentTimestamp(this.config.timezone),
         };
-      }
-
-      if (!bestPair) {
-        logger.warn('No non-isolating pair found, using first available pair', component, {
-          selectedCourt: selectedPair.courtId,
-          selectedTime: selectedPair.slot1.startTime,
-        });
       }
 
       // Execute booking
@@ -190,10 +359,130 @@ export class BookingManager {
     } catch (error) {
       return {
         success: false,
-        error: `Booking attempt failed: ${error instanceof Error ? error.message : String(error)}`,
+        error: `Time slot booking failed: ${error instanceof Error ? error.message : String(error)}`,
         retryAttempts: 0,
-        timestamp: DateTimeCalculator.getCurrentTimestamp(),
+        timestamp: DateTimeCalculator.getCurrentTimestamp(this.config.timezone),
       };
+    }
+  }
+
+  /**
+   * Select optimal court using intelligence scoring system
+   */
+  private async selectOptimalCourt(
+    searchResult: any,
+    timeSlot: string,
+    dayOfWeek: number
+  ): Promise<BookingPair | null> {
+    const component = 'BookingManager.selectOptimalCourt';
+    
+    // Extract available court IDs
+    const availableCourtIds = searchResult.availableCourts;
+    const availablePairs = searchResult.availablePairs;
+    
+    // Score courts using the intelligent scoring system
+    const courtScores = this.courtScorer.scoreCourts(
+      availableCourtIds,
+      availableCourtIds, // All courts are available
+      this.config.preferredCourts,
+      timeSlot,
+      dayOfWeek
+    );
+
+    logger.debug('Court scoring completed', component, {
+      timeSlot,
+      dayOfWeek,
+      totalCourts: availableCourtIds.length,
+      scores: courtScores.slice(0, 3).map(s => ({
+        courtId: s.courtId,
+        score: s.score,
+        reason: s.reason
+      }))
+    });
+
+    // Get the best available court
+    const bestCourtId = this.courtScorer.getBestCourt(courtScores);
+    
+    if (!bestCourtId) {
+      logger.warn('No best court found from scoring', component);
+      return null;
+    }
+
+    // Find the booking pair for the best court
+    const bestPair = availablePairs.find((pair: BookingPair) => 
+      pair.courtId === bestCourtId
+    );
+
+    if (!bestPair) {
+      logger.warn('Best court has no available pairs', component, { bestCourtId });
+      return availablePairs[0] || null; // Fallback to first available
+    }
+
+    // Check for isolation before final selection
+    const nonIsolatingPairs = availablePairs.filter((pair: BookingPair) => {
+      const isolationCheck = IsolationChecker.checkIsolation(
+        pair,
+        this.getAllSlotsFromSearchResult(searchResult)
+      );
+      return !isolationCheck.hasIsolation;
+    });
+
+    // Prefer the best scoring court if it doesn't create isolation
+    const bestPairIsolationCheck = IsolationChecker.checkIsolation(
+      bestPair,
+      this.getAllSlotsFromSearchResult(searchResult)
+    );
+
+    if (!bestPairIsolationCheck.hasIsolation) {
+      logger.info('Selected optimal court without isolation', component, {
+        courtId: bestCourtId,
+        score: courtScores.find(s => s.courtId === bestCourtId)?.score
+      });
+      return bestPair;
+    }
+
+    // If best court creates isolation, try the next best non-isolating option
+    if (nonIsolatingPairs.length > 0) {
+      const alternativePair = nonIsolatingPairs[0];
+      logger.info('Selected alternative court to avoid isolation', component, {
+        originalCourt: bestCourtId,
+        selectedCourt: alternativePair.courtId
+      });
+      return alternativePair;
+    }
+
+    // If all pairs create isolation, use the best scoring one anyway
+    logger.warn('All pairs create isolation, using best scoring court', component, {
+      selectedCourt: bestCourtId
+    });
+    return bestPair;
+  }
+
+  /**
+   * Update booking pattern for pattern learning
+   */
+  private async updateBookingPattern(
+    courtId: string,
+    timeSlot: string,
+    dayOfWeek: number,
+    success: boolean
+  ): Promise<void> {
+    try {
+      this.courtScorer.updatePattern(courtId, timeSlot, dayOfWeek, success);
+      
+      // Periodically save patterns to storage
+      if (Math.random() < 0.1) { // 10% chance to save (to avoid too frequent I/O)
+        const patterns = this.courtScorer.exportPatterns();
+        await this.patternStorage.savePatterns(patterns);
+      }
+    } catch (error) {
+      logger.warn('Failed to update booking pattern', 'BookingManager', {
+        courtId,
+        timeSlot,
+        dayOfWeek,
+        success,
+        error: (error as Error).message
+      });
     }
   }
 
@@ -278,7 +567,7 @@ export class BookingManager {
   }
 
   /**
-   * Simulate booking for dry-run mode
+   * Simulate booking for dry-run mode with pattern learning
    */
   private async simulateBooking(pair: BookingPair): Promise<BookingResult> {
     const component = 'BookingManager.simulateBooking';
@@ -297,12 +586,12 @@ export class BookingManager {
       success: true,
       bookedPair: pair,
       retryAttempts: 1,
-      timestamp: DateTimeCalculator.getCurrentTimestamp(),
+      timestamp: DateTimeCalculator.getCurrentTimestamp(this.config.timezone),
     };
   }
 
   /**
-   * Execute real booking
+   * Execute real booking with enhanced error handling
    */
   private async executeRealBooking(pair: BookingPair): Promise<BookingResult> {
     const component = 'BookingManager.executeRealBooking';
@@ -337,14 +626,14 @@ export class BookingManager {
         success: true,
         bookedPair: pair,
         retryAttempts: 1,
-        timestamp: DateTimeCalculator.getCurrentTimestamp(),
+        timestamp: DateTimeCalculator.getCurrentTimestamp(this.config.timezone),
       };
     } catch (error) {
       return {
         success: false,
         error: `Real booking failed: ${error instanceof Error ? error.message : String(error)}`,
         retryAttempts: 1,
-        timestamp: DateTimeCalculator.getCurrentTimestamp(),
+        timestamp: DateTimeCalculator.getCurrentTimestamp(this.config.timezone),
       };
     }
   }
