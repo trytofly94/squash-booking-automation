@@ -35,6 +35,31 @@ export interface BookingConfig {
   maxRetries: number;
   /** Whether to run in dry-run mode (no actual booking) */
   dryRun: boolean;
+  /** Retry configuration */
+  retryConfig: RetryConfig;
+}
+
+export interface RetryConfig {
+  /** Initial delay in milliseconds (default: 1000) */
+  initialDelay: number;
+  /** Maximum delay in milliseconds (default: 30000) */
+  maxDelay: number;
+  /** Multiplier for exponential backoff (default: 2) */
+  backoffMultiplier: number;
+  /** Maximum jitter as percentage of delay (default: 0.1) */
+  maxJitter: number;
+  /** Circuit breaker threshold - failures before stopping (default: 5) */
+  circuitBreakerThreshold: number;
+  /** Circuit breaker timeout in milliseconds before retry (default: 300000) */
+  circuitBreakerTimeout: number;
+  /** Retry on network errors (default: true) */
+  retryOnNetworkError: boolean;
+  /** Retry on timeout errors (default: true) */
+  retryOnTimeout: boolean;
+  /** Retry on rate limiting (429 errors) (default: true) */
+  retryOnRateLimit: boolean;
+  /** Retry on server errors (5xx) (default: true) */
+  retryOnServerError: boolean;
 }
 
 export interface BookingResult {

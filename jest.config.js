@@ -64,6 +64,11 @@ module.exports = {
     }]
   },
   
+  // Transform ES modules from node_modules
+  transformIgnorePatterns: [
+    'node_modules/(?!(p-retry)/)'
+  ],
+  
   // Test environment options
   testEnvironmentOptions: {
     NODE_ENV: 'test'

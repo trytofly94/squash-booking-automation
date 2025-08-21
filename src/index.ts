@@ -22,6 +22,18 @@ async function main(): Promise<void> {
     duration: parseInt(process.env['DURATION'] || '60', 10),
     maxRetries: parseInt(process.env['MAX_RETRIES'] || '3', 10),
     dryRun: process.env['DRY_RUN']?.toLowerCase() === 'true',
+    retryConfig: {
+      initialDelay: parseInt(process.env['RETRY_INITIAL_DELAY'] || '1000', 10),
+      maxDelay: parseInt(process.env['RETRY_MAX_DELAY'] || '30000', 10),
+      backoffMultiplier: parseFloat(process.env['RETRY_BACKOFF_MULTIPLIER'] || '2'),
+      maxJitter: parseFloat(process.env['RETRY_MAX_JITTER'] || '0.1'),
+      circuitBreakerThreshold: parseInt(process.env['CIRCUIT_BREAKER_THRESHOLD'] || '5', 10),
+      circuitBreakerTimeout: parseInt(process.env['CIRCUIT_BREAKER_TIMEOUT'] || '300000', 10),
+      retryOnNetworkError: process.env['RETRY_ON_NETWORK_ERROR']?.toLowerCase() !== 'false',
+      retryOnTimeout: process.env['RETRY_ON_TIMEOUT']?.toLowerCase() !== 'false',
+      retryOnRateLimit: process.env['RETRY_ON_RATE_LIMIT']?.toLowerCase() !== 'false',
+      retryOnServerError: process.env['RETRY_ON_SERVER_ERROR']?.toLowerCase() !== 'false',
+    },
   };
 
   logger.info('Configuration loaded', component, { config });

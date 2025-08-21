@@ -5,6 +5,7 @@ import { SlotSearcher } from './SlotSearcher';
 import { IsolationChecker } from './IsolationChecker';
 import { logger } from '../utils/logger';
 import { DryRunValidator } from '../utils/DryRunValidator';
+import { RetryManager } from '../utils/RetryManager';
 
 /**
  * Main orchestrator for the squash court booking automation
@@ -13,25 +14,23 @@ export class BookingManager {
   private page: Page;
   private config: BookingConfig;
   private validator: DryRunValidator;
+  private retryManager: RetryManager;
 
-  constructor(page: Page, config: Partial<BookingConfig> = {}) {
+  constructor(page: Page, config: BookingConfig) {
     this.page = page;
-    this.config = {
-      daysAhead: config.daysAhead || 20,
-      targetStartTime: config.targetStartTime || '14:00',
-      duration: config.duration || 60,
-      maxRetries: config.maxRetries || 3,
-      dryRun: config.dryRun !== false, // Default to true for safety
-    };
+    this.config = config;
 
     // Initialize validator with strict safety for production-like environments
     this.validator = new DryRunValidator(
       process.env['NODE_ENV'] === 'production' ? 'strict' : 'standard'
     );
+
+    // Initialize retry manager
+    this.retryManager = new RetryManager(config.retryConfig);
   }
 
   /**
-   * Execute the complete booking process
+   * Execute the complete booking process with advanced retry logic
    */
   async executeBooking(): Promise<BookingResult> {
     const component = 'BookingManager';
@@ -62,66 +61,62 @@ export class BookingManager {
       });
     }
 
-    logger.info('Starting booking process', component, {
+    logger.info('Starting booking process with advanced retry logic', component, {
       config: this.config,
       mode: this.config.dryRun ? 'DRY_RUN' : 'PRODUCTION',
+      retryConfig: this.config.retryConfig,
       validationPassed: true
     });
 
-    let attempt = 0;
-    let lastError = '';
-
-    while (attempt < this.config.maxRetries) {
-      attempt++;
-      logger.logBookingAttempt(attempt, this.config.maxRetries, component);
-
-      try {
-        const result = await this.attemptBooking();
-
-        if (result.success) {
-          logger.logBookingSuccess(
-            result.bookedPair!.courtId,
-            result.bookedPair!.slot1.date,
-            result.bookedPair!.slot1.startTime,
-            component
-          );
-
-          return {
-            ...result,
-            retryAttempts: attempt,
-            timestamp: startTime,
-          };
+    try {
+      // Execute booking with advanced retry manager
+      const result = await this.retryManager.executeWithRetry(
+        () => this.attemptBooking(),
+        {
+          functionName: 'executeBooking',
+          component,
+          retries: this.config.maxRetries,
         }
+      );
 
-        lastError = result.error || 'Unknown error';
-        logger.warn(`Booking attempt ${attempt} failed`, component, { error: lastError });
+      if (result.success) {
+        logger.logBookingSuccess(
+          result.bookedPair!.courtId,
+          result.bookedPair!.slot1.date,
+          result.bookedPair!.slot1.startTime,
+          component
+        );
 
-        // Wait before retry (exponential backoff)
-        if (attempt < this.config.maxRetries) {
-          const waitTime = Math.pow(2, attempt) * 1000; // 2s, 4s, 8s, etc.
-          logger.info(`Waiting ${waitTime}ms before retry`, component);
-          await this.page.waitForTimeout(waitTime);
-        }
-      } catch (error) {
-        lastError = error instanceof Error ? error.message : String(error);
-        logger.error(`Booking attempt ${attempt} threw error`, component, { error: lastError });
-
-        if (attempt < this.config.maxRetries) {
-          await this.page.waitForTimeout(2000);
+        // Log circuit breaker status for monitoring
+        const circuitStatus = this.retryManager.getCircuitBreakerStatus();
+        if (Object.keys(circuitStatus).length > 0) {
+          logger.info('Circuit breaker status', component, { circuitStatus });
         }
       }
+
+      return {
+        ...result,
+        timestamp: startTime,
+      };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const finalResult: BookingResult = {
+        success: false,
+        error: errorMessage,
+        retryAttempts: this.config.maxRetries,
+        timestamp: startTime,
+      };
+
+      logger.logBookingFailure(finalResult.error!, component);
+      
+      // Log circuit breaker status on failure
+      const circuitStatus = this.retryManager.getCircuitBreakerStatus();
+      if (Object.keys(circuitStatus).length > 0) {
+        logger.error('Circuit breaker status after failure', component, { circuitStatus });
+      }
+
+      return finalResult;
     }
-
-    // All attempts failed
-    const finalResult: BookingResult = {
-      success: false,
-      error: `All ${this.config.maxRetries} booking attempts failed. Last error: ${lastError}`,
-      retryAttempts: attempt,
-      timestamp: startTime,
-    };
-
-    logger.logBookingFailure(finalResult.error!, component);
-    return finalResult;
   }
 
   /**
@@ -141,12 +136,24 @@ export class BookingManager {
         daysAhead: this.config.daysAhead,
       });
 
-      // Navigate to booking page
-      await this.navigateToBookingPage(targetDate);
+      // Navigate to booking page with retry logic
+      await this.retryManager.executeWithRetry(
+        () => this.navigateToBookingPage(targetDate),
+        {
+          functionName: 'navigateToBookingPage',
+          component,
+        }
+      );
 
-      // Search for available slots
+      // Search for available slots with retry logic
       const slotSearcher = new SlotSearcher(this.page, targetDate, timeSlots);
-      const searchResult = await slotSearcher.searchAvailableSlots();
+      const searchResult = await this.retryManager.executeWithRetry(
+        () => slotSearcher.searchAvailableSlots(),
+        {
+          functionName: 'searchAvailableSlots',
+          component,
+        }
+      );
 
       if (searchResult.availablePairs.length === 0) {
         return {

@@ -5,11 +5,49 @@ import { IsolationChecker } from '../../src/core/IsolationChecker';
 import type { Page } from '@playwright/test';
 import type { BookingConfig, BookingPair } from '../../src/types/booking.types';
 
+// Helper function to create default config
+const createDefaultConfig = (overrides?: Partial<BookingConfig>): BookingConfig => ({
+  daysAhead: 20,
+  targetStartTime: '14:00',
+  duration: 60,
+  maxRetries: 3,
+  dryRun: true,
+  retryConfig: {
+    initialDelay: 1000,
+    maxDelay: 30000,
+    backoffMultiplier: 2,
+    maxJitter: 0.1,
+    circuitBreakerThreshold: 5,
+    circuitBreakerTimeout: 300000,
+    retryOnNetworkError: true,
+    retryOnTimeout: true,
+    retryOnRateLimit: true,
+    retryOnServerError: true,
+  },
+  ...overrides,
+});
+
 // Mock dependencies
 jest.mock('../../src/utils/logger');
 jest.mock('../../src/core/DateTimeCalculator');
 jest.mock('../../src/core/SlotSearcher');
 jest.mock('../../src/core/IsolationChecker');
+jest.mock('p-retry', () => ({
+  __esModule: true,
+  default: jest.fn().mockImplementation((fn) => fn()),
+  AbortError: class AbortError extends Error { 
+    constructor(message: string) { 
+      super(message); 
+      this.name = 'AbortError'; 
+    } 
+  },
+  FailedAttemptError: class FailedAttemptError extends Error { 
+    constructor(message: string, public attemptNumber: number, public retriesLeft: number) { 
+      super(message); 
+      this.name = 'FailedAttemptError'; 
+    } 
+  }
+}));
 
 // Get mocked constructors
 const MockedSlotSearcher = SlotSearcher as jest.MockedClass<typeof SlotSearcher>;
@@ -43,7 +81,7 @@ describe('BookingManager', () => {
     (DateTimeCalculator.calculateBookingDate as jest.Mock).mockReturnValue('2024-01-21');
     (DateTimeCalculator.generateTimeSlots as jest.Mock).mockReturnValue(['14:00', '15:00']);
 
-    bookingManager = new BookingManager(mockPage as Page);
+    bookingManager = new BookingManager(mockPage as Page, createDefaultConfig());
   });
 
   afterEach(() => {
@@ -52,7 +90,7 @@ describe('BookingManager', () => {
 
   describe('Constructor', () => {
     test('should initialize with default configuration', () => {
-      const manager = new BookingManager(mockPage as Page);
+      const manager = new BookingManager(mockPage as Page, createDefaultConfig());
       expect(manager).toBeInstanceOf(BookingManager);
     });
 
@@ -65,7 +103,7 @@ describe('BookingManager', () => {
         dryRun: true
       };
 
-      const manager = new BookingManager(mockPage as Page, customConfig);
+      const manager = new BookingManager(mockPage as Page, createDefaultConfig(customConfig));
       expect(manager).toBeInstanceOf(BookingManager);
     });
 
@@ -74,7 +112,7 @@ describe('BookingManager', () => {
         daysAhead: 10
       };
 
-      const manager = new BookingManager(mockPage as Page, partialConfig);
+      const manager = new BookingManager(mockPage as Page, createDefaultConfig(partialConfig));
       expect(manager).toBeInstanceOf(BookingManager);
     });
   });
@@ -103,7 +141,7 @@ describe('BookingManager', () => {
         slot2: { courtId: 'court-1', startTime: '15:00', date: '2024-01-21', isAvailable: true, elementSelector: '.slot2' }
       });
 
-      const dryRunManager = new BookingManager(mockPage as Page, { dryRun: true });
+      const dryRunManager = new BookingManager(mockPage as Page, createDefaultConfig({ dryRun: true }));
       const result = await dryRunManager.executeBooking();
 
       expect(result.success).toBe(true);
@@ -114,10 +152,10 @@ describe('BookingManager', () => {
 
     test('should retry on failure up to maxRetries', async () => {
       const maxRetries = 3;
-      const errorManager = new BookingManager(mockPage as Page, { 
+      const errorManager = new BookingManager(mockPage as Page, createDefaultConfig({ 
         maxRetries,
         dryRun: true 
-      });
+      }));
 
       // Mock page.goto to throw error
       (mockPage.goto as jest.Mock).mockRejectedValue(new Error('Network error'));
@@ -148,10 +186,10 @@ describe('BookingManager', () => {
     });
 
     test('should implement exponential backoff on retries', async () => {
-      const manager = new BookingManager(mockPage as Page, { 
+      const manager = new BookingManager(mockPage as Page, createDefaultConfig({ 
         maxRetries: 3,
         dryRun: true 
-      });
+      }));
 
       // Mock to fail first two attempts
       let attemptCount = 0;
@@ -191,7 +229,7 @@ describe('BookingManager', () => {
         searchAvailableSlots: mockSearchAvailableSlots
       } as any));
 
-      const dryRunManager = new BookingManager(mockPage as Page, { dryRun: true });
+      const dryRunManager = new BookingManager(mockPage as Page, createDefaultConfig({ dryRun: true }));
       const result = await dryRunManager.executeBooking();
 
       expect(result.success).toBe(true);
@@ -202,7 +240,7 @@ describe('BookingManager', () => {
     });
 
     test('should not execute real booking actions in dry run', async () => {
-      const dryRunManager = new BookingManager(mockPage as Page, { dryRun: true });
+      const dryRunManager = new BookingManager(mockPage as Page, createDefaultConfig({ dryRun: true }));
       
       // Mock successful flow
       const mockSearchAvailableSlots = jest.fn().mockResolvedValue({
@@ -262,17 +300,17 @@ describe('BookingManager', () => {
 
   describe('Configuration Validation', () => {
     test('should handle invalid days ahead', () => {
-      const manager = new BookingManager(mockPage as Page, { daysAhead: -1 });
+      const manager = new BookingManager(mockPage as Page, createDefaultConfig({ daysAhead: -1 }));
       expect(manager).toBeInstanceOf(BookingManager);
     });
 
     test('should handle invalid time format', () => {
-      const manager = new BookingManager(mockPage as Page, { targetStartTime: '25:99' });
+      const manager = new BookingManager(mockPage as Page, createDefaultConfig({ targetStartTime: '25:99' }));
       expect(manager).toBeInstanceOf(BookingManager);
     });
 
     test('should handle zero max retries', () => {
-      const manager = new BookingManager(mockPage as Page, { maxRetries: 0 });
+      const manager = new BookingManager(mockPage as Page, createDefaultConfig({ maxRetries: 0 }));
       expect(manager).toBeInstanceOf(BookingManager);
     });
   });
@@ -282,11 +320,11 @@ describe('BookingManager', () => {
       const customDaysAhead = 15;
       const customStartTime = '16:00';
       
-      const manager = new BookingManager(mockPage as Page, {
+      const manager = new BookingManager(mockPage as Page, createDefaultConfig({
         daysAhead: customDaysAhead,
         targetStartTime: customStartTime,
         dryRun: true
-      });
+      }));
 
       // Mock successful flow to ensure DateTimeCalculator calls
       const mockSearchAvailableSlots = jest.fn().mockResolvedValue({
