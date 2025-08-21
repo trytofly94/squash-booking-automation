@@ -1,5 +1,7 @@
 import { BookingManager } from '../../src/core/BookingManager';
 import { DateTimeCalculator } from '../../src/core/DateTimeCalculator';
+import { SlotSearcher } from '../../src/core/SlotSearcher';
+import { IsolationChecker } from '../../src/core/IsolationChecker';
 import type { Page } from '@playwright/test';
 import type { BookingConfig, BookingPair } from '../../src/types/booking.types';
 
@@ -8,6 +10,10 @@ jest.mock('../../src/utils/logger');
 jest.mock('../../src/core/DateTimeCalculator');
 jest.mock('../../src/core/SlotSearcher');
 jest.mock('../../src/core/IsolationChecker');
+
+// Get mocked constructors
+const MockedSlotSearcher = SlotSearcher as jest.MockedClass<typeof SlotSearcher>;
+const MockedIsolationChecker = IsolationChecker as unknown as jest.Mocked<typeof IsolationChecker>;
 
 describe('BookingManager', () => {
   let mockPage: Partial<Page>;
@@ -75,34 +81,27 @@ describe('BookingManager', () => {
 
   describe('executeBooking', () => {
     test('should return success result on successful booking', async () => {
-      // Mock successful slot search
-      const mockSlotSearcher = {
-        searchAvailableSlots: jest.fn().mockResolvedValue({
-          availablePairs: [{
-            courtId: 'court-1',
-            slot1: { courtId: 'court-1', startTime: '14:00', date: '2024-01-21', elementSelector: '.slot1' },
-            slot2: { courtId: 'court-1', startTime: '15:00', date: '2024-01-21', elementSelector: '.slot2' }
-          }]
-        })
-      };
-
-      // Mock IsolationChecker
-      const mockIsolationChecker = {
-        findBestNonIsolatingPair: jest.fn().mockReturnValue({
+      // Configure the mocked SlotSearcher
+      const mockSearchAvailableSlots = jest.fn().mockResolvedValue({
+        availableCourts: ['court-1'],
+        totalSlots: 2,
+        availablePairs: [{
           courtId: 'court-1',
-          slot1: { courtId: 'court-1', startTime: '14:00', date: '2024-01-21', elementSelector: '.slot1' },
-          slot2: { courtId: 'court-1', startTime: '15:00', date: '2024-01-21', elementSelector: '.slot2' }
-        })
-      };
+          slot1: { courtId: 'court-1', startTime: '14:00', date: '2024-01-21', isAvailable: true, elementSelector: '.slot1' },
+          slot2: { courtId: 'court-1', startTime: '15:00', date: '2024-01-21', isAvailable: true, elementSelector: '.slot2' }
+        }]
+      });
 
-      // Set up mocks dynamically
-      jest.doMock('../../src/core/SlotSearcher', () => ({
-        SlotSearcher: jest.fn().mockImplementation(() => mockSlotSearcher)
-      }));
+      MockedSlotSearcher.mockImplementation(() => ({
+        searchAvailableSlots: mockSearchAvailableSlots
+      } as any));
 
-      jest.doMock('../../src/core/IsolationChecker', () => ({
-        IsolationChecker: mockIsolationChecker
-      }));
+      // Configure the mocked IsolationChecker
+      MockedIsolationChecker.findBestNonIsolatingPair.mockReturnValue({
+        courtId: 'court-1',
+        slot1: { courtId: 'court-1', startTime: '14:00', date: '2024-01-21', isAvailable: true, elementSelector: '.slot1' },
+        slot2: { courtId: 'court-1', startTime: '15:00', date: '2024-01-21', isAvailable: true, elementSelector: '.slot2' }
+      });
 
       const dryRunManager = new BookingManager(mockPage as Page, { dryRun: true });
       const result = await dryRunManager.executeBooking();
@@ -131,16 +130,16 @@ describe('BookingManager', () => {
     });
 
     test('should handle no available slots gracefully', async () => {
-      // Mock SlotSearcher to return no slots
-      const mockSlotSearcher = {
-        searchAvailableSlots: jest.fn().mockResolvedValue({
-          availablePairs: []
-        })
-      };
+      // Configure the mocked SlotSearcher to return no slots
+      const mockSearchAvailableSlots = jest.fn().mockResolvedValue({
+        availableCourts: [],
+        totalSlots: 0,
+        availablePairs: []
+      });
 
-      jest.doMock('../../src/core/SlotSearcher', () => ({
-        SlotSearcher: jest.fn().mockImplementation(() => mockSlotSearcher)
-      }));
+      MockedSlotSearcher.mockImplementation(() => ({
+        searchAvailableSlots: mockSearchAvailableSlots
+      } as any));
 
       const result = await bookingManager.executeBooking();
 
@@ -164,12 +163,9 @@ describe('BookingManager', () => {
         return Promise.resolve();
       });
 
-      const startTime = Date.now();
       await manager.executeBooking();
-      const endTime = Date.now();
 
-      // Should have waited for exponential backoff (2s + 4s = 6s minimum)
-      expect(endTime - startTime).toBeGreaterThan(5000);
+      // Should have called waitForTimeout with exponential backoff values
       expect(mockPage.waitForTimeout).toHaveBeenCalledTimes(2); // Two retries
       expect(mockPage.waitForTimeout).toHaveBeenCalledWith(2000); // First retry: 2s
       expect(mockPage.waitForTimeout).toHaveBeenCalledWith(4000); // Second retry: 4s
@@ -185,15 +181,15 @@ describe('BookingManager', () => {
       };
 
       // Mock successful slot search
-      const mockSlotSearcher = {
-        searchAvailableSlots: jest.fn().mockResolvedValue({
-          availablePairs: [mockPair]
-        })
-      };
+      const mockSearchAvailableSlots = jest.fn().mockResolvedValue({
+        availableCourts: ['court-1'],
+        totalSlots: 2,
+        availablePairs: [mockPair]
+      });
 
-      jest.doMock('../../src/core/SlotSearcher', () => ({
-        SlotSearcher: jest.fn().mockImplementation(() => mockSlotSearcher)
-      }));
+      MockedSlotSearcher.mockImplementation(() => ({
+        searchAvailableSlots: mockSearchAvailableSlots
+      } as any));
 
       const dryRunManager = new BookingManager(mockPage as Page, { dryRun: true });
       const result = await dryRunManager.executeBooking();
@@ -209,19 +205,19 @@ describe('BookingManager', () => {
       const dryRunManager = new BookingManager(mockPage as Page, { dryRun: true });
       
       // Mock successful flow
-      const mockSlotSearcher = {
-        searchAvailableSlots: jest.fn().mockResolvedValue({
-          availablePairs: [{
-            courtId: 'court-1',
-            slot1: { courtId: 'court-1', startTime: '14:00', date: '2024-01-21', elementSelector: '.slot1' },
-            slot2: { courtId: 'court-1', startTime: '15:00', date: '2024-01-21', elementSelector: '.slot2' }
-          }]
-        })
-      };
+      const mockSearchAvailableSlots = jest.fn().mockResolvedValue({
+        availableCourts: ['court-1'],
+        totalSlots: 2,
+        availablePairs: [{
+          courtId: 'court-1',
+          slot1: { courtId: 'court-1', startTime: '14:00', date: '2024-01-21', isAvailable: true, elementSelector: '.slot1' },
+          slot2: { courtId: 'court-1', startTime: '15:00', date: '2024-01-21', isAvailable: true, elementSelector: '.slot2' }
+        }]
+      });
 
-      jest.doMock('../../src/core/SlotSearcher', () => ({
-        SlotSearcher: jest.fn().mockImplementation(() => mockSlotSearcher)
-      }));
+      MockedSlotSearcher.mockImplementation(() => ({
+        searchAvailableSlots: mockSearchAvailableSlots
+      } as any));
 
       await dryRunManager.executeBooking();
 
@@ -251,13 +247,11 @@ describe('BookingManager', () => {
 
     test('should handle element not found errors', async () => {
       // Mock successful navigation but missing elements
-      const mockSlotSearcher = {
-        searchAvailableSlots: jest.fn().mockRejectedValue(new Error('Element not found'))
-      };
+      const mockSearchAvailableSlots = jest.fn().mockRejectedValue(new Error('Element not found'));
 
-      jest.doMock('../../src/core/SlotSearcher', () => ({
-        SlotSearcher: jest.fn().mockImplementation(() => mockSlotSearcher)
-      }));
+      MockedSlotSearcher.mockImplementation(() => ({
+        searchAvailableSlots: mockSearchAvailableSlots
+      } as any));
 
       const result = await bookingManager.executeBooking();
 
@@ -295,19 +289,19 @@ describe('BookingManager', () => {
       });
 
       // Mock successful flow to ensure DateTimeCalculator calls
-      const mockSlotSearcher = {
-        searchAvailableSlots: jest.fn().mockResolvedValue({
-          availablePairs: [{
-            courtId: 'court-1',
-            slot1: { courtId: 'court-1', startTime: '16:00', date: '2024-01-16', elementSelector: '.slot1' },
-            slot2: { courtId: 'court-1', startTime: '17:00', date: '2024-01-16', elementSelector: '.slot2' }
-          }]
-        })
-      };
+      const mockSearchAvailableSlots = jest.fn().mockResolvedValue({
+        availableCourts: ['court-1'],
+        totalSlots: 2,
+        availablePairs: [{
+          courtId: 'court-1',
+          slot1: { courtId: 'court-1', startTime: '16:00', date: '2024-01-16', isAvailable: true, elementSelector: '.slot1' },
+          slot2: { courtId: 'court-1', startTime: '17:00', date: '2024-01-16', isAvailable: true, elementSelector: '.slot2' }
+        }]
+      });
 
-      jest.doMock('../../src/core/SlotSearcher', () => ({
-        SlotSearcher: jest.fn().mockImplementation(() => mockSlotSearcher)
-      }));
+      MockedSlotSearcher.mockImplementation(() => ({
+        searchAvailableSlots: mockSearchAvailableSlots
+      } as any));
 
       await manager.executeBooking();
 

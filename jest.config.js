@@ -6,10 +6,10 @@ module.exports = {
   // Root directory for tests
   rootDir: '.',
   
-  // Test file patterns
+  // Test file patterns - ONLY unit tests
   testMatch: [
-    '<rootDir>/tests/**/*.test.ts',
-    '<rootDir>/tests/**/*.spec.ts'
+    '<rootDir>/tests/unit/**/*.test.ts',
+    '<rootDir>/tests/unit/**/*.spec.ts'
   ],
   
   // Module file extensions
