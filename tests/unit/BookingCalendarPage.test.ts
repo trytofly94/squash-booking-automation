@@ -55,7 +55,13 @@ describe('BookingCalendarPage - Date Navigation', () => {
       
       // Mock direct input failure
       jest.spyOn(calendarPage as any, 'tryDirectDateInput').mockResolvedValue(false);
-      jest.spyOn(calendarPage as any, 'tryUrlDateNavigation').mockResolvedValue(true);
+      
+      // Mock URL navigation method dependencies rather than the method itself
+      jest.spyOn(calendarPage as any, 'getCurrentSelectedDate').mockResolvedValue(targetDate);
+      jest.spyOn(calendarPage as any, 'waitForCalendarToLoad').mockResolvedValue(undefined);
+      
+      // Mock page.url() to return a base URL
+      mockPage.url.mockReturnValue('https://example.com/booking');
       
       await calendarPage.navigateToDate(targetDate);
 

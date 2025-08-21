@@ -1,4 +1,3 @@
-import { jest } from '@jest/globals';
 import { SlotSearcher } from '../../src/core/SlotSearcher';
 import type { Page } from '@playwright/test';
 
@@ -64,7 +63,7 @@ describe('SlotSearcher', () => {
       const result = await slotSearcher.searchAvailableSlots();
       
       expect(result.availablePairs).toEqual([]);
-      expect(result.searchedCourts).toEqual([]);
+      expect(result.availableCourts).toEqual([]);
     });
 
     test('should find available slots on multiple courts', async () => {
@@ -101,20 +100,13 @@ describe('SlotSearcher', () => {
       const result = await slotSearcher.searchAvailableSlots();
       
       expect(result.availablePairs).toHaveLength(1); // Only court-1 has both 14:00 and 15:00
-      expect(result.availablePairs[0].courtId).toBe('court-1');
-      expect(result.availablePairs[0].slot1.startTime).toBe('14:00');
-      expect(result.availablePairs[0].slot2.startTime).toBe('15:00');
+      expect(result.availablePairs[0]?.courtId).toBe('court-1');
+      expect(result.availablePairs[0]?.slot1.startTime).toBe('14:00');
+      expect(result.availablePairs[0]?.slot2.startTime).toBe('15:00');
     });
 
     test('should handle different slot selector strategies', async () => {
       // Test multiple selector attempts
-      const _selectors = [
-        '.time-slot.available',
-        '.slot.bookable',
-        '[data-testid^="slot"]',
-        '.calendar-slot',
-        '[class*="available"][class*="slot"]'
-      ];
 
       // Mock first selector fails, second succeeds
       (mockPage.$$ as jest.Mock)
@@ -134,7 +126,7 @@ describe('SlotSearcher', () => {
       
       // Should have tried multiple selectors
       expect(mockPage.$$).toHaveBeenCalledTimes(2);
-      expect(result.searchedCourts).toBeDefined();
+      expect(result.availableCourts).toBeDefined();
     });
 
     test('should filter out invisible slots', async () => {
@@ -219,8 +211,8 @@ describe('SlotSearcher', () => {
       const result = await slotSearcher.searchAvailableSlots();
       
       expect(result.availablePairs).toHaveLength(1);
-      expect(result.availablePairs[0].slot1.startTime).toBe('14:00');
-      expect(result.availablePairs[0].slot2.startTime).toBe('15:00');
+      expect(result.availablePairs[0]?.slot1.startTime).toBe('14:00');
+      expect(result.availablePairs[0]?.slot2.startTime).toBe('15:00');
     });
 
     test('should handle court identification from various sources', async () => {
@@ -261,7 +253,7 @@ describe('SlotSearcher', () => {
       const result = await slotSearcher.searchAvailableSlots();
       
       expect(result.availablePairs).toEqual([]);
-      expect(result.searchedCourts).toEqual([]);
+      expect(result.availableCourts).toEqual([]);
     });
 
     test('should handle element attribute errors', async () => {
@@ -334,12 +326,12 @@ describe('SlotSearcher', () => {
       expect(result.availablePairs).toHaveLength(2);
       
       // First pair: 14:00-15:00
-      expect(result.availablePairs[0].slot1.startTime).toBe('14:00');
-      expect(result.availablePairs[0].slot2.startTime).toBe('15:00');
+      expect(result.availablePairs[0]?.slot1.startTime).toBe('14:00');
+      expect(result.availablePairs[0]?.slot2.startTime).toBe('15:00');
       
       // Second pair: 15:00-16:00  
-      expect(result.availablePairs[1].slot1.startTime).toBe('15:00');
-      expect(result.availablePairs[1].slot2.startTime).toBe('16:00');
+      expect(result.availablePairs[1]?.slot1.startTime).toBe('15:00');
+      expect(result.availablePairs[1]?.slot2.startTime).toBe('16:00');
     });
 
     test('should not create pairs for non-consecutive time slots', async () => {
@@ -406,9 +398,9 @@ describe('SlotSearcher', () => {
       // Should create one pair for court-1 (14:00-15:00)
       // Court-2 only has one slot, so no pair
       expect(result.availablePairs).toHaveLength(1);
-      expect(result.availablePairs[0].courtId).toBe('court-1');
-      expect(result.searchedCourts).toContain('court-1');
-      expect(result.searchedCourts).toContain('court-2');
+      expect(result.availablePairs[0]?.courtId).toBe('court-1');
+      expect(result.availableCourts).toContain('court-1');
+      expect(result.availableCourts).toContain('court-2');
     });
   });
 
@@ -440,7 +432,7 @@ describe('SlotSearcher', () => {
       
       // Should find pairs for all courts
       expect(result.availablePairs.length).toBeGreaterThan(0);
-      expect(result.searchedCourts).toHaveLength(10);
+      expect(result.availableCourts).toHaveLength(10);
     });
   });
 });

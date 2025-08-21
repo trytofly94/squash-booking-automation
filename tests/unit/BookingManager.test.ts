@@ -1,4 +1,3 @@
-import { jest } from '@jest/globals';
 import { BookingManager } from '../../src/core/BookingManager';
 import { DateTimeCalculator } from '../../src/core/DateTimeCalculator';
 import type { Page } from '@playwright/test';
@@ -23,7 +22,11 @@ describe('BookingManager', () => {
       click: jest.fn().mockResolvedValue(undefined),
       $: jest.fn().mockResolvedValue(null),
       keyboard: {
-        press: jest.fn().mockResolvedValue(undefined)
+        press: jest.fn().mockResolvedValue(undefined),
+        down: jest.fn().mockResolvedValue(undefined),
+        up: jest.fn().mockResolvedValue(undefined),
+        insertText: jest.fn().mockResolvedValue(undefined),
+        type: jest.fn().mockResolvedValue(undefined)
       },
       screenshot: jest.fn().mockResolvedValue(Buffer.from('')),
       url: jest.fn().mockReturnValue('https://www.eversports.de/test')
@@ -162,7 +165,7 @@ describe('BookingManager', () => {
       });
 
       const startTime = Date.now();
-      const _result = await manager.executeBooking();
+      await manager.executeBooking();
       const endTime = Date.now();
 
       // Should have waited for exponential backoff (2s + 4s = 6s minimum)
@@ -177,8 +180,8 @@ describe('BookingManager', () => {
     test('should simulate booking in dry run mode', async () => {
       const mockPair: BookingPair = {
         courtId: 'court-1',
-        slot1: { courtId: 'court-1', startTime: '14:00', date: '2024-01-21', elementSelector: '.slot1' },
-        slot2: { courtId: 'court-1', startTime: '15:00', date: '2024-01-21', elementSelector: '.slot2' }
+        slot1: { courtId: 'court-1', startTime: '14:00', date: '2024-01-21', elementSelector: '.slot1', isAvailable: true },
+        slot2: { courtId: 'court-1', startTime: '15:00', date: '2024-01-21', elementSelector: '.slot2', isAvailable: true }
       };
 
       // Mock successful slot search

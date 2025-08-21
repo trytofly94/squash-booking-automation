@@ -121,7 +121,8 @@ describe('IsolationChecker', () => {
   describe('Complex Isolation Scenarios', () => {
     it('should handle multiple courts with different availability patterns', () => {
       const multiCourtSlots = [
-        { ...createMockSlot('13:30'), courtId: 'court-1', isAvailable: false },
+        { ...createMockSlot('13:00'), courtId: 'court-1', isAvailable: false },
+        { ...createMockSlot('13:30'), courtId: 'court-1', isAvailable: true },
         { ...createMockSlot('14:00'), courtId: 'court-1', isAvailable: true },
         { ...createMockSlot('14:30'), courtId: 'court-1', isAvailable: true },
         { ...createMockSlot('15:00'), courtId: 'court-1', isAvailable: false },
