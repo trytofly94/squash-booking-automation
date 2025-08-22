@@ -77,7 +77,7 @@ class HealthCheckManager {
     
     if (this.periodicHealthCheckInterval) {
       clearInterval(this.periodicHealthCheckInterval);
-      this.periodicHealthCheckInterval = undefined;
+      this.periodicHealthCheckInterval = undefined as any;
     }
 
     logger.info('Stopped periodic health checks', 'HealthCheckManager');

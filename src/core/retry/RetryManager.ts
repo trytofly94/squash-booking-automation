@@ -4,7 +4,8 @@
  * and intelligent retry strategies
  */
 
-import pRetry, { AbortError } from 'p-retry';
+import pRetry from 'p-retry';
+import { AbortError } from 'p-retry';
 import { 
   RetryConfig, 
   RetryResult, 
