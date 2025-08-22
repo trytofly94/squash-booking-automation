@@ -20,29 +20,29 @@ jest.mock('../../src/core/DateTimeCalculator', () => ({
     }),
     isWithinBusinessHours: jest.fn((time: string) => {
       const [hours] = time.split(':').map(Number);
-      return hours >= 6 && hours <= 23;
+      return (hours ?? 0) >= 6 && (hours ?? 0) <= 23;
     }),
-    generateAlternativeTimeSlots: jest.fn((preferredTime: string, range: number, interval: number) => {
+    generateAlternativeTimeSlots: jest.fn((preferredTime: string, range: number, _interval: number) => {
       // Mock implementation that generates a few alternatives
       const alternatives = ['13:30', '14:00', '14:30', '15:00'];
       return alternatives.filter(time => {
         const [prefHours, prefMinutes] = preferredTime.split(':').map(Number);
         const [altHours, altMinutes] = time.split(':').map(Number);
-        const prefTotal = prefHours * 60 + prefMinutes;
-        const altTotal = altHours * 60 + altMinutes;
+        const prefTotal = (prefHours ?? 0) * 60 + (prefMinutes ?? 0);
+        const altTotal = (altHours ?? 0) * 60 + (altMinutes ?? 0);
         return Math.abs(altTotal - prefTotal) <= range;
       });
     }),
     getTimeDifferenceInMinutes: jest.fn((time1: string, time2: string) => {
       const [h1, m1] = time1.split(':').map(Number);
       const [h2, m2] = time2.split(':').map(Number);
-      const total1 = h1 * 60 + m1;
-      const total2 = h2 * 60 + m2;
+      const total1 = (h1 ?? 0) * 60 + (m1 ?? 0);
+      const total2 = (h2 ?? 0) * 60 + (m2 ?? 0);
       return Math.abs(total2 - total1);
     }),
     parseTime: jest.fn((time: string) => {
       const [hours, minutes] = time.split(':').map(Number);
-      return { hours, minutes };
+      return { hours: hours ?? 0, minutes: minutes ?? 0 };
     })
   }
 }));
@@ -126,8 +126,10 @@ describe('TimeSlotGenerator', () => {
 
       // Slots should be sorted by priority (descending)
       for (let i = 1; i < slots.length; i++) {
-        if (slots[i-1].priority !== slots[i].priority) {
-          expect(slots[i-1].priority).toBeGreaterThan(slots[i].priority);
+        const previousSlot = slots[i-1];
+        const currentSlot = slots[i];
+        if (previousSlot && currentSlot && previousSlot.priority !== currentSlot.priority) {
+          expect(previousSlot.priority).toBeGreaterThan(currentSlot.priority);
         }
       }
     });
@@ -210,7 +212,11 @@ describe('TimeSlotGenerator', () => {
       
       // Slots should be sorted by success rate (priority)
       for (let i = 1; i < slots.length; i++) {
-        expect(slots[i-1].priority).toBeGreaterThanOrEqual(slots[i].priority);
+        const previousSlot = slots[i-1];
+        const currentSlot = slots[i];
+        if (previousSlot && currentSlot) {
+          expect(previousSlot.priority).toBeGreaterThanOrEqual(currentSlot.priority);
+        }
       }
       
       // Slot with highest success rate should have highest priority
@@ -251,9 +257,9 @@ describe('TimeSlotGenerator', () => {
       // All slots should be within business hours and allow for full session duration
       slots.forEach(slot => {
         const [hours, minutes] = slot.startTime.split(':').map(Number);
-        const sessionEndHours = hours + Math.floor((minutes + duration) / 60);
+        const sessionEndHours = (hours ?? 0) + Math.floor(((minutes ?? 0) + duration) / 60);
         
-        expect(hours).toBeGreaterThanOrEqual(8);
+        expect(hours ?? 0).toBeGreaterThanOrEqual(8);
         expect(sessionEndHours).toBeLessThanOrEqual(22);
       });
     });

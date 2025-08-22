@@ -248,8 +248,8 @@ describe('HealthCheckManager', () => {
       
       expect(result.name).toBe('performance_health');
       expect(result.status).toBe(HealthStatus.DEGRADED); // Due to metricsAboveWarningThreshold: 1
-      expect(result.details?.totalMetrics).toBe(10);
-      expect(result.details?.averageDuration).toBe(150);
+      expect(result.details?.['totalMetrics']).toBe(10);
+      expect(result.details?.['averageDuration']).toBe(150);
     });
 
     it('should detect unhealthy performance', async () => {
@@ -265,7 +265,7 @@ describe('HealthCheckManager', () => {
       const result = await manager['checkPerformanceHealth']();
       
       expect(result.status).toBe(HealthStatus.UNHEALTHY);
-      expect(result.details?.metricsAboveError).toBe(2);
+      expect(result.details?.['metricsAboveError']).toBe(2);
     });
 
     it('should handle performance health check errors', async () => {
