@@ -27,7 +27,7 @@ class HealthCheckManager {
 
   constructor() {
     this.config = {
-      enabled: process.env['HEALTH_CHECK_ENABLED']?.toLowerCase() === 'true' || true,
+      enabled: process.env['HEALTH_CHECK_ENABLED']?.toLowerCase() === 'true' || false,
       interval: parseInt(process.env['HEALTH_CHECK_INTERVAL'] || '300000', 10), // 5 minutes
       timeout: parseInt(process.env['HEALTH_CHECK_TIMEOUT'] || '30000', 10), // 30 seconds
       websiteUrl: process.env['WEBSITE_URL'] || 'https://www.eversports.de/sb/sportcenter-kautz?sport=squash',
