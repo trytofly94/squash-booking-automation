@@ -42,6 +42,10 @@ describe('BookingManager', () => {
     (DateTimeCalculator.getCurrentTimestamp as jest.Mock).mockReturnValue('2024-01-01 12:00:00');
     (DateTimeCalculator.calculateBookingDate as jest.Mock).mockReturnValue('2024-01-21');
     (DateTimeCalculator.generateTimeSlots as jest.Mock).mockReturnValue(['14:00', '15:00']);
+    (DateTimeCalculator.parseTime as jest.Mock).mockImplementation((time: string) => {
+      const [hours, minutes] = time.split(':').map(Number);
+      return { hours: hours ?? 0, minutes: minutes ?? 0 };
+    });
 
     bookingManager = new BookingManager(mockPage as Page);
   });

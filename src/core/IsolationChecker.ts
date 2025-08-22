@@ -3,8 +3,9 @@ import { DateTimeCalculator } from './DateTimeCalculator';
 import { logger } from '../utils/logger';
 
 /**
+ * Enhanced isolation checker with flexible duration support
  * Checks for isolated slots to prevent fragmenting the booking schedule
- * An isolated slot is a single 30-minute slot surrounded by booked slots
+ * Supports variable slot durations and improved neighbor calculation using date-fns
  */
 export class IsolationChecker {
   /**

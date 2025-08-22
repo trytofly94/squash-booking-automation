@@ -2,9 +2,11 @@ import type { Page } from '@playwright/test';
 import { BookingSlot, BookingPair, CourtSearchResult } from '../types/booking.types';
 import { DateTimeCalculator } from './DateTimeCalculator';
 import { logger } from '../utils/logger';
+import { parseISO, isValid } from 'date-fns';
 
 /**
- * Searches for available booking slots across multiple courts
+ * Enhanced slot searcher with date-fns integration and improved court discovery
+ * Searches for available booking slots across multiple courts with intelligent filtering
  */
 export class SlotSearcher {
   private page: Page;
@@ -15,6 +17,33 @@ export class SlotSearcher {
     this.page = page;
     this.targetDate = targetDate;
     this.targetTimes = targetTimes;
+    
+    // Validate inputs with date-fns
+    this.validateInputs();
+  }
+
+  /**
+   * Validate constructor inputs using date-fns
+   */
+  private validateInputs(): void {
+    // Validate target date
+    const dateObj = parseISO(this.targetDate);
+    if (!isValid(dateObj)) {
+      throw new Error(`Invalid target date: ${this.targetDate}`);
+    }
+
+    // Validate target times
+    this.targetTimes.forEach((time, index) => {
+      if (!DateTimeCalculator.isValidTime(time)) {
+        throw new Error(`Invalid target time at index ${index}: ${time}`);
+      }
+    });
+
+    logger.debug('SlotSearcher inputs validated', 'SlotSearcher', {
+      targetDate: this.targetDate,
+      targetTimesCount: this.targetTimes.length,
+      validatedDate: dateObj.toISOString()
+    });
   }
 
   /**
