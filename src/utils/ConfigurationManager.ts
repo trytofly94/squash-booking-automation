@@ -4,11 +4,8 @@ import type {
   CourtScoringWeights, 
   TimePreference
 } from '../types/booking.types';
-<<<<<<< HEAD
-=======
 import type { MonitoringConfig } from '../types/monitoring.types';
 import type { HealthCheckConfig } from '../types/health.types';
->>>>>>> origin/main
 
 /**
  * Configuration manager for advanced booking features
@@ -17,11 +14,6 @@ import type { HealthCheckConfig } from '../types/health.types';
 export class ConfigurationManager {
   private static instance: ConfigurationManager;
   private config: AdvancedBookingConfig;
-<<<<<<< HEAD
-
-  private constructor() {
-    this.config = this.loadConfiguration();
-=======
   private monitoringConfig: MonitoringConfig;
   private healthCheckConfig: HealthCheckConfig;
 
@@ -29,7 +21,6 @@ export class ConfigurationManager {
     this.config = this.loadConfiguration();
     this.monitoringConfig = this.loadMonitoringConfiguration();
     this.healthCheckConfig = this.loadHealthCheckConfiguration();
->>>>>>> origin/main
     this.validateConfiguration();
   }
 
