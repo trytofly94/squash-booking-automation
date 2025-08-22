@@ -1,12 +1,9 @@
 import type { Page } from '@playwright/test';
 import { 
-  BookingConfig, 
   BookingResult, 
   BookingPair,
   AdvancedBookingConfig,
-  CourtScoringWeights,
-  TimePreference,
-  BookingPattern
+  TimePreference
 } from '../types/booking.types';
 import { DateTimeCalculator } from './DateTimeCalculator';
 import { SlotSearcher } from './SlotSearcher';
@@ -16,6 +13,9 @@ import { PatternStorage } from './PatternStorage';
 import { TimeSlotGenerator } from './TimeSlotGenerator';
 import { logger } from '../utils/logger';
 import { DryRunValidator } from '../utils/DryRunValidator';
+import { correlationManager } from '../utils/CorrelationManager';
+import { bookingAnalytics } from '../monitoring/BookingAnalytics';
+import { ErrorCategory } from '../types/monitoring.types';
 import { getDay } from 'date-fns';
 
 /**
@@ -44,12 +44,12 @@ export class BookingManager {
       dryRun: config.dryRun !== false, // Default to true for safety
       
       // Advanced configuration
-      timezone: config.timezone || process.env.TIMEZONE || 'Europe/Berlin',
+      timezone: config.timezone || process.env['TIMEZONE'] || 'Europe/Berlin',
       preferredCourts: config.preferredCourts || this.parsePreferredCourts(),
       enablePatternLearning: config.enablePatternLearning ?? 
-        (process.env.BOOKING_PATTERN_LEARNING === 'true'),
+        (process.env['BOOKING_PATTERN_LEARNING'] === 'true'),
       fallbackTimeRange: config.fallbackTimeRange || 
-        parseInt(process.env.FALLBACK_TIME_RANGE || '120'),
+        parseInt(process.env['FALLBACK_TIME_RANGE'] || '120'),
       courtScoringWeights: config.courtScoringWeights || {
         availability: 0.4,
         historical: 0.3,
@@ -57,7 +57,7 @@ export class BookingManager {
         position: 0.1
       },
       timePreferences: config.timePreferences || this.generateDefaultTimePreferences(),
-      holidayProvider: config.holidayProvider
+      holidayProvider: config.holidayProvider || undefined
     };
 
     this.patternLearningEnabled = this.config.enablePatternLearning;
@@ -106,7 +106,7 @@ export class BookingManager {
    * Parse preferred courts from environment variable
    */
   private parsePreferredCourts(): string[] {
-    const prefCourts = process.env.PREFERRED_COURTS || '';
+    const prefCourts = process.env['PREFERRED_COURTS'] || '';
     return prefCourts.split(',').map(c => c.trim()).filter(c => c.length > 0);
   }
 
@@ -122,11 +122,81 @@ export class BookingManager {
   }
 
   /**
-   * Execute the complete booking process with enhanced intelligence
+   * Execute the complete booking process with enhanced intelligence and monitoring
    */
   async executeBooking(): Promise<BookingResult> {
     const component = 'BookingManager';
     const startTime = DateTimeCalculator.getCurrentTimestamp();
+    
+    // Create correlation context for this booking operation
+    return correlationManager.runWithNewContext(async () => {
+      correlationManager.setComponent(component);
+      const correlationId = correlationManager.getCurrentCorrelationId()!;
+      
+      // Start performance tracking for entire booking process
+      const bookingTimerId = logger.startTiming('complete_booking_process', component, {
+        correlationId,
+        dryRun: this.config.dryRun,
+        targetTime: this.config.targetStartTime,
+        daysAhead: this.config.daysAhead
+      });
+      
+      logger.info('Starting booking process with enhanced monitoring', component, {
+        correlationId,
+        config: this.sanitizeConfigForLogging(),
+        mode: this.config.dryRun ? 'DRY_RUN' : 'PRODUCTION'
+      });
+      
+      try {
+        const result = await this.executeBookingWithRetries(startTime, component, correlationId);
+        
+        // Record booking analytics
+        bookingAnalytics.recordBookingAttempt({
+          success: result.success,
+          responseTime: Date.now() - startTime,
+          retryCount: result.retryAttempts || 0,
+          courtId: result.bookedPair?.courtId,
+          date: result.bookedPair?.slot1.date,
+          startTime: result.bookedPair?.slot1.startTime,
+          duration: this.config.duration,
+          error: result.error,
+          errorCategory: result.success ? undefined : this.categorizeError(result.error || '')
+        });
+        
+        logger.endTiming(bookingTimerId, component);
+        return result;
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        const errorCategory = this.categorizeError(errorMessage);
+        
+        // Record failed booking attempt
+        bookingAnalytics.recordBookingAttempt({
+          success: false,
+          responseTime: Date.now() - startTime,
+          retryCount: this.config.maxRetries,
+          error: errorMessage,
+          errorCategory
+        });
+        
+        logger.logStructuredError(error, errorCategory, component, {
+          correlationId,
+          operation: 'complete_booking_process'
+        });
+        
+        logger.endTiming(bookingTimerId, component);
+        throw error;
+      }
+    });
+  }
+  
+  /**
+   * Execute booking with retries and enhanced monitoring
+   */
+  private async executeBookingWithRetries(
+    startTime: number, 
+    component: string, 
+    correlationId: string
+  ): Promise<BookingResult> {
 
     // Validate configuration before starting
     const configValidation = this.validator.validateBookingConfig(this.config);
@@ -704,5 +774,63 @@ export class BookingManager {
     });
 
     return allSlots;
+  }
+
+  /**
+   * Categorize error for structured logging
+   */
+  private categorizeError(errorMessage: string): ErrorCategory {
+    const lowerError = errorMessage.toLowerCase();
+    
+    if (lowerError.includes('timeout') || lowerError.includes('timed out')) {
+      return ErrorCategory.TIMEOUT;
+    } else if (lowerError.includes('network') || lowerError.includes('connection') || lowerError.includes('fetch')) {
+      return ErrorCategory.NETWORK;
+    } else if (lowerError.includes('auth') || lowerError.includes('login') || lowerError.includes('permission')) {
+      return ErrorCategory.AUTHENTICATION;
+    } else if (lowerError.includes('validation') || lowerError.includes('invalid') || lowerError.includes('format')) {
+      return ErrorCategory.VALIDATION;
+    } else if (lowerError.includes('booking') || lowerError.includes('slot') || lowerError.includes('court')) {
+      return ErrorCategory.BUSINESS_LOGIC;
+    } else if (lowerError.includes('system') || lowerError.includes('memory') || lowerError.includes('resource')) {
+      return ErrorCategory.SYSTEM;
+    } else {
+      return ErrorCategory.UNKNOWN;
+    }
+  }
+
+  /**
+   * Sanitize configuration for logging (remove sensitive data)
+   */
+  private sanitizeConfigForLogging(): Record<string, unknown> {
+    return {
+      daysAhead: this.config.daysAhead,
+      targetStartTime: this.config.targetStartTime,
+      duration: this.config.duration,
+      maxRetries: this.config.maxRetries,
+      dryRun: this.config.dryRun,
+      timezone: this.config.timezone,
+      preferredCourtsCount: this.config.preferredCourts.length,
+      patternLearningEnabled: this.config.enablePatternLearning,
+      fallbackTimeRange: this.config.fallbackTimeRange,
+      timePreferencesCount: this.config.timePreferences.length
+    };
+  }
+
+  /**
+   * Get booking manager statistics for monitoring
+   */
+  getBookingStats(): {
+    config: Record<string, unknown>;
+    patternLearningEnabled: boolean;
+    courtScorerStats: ReturnType<CourtScorer['getStats']>;
+    validatorStats: ReturnType<DryRunValidator['getValidationStats']>;
+  } {
+    return {
+      config: this.sanitizeConfigForLogging(),
+      patternLearningEnabled: this.patternLearningEnabled,
+      courtScorerStats: this.courtScorer.getStats(),
+      validatorStats: this.validator.getValidationStats()
+    };
   }
 }
