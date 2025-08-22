@@ -6,6 +6,7 @@ import type {
 } from '../types/booking.types';
 import type { MonitoringConfig } from '../types/monitoring.types';
 import type { HealthCheckConfig } from '../types/health.types';
+import type { RetryConfig } from '../types/retry.types';
 
 /**
  * Configuration manager for advanced booking features
@@ -16,11 +17,13 @@ export class ConfigurationManager {
   private config: AdvancedBookingConfig;
   private monitoringConfig: MonitoringConfig;
   private healthCheckConfig: HealthCheckConfig;
+  private retryConfig: RetryConfig;
 
   private constructor() {
     this.config = this.loadConfiguration();
     this.monitoringConfig = this.loadMonitoringConfiguration();
     this.healthCheckConfig = this.loadHealthCheckConfiguration();
+    this.retryConfig = this.loadRetryConfiguration();
     this.validateConfiguration();
   }
 
@@ -42,8 +45,6 @@ export class ConfigurationManager {
   }
 
   /**
-<<<<<<< HEAD
-=======
    * Get monitoring configuration
    */
   getMonitoringConfig(): MonitoringConfig {
@@ -58,7 +59,13 @@ export class ConfigurationManager {
   }
 
   /**
->>>>>>> origin/main
+   * Get retry configuration
+   */
+  getRetryConfig(): RetryConfig {
+    return { ...this.retryConfig };
+  }
+
+  /**
    * Update configuration at runtime
    */
   updateConfig(updates: Partial<AdvancedBookingConfig>): void {
@@ -85,8 +92,6 @@ export class ConfigurationManager {
   }
 
   /**
-<<<<<<< HEAD
-=======
    * Update monitoring configuration
    */
   updateMonitoringConfig(updates: Partial<MonitoringConfig>): void {
@@ -115,7 +120,20 @@ export class ConfigurationManager {
   }
 
   /**
->>>>>>> origin/main
+   * Update retry configuration
+   */
+  updateRetryConfig(updates: Partial<RetryConfig>): void {
+    const oldConfig = { ...this.retryConfig };
+    this.retryConfig = { ...this.retryConfig, ...updates };
+    
+    logger.info('Retry configuration updated', 'ConfigurationManager', {
+      updatedFields: Object.keys(updates),
+      oldConfig,
+      newConfig: this.retryConfig
+    });
+  }
+
+  /**
    * Load configuration from environment variables with defaults
    */
   private loadConfiguration(): AdvancedBookingConfig {
@@ -144,8 +162,6 @@ export class ConfigurationManager {
   }
 
   /**
-<<<<<<< HEAD
-=======
    * Load monitoring configuration from environment variables
    */
   private loadMonitoringConfiguration(): MonitoringConfig {
@@ -184,7 +200,44 @@ export class ConfigurationManager {
   }
 
   /**
->>>>>>> origin/main
+   * Load retry configuration from environment variables
+   */
+  private loadRetryConfiguration(): RetryConfig {
+    const config: RetryConfig = {
+      enabled: this.parseBoolean(process.env['RETRY_ENABLED'], true),
+      maxAttempts: this.parseNumber(process.env['RETRY_MAX_ATTEMPTS'], 5),
+      minDelay: this.parseNumber(process.env['RETRY_MIN_DELAY'], 1000),
+      maxDelay: this.parseNumber(process.env['RETRY_MAX_DELAY'], 30000),
+      jitterEnabled: this.parseBoolean(process.env['RETRY_JITTER_ENABLED'], true),
+      
+      circuitBreaker: {
+        failureThreshold: this.parseNumber(process.env['CIRCUIT_BREAKER_FAILURE_THRESHOLD'], 5),
+        recoveryTimeout: this.parseNumber(process.env['CIRCUIT_BREAKER_RECOVERY_TIMEOUT'], 60000),
+        requestVolumeThreshold: this.parseNumber(process.env['CIRCUIT_BREAKER_REQUEST_VOLUME_THRESHOLD'], 10),
+        rollingWindow: this.parseNumber(process.env['CIRCUIT_BREAKER_ROLLING_WINDOW'], 60000),
+        successThreshold: this.parseNumber(process.env['CIRCUIT_BREAKER_SUCCESS_THRESHOLD'], 3)
+      },
+      
+      errorSpecific: {
+        networkAttempts: this.parseNumber(process.env['RETRY_NETWORK_ATTEMPTS'], 5),
+        rateLimitAttempts: this.parseNumber(process.env['RETRY_RATE_LIMIT_ATTEMPTS'], 3),
+        serverErrorAttempts: this.parseNumber(process.env['RETRY_SERVER_ERROR_ATTEMPTS'], 2),
+        timeoutAttempts: this.parseNumber(process.env['RETRY_TIMEOUT_ATTEMPTS'], 4)
+      },
+      
+      exponentialBackoff: {
+        enabled: this.parseBoolean(process.env['RETRY_EXPONENTIAL_BACKOFF'], true),
+        base: this.parseNumber(process.env['RETRY_EXPONENTIAL_BASE'], 2)
+      },
+      
+      abortOnClientErrors: this.parseBoolean(process.env['RETRY_ABORT_ON_CLIENT_ERRORS'], true)
+    };
+
+    logger.info('Retry configuration loaded', 'ConfigurationManager', { config });
+    return config;
+  }
+
+  /**
    * Validate the configuration
    */
   private validateConfiguration(): void {
@@ -403,7 +456,26 @@ export class ConfigurationManager {
       HEALTH_CHECK_RETRIES: this.healthCheckConfig.retryAttempts.toString(),
       ALERT_THRESHOLD_RESPONSE_TIME: this.healthCheckConfig.alertThresholds.responseTime.toString(),
       ALERT_THRESHOLD_ERROR_RATE: this.healthCheckConfig.alertThresholds.errorRate.toString(),
-      ALERT_THRESHOLD_MEMORY: this.healthCheckConfig.alertThresholds.memoryUsage.toString()
+      ALERT_THRESHOLD_MEMORY: this.healthCheckConfig.alertThresholds.memoryUsage.toString(),
+      
+      // Retry configuration
+      RETRY_ENABLED: this.retryConfig.enabled.toString(),
+      RETRY_MAX_ATTEMPTS: this.retryConfig.maxAttempts.toString(),
+      RETRY_MIN_DELAY: this.retryConfig.minDelay.toString(),
+      RETRY_MAX_DELAY: this.retryConfig.maxDelay.toString(),
+      RETRY_JITTER_ENABLED: this.retryConfig.jitterEnabled.toString(),
+      CIRCUIT_BREAKER_FAILURE_THRESHOLD: this.retryConfig.circuitBreaker.failureThreshold.toString(),
+      CIRCUIT_BREAKER_RECOVERY_TIMEOUT: this.retryConfig.circuitBreaker.recoveryTimeout.toString(),
+      CIRCUIT_BREAKER_REQUEST_VOLUME_THRESHOLD: this.retryConfig.circuitBreaker.requestVolumeThreshold.toString(),
+      CIRCUIT_BREAKER_ROLLING_WINDOW: this.retryConfig.circuitBreaker.rollingWindow.toString(),
+      CIRCUIT_BREAKER_SUCCESS_THRESHOLD: this.retryConfig.circuitBreaker.successThreshold.toString(),
+      RETRY_NETWORK_ATTEMPTS: this.retryConfig.errorSpecific.networkAttempts.toString(),
+      RETRY_RATE_LIMIT_ATTEMPTS: this.retryConfig.errorSpecific.rateLimitAttempts.toString(),
+      RETRY_SERVER_ERROR_ATTEMPTS: this.retryConfig.errorSpecific.serverErrorAttempts.toString(),
+      RETRY_TIMEOUT_ATTEMPTS: this.retryConfig.errorSpecific.timeoutAttempts.toString(),
+      RETRY_EXPONENTIAL_BACKOFF: this.retryConfig.exponentialBackoff.enabled.toString(),
+      RETRY_EXPONENTIAL_BASE: this.retryConfig.exponentialBackoff.base.toString(),
+      RETRY_ABORT_ON_CLIENT_ERRORS: this.retryConfig.abortOnClientErrors.toString()
     };
   }
 
@@ -433,6 +505,7 @@ export class ConfigurationManager {
     this.config = this.loadConfiguration();
     this.monitoringConfig = this.loadMonitoringConfiguration();
     this.healthCheckConfig = this.loadHealthCheckConfiguration();
+    this.retryConfig = this.loadRetryConfiguration();
     logger.info('All configurations reset to defaults', 'ConfigurationManager');
   }
 
@@ -470,11 +543,13 @@ export class ConfigurationManager {
     booking: AdvancedBookingConfig;
     monitoring: MonitoringConfig;
     healthCheck: HealthCheckConfig;
+    retry: RetryConfig;
   } {
     return {
       booking: this.getConfig(),
       monitoring: this.getMonitoringConfig(),
-      healthCheck: this.getHealthCheckConfig()
+      healthCheck: this.getHealthCheckConfig(),
+      retry: this.getRetryConfig()
     };
   }
 }

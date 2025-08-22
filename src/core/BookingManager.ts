@@ -16,6 +16,7 @@ import { DryRunValidator } from '../utils/DryRunValidator';
 import { correlationManager } from '../utils/CorrelationManager';
 import { bookingAnalytics } from '../monitoring/BookingAnalytics';
 import { ErrorCategory } from '../types/monitoring.types';
+import { getGlobalRetryManager, RetryManager } from './retry';
 import { getDay } from 'date-fns';
 
 /**
@@ -30,6 +31,7 @@ export class BookingManager {
   private patternStorage: PatternStorage;
   private timeSlotGenerator: TimeSlotGenerator;
   private patternLearningEnabled: boolean;
+  private retryManager: RetryManager;
 
   constructor(page: Page, config: Partial<AdvancedBookingConfig> = {}) {
     this.page = page;
@@ -75,6 +77,9 @@ export class BookingManager {
     this.courtScorer = new CourtScorer(this.config.courtScoringWeights);
     this.patternStorage = new PatternStorage();
     this.timeSlotGenerator = new TimeSlotGenerator();
+    
+    // Use global retry manager instance
+    this.retryManager = getGlobalRetryManager();
 
     // Initialize pattern learning if enabled
     if (this.patternLearningEnabled) {
@@ -228,66 +233,73 @@ export class BookingManager {
       });
     }
 
-    logger.info('Starting booking process', component, {
+    logger.info('Starting booking process with retry manager', component, {
       config: this.config,
       mode: this.config.dryRun ? 'DRY_RUN' : 'PRODUCTION',
-      validationPassed: true
+      validationPassed: true,
+      retryEnabled: this.retryManager.getConfig().enabled,
+      circuitBreakerState: this.retryManager.getCircuitBreakerState()
     });
 
-    let attempt = 0;
-    let lastError = '';
+    try {
+      // Execute booking with robust retry logic
+      const retryResult = await this.retryManager.execute(
+        () => this.attemptBookingWithValidation(),
+        'booking-process'
+      );
 
-    while (attempt < this.config.maxRetries) {
-      attempt++;
-      logger.logBookingAttempt(attempt, this.config.maxRetries, component);
+      const finalResult: BookingResult = {
+        ...retryResult.result,
+        retryAttempts: retryResult.attempts,
+        timestamp: new Date(startTime),
+      };
 
-      try {
-        const result = await this.attemptBooking();
-
-        if (result.success) {
-          logger.logBookingSuccess(
-            result.bookedPair!.courtId,
-            result.bookedPair!.slot1.date,
-            result.bookedPair!.slot1.startTime,
-            component
-          );
-
-          return {
-            ...result,
-            retryAttempts: attempt,
-            timestamp: new Date(startTime),
-          };
-        }
-
-        lastError = result.error || 'Unknown error';
-        logger.warn(`Booking attempt ${attempt} failed`, component, { error: lastError });
-
-        // Wait before retry (exponential backoff)
-        if (attempt < this.config.maxRetries) {
-          const waitTime = Math.pow(2, attempt) * 1000; // 2s, 4s, 8s, etc.
-          logger.info(`Waiting ${waitTime}ms before retry`, component);
-          await this.page.waitForTimeout(waitTime);
-        }
-      } catch (error) {
-        lastError = error instanceof Error ? error.message : String(error);
-        logger.error(`Booking attempt ${attempt} threw error`, component, { error: lastError });
-
-        if (attempt < this.config.maxRetries) {
-          await this.page.waitForTimeout(2000);
-        }
+      // Log successful booking
+      if (finalResult.success && finalResult.bookedPair) {
+        logger.logBookingSuccess(
+          finalResult.bookedPair.courtId,
+          finalResult.bookedPair.slot1.date,
+          finalResult.bookedPair.slot1.startTime,
+          component
+        );
       }
+
+      return finalResult;
+
+    } catch (error) {
+      // Handle retry exhaustion or circuit breaker errors
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      
+      const finalResult: BookingResult = {
+        success: false,
+        error: `Booking failed after retry attempts: ${errorMessage}`,
+        retryAttempts: this.retryManager.getConfig().maxAttempts,
+        timestamp: new Date(startTime),
+      };
+
+      logger.logBookingFailure(finalResult.error!, component);
+      
+      return finalResult;
     }
+  }
 
-    // All attempts failed
-    const finalResult: BookingResult = {
-      success: false,
-      error: `All ${this.config.maxRetries} booking attempts failed. Last error: ${lastError}`,
-      retryAttempts: attempt,
-      timestamp: new Date(startTime),
-    };
-
-    logger.logBookingFailure(finalResult.error!, component);
-    return finalResult;
+  /**
+   * Booking attempt wrapper for retry manager integration
+   * Validates success and throws errors for proper retry handling
+   */
+  private async attemptBookingWithValidation(): Promise<BookingResult> {
+    const result = await this.attemptBooking();
+    
+    // If booking failed, throw an error for retry manager to handle
+    if (!result.success) {
+      const error = new Error(result.error || 'Booking attempt failed');
+      // Add error properties for better classification
+      (error as any).bookingResult = result;
+      (error as any).isBookingFailure = true;
+      throw error;
+    }
+    
+    return result;
   }
 
   /**
