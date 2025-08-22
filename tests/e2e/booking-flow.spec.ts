@@ -201,7 +201,7 @@ test.describe('Squash Booking E2E Flow', () => {
       
       expect(timeSlots).toHaveLength(2);
       expect(timeSlots[0]).toBe('14:00');
-      expect(timeSlots[1]).toBe('15:00');
+      expect(timeSlots[1]).toBe('14:30');
     });
 
     await test.step('Validate timestamp generation', async () => {

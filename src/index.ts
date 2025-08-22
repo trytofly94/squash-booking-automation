@@ -1,8 +1,12 @@
-import { chromium } from '@playwright/test';
 import dotenv from 'dotenv';
+import playwright from 'playwright-extra';
+import StealthPlugin from 'playwright-extra-plugin-stealth';
 import { BookingManager } from './core/BookingManager';
 import { BookingConfig } from './types/booking.types';
 import { logger } from './utils/logger';
+
+// Add stealth plugin to playwright-extra
+playwright.chromium.use(StealthPlugin());
 
 // Load environment variables
 dotenv.config();
@@ -26,18 +30,39 @@ async function main(): Promise<void> {
 
   logger.info('Configuration loaded', component, { config });
 
-  // Launch browser
-  const browser = await chromium.launch({
+  // Launch browser with stealth mode
+  const browser = await playwright.chromium.launch({
     headless: process.env['NODE_ENV'] === 'production',
     slowMo: config.dryRun ? 1000 : 0, // Slow down in dry-run mode for visibility
+    args: [
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--disable-dev-shm-usage',
+      '--disable-accelerated-2d-canvas',
+      '--no-first-run',
+      '--no-zygote',
+      '--single-process', // This might be removed if it causes issues
+      '--disable-gpu',
+    ],
   });
 
   try {
-    // Create new page
+    // Create new page with enhanced stealth context
     const context = await browser.newContext({
       viewport: { width: 1920, height: 1080 },
       userAgent:
         'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      locale: 'de-DE',
+      timezoneId: 'Europe/Berlin',
+      permissions: ['geolocation'],
+      geolocation: { longitude: 13.4050, latitude: 52.5200 }, // Berlin coordinates
+      extraHTTPHeaders: {
+        'Accept-Language': 'de-DE,de;q=0.9,en;q=0.8',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
+        'DNT': '1',
+        'Upgrade-Insecure-Requests': '1',
+      },
     });
 
     const page = await context.newPage();
