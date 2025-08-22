@@ -284,7 +284,7 @@ describe('TimeSlotGenerator', () => {
     it('should allow adding custom fallback strategies', () => {
       const customStrategy = {
         name: 'custom-test',
-        execute: (originalTime: string, fallbackRange: number) => {
+        execute: (_originalTime: string, _fallbackRange: number) => {
           return ['13:00', '15:00']; // Simple test implementation
         }
       };
@@ -339,8 +339,8 @@ describe('TimeSlotGenerator', () => {
         // End time should be after start time
         const [startHours, startMinutes] = slot.startTime.split(':').map(Number);
         const [endHours, endMinutes] = slot.endTime.split(':').map(Number);
-        const startTotal = startHours * 60 + startMinutes;
-        const endTotal = endHours * 60 + endMinutes;
+        const startTotal = (startHours ?? 0) * 60 + (startMinutes ?? 0);
+        const endTotal = (endHours ?? 0) * 60 + (endMinutes ?? 0);
         
         expect(endTotal).toBeGreaterThan(startTotal);
       });

@@ -52,10 +52,10 @@ describe('DateTimeCalculator', () => {
 
     it('should throw error for invalid time format', () => {
       expect(() => DateTimeCalculator.generateTimeSlots('25:00')).toThrow(
-        'Invalid start time format'
+        'Invalid time format: 25:00. Expected HH:MM format.'
       );
       expect(() => DateTimeCalculator.generateTimeSlots('14:75')).toThrow(
-        'Invalid start time format'
+        'Invalid time format: 14:75. Expected HH:MM format.'
       );
     });
   });
@@ -166,14 +166,14 @@ describe('DateTimeCalculator', () => {
 
     it('should handle negative time calculations correctly', () => {
       const result = DateTimeCalculator.calculateNeighborSlots('00:00');
-      expect(result.before).toBe('23:30'); // Previous day
-      expect(result.after).toBe('01:00');
+      expect(result.before).toBe('23:30'); // Previous day (correct with date-fns)
+      expect(result.after).toBe('01:00'); // After 60 minutes (correct with date-fns)
     });
 
     it('should handle late evening slots correctly', () => {
       const result = DateTimeCalculator.calculateNeighborSlots('23:30');
       expect(result.before).toBe('23:00');
-      expect(result.after).toBe('00:30'); // Next day
+      expect(result.after).toBe('00:30'); // Next day (correct with date-fns)
     });
 
     it('should generate consistent slot times across different systems', () => {
