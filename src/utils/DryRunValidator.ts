@@ -23,10 +23,11 @@ export interface SafetyCheckResult {
 
 export interface ValidationPoint {
   stepName: string;
-  timestamp: string;
+  timestamp: number;
   status: 'pending' | 'success' | 'warning' | 'error';
   message: string;
   data?: any;
+  passed: boolean;
 }
 
 export class DryRunValidator {
@@ -41,10 +42,11 @@ export class DryRunValidator {
   /**
    * Add a validation checkpoint
    */
-  addValidationPoint(point: Omit<ValidationPoint, 'timestamp'>): void {
+  addValidationPoint(point: Omit<ValidationPoint, 'timestamp' | 'passed'>): void {
     const validationPoint: ValidationPoint = {
       ...point,
-      timestamp: new Date().toISOString()
+      timestamp: Date.now(),
+      passed: point.status === 'success'
     };
 
     this.validationPoints.push(validationPoint);
@@ -517,5 +519,32 @@ export class DryRunValidator {
     } catch {
       return null;
     }
+  }
+
+  /**
+   * Get validation statistics for monitoring
+   */
+  getValidationStats(): {
+    totalValidations: number;
+    successfulValidations: number;
+    failedValidations: number;
+    safetyLevel: string;
+    recentValidationPoints: number;
+  } {
+    const totalValidations = this.validationPoints.length;
+    const successfulValidations = this.validationPoints.filter(p => p.passed).length;
+    const failedValidations = totalValidations - successfulValidations;
+    
+    // Count recent validations (last hour)
+    const oneHourAgo = Date.now() - (60 * 60 * 1000);
+    const recentValidationPoints = this.validationPoints.filter(p => p.timestamp >= oneHourAgo).length;
+
+    return {
+      totalValidations,
+      successfulValidations,
+      failedValidations,
+      safetyLevel: this.safetyLevel,
+      recentValidationPoints
+    };
   }
 }

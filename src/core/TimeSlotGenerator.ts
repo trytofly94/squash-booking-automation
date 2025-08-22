@@ -234,6 +234,7 @@ export class TimeSlotGenerator {
    * Calculate end time for a given start time and duration
    */
   private calculateEndTime(startTime: string, duration: number): string {
+    // Time slots available if needed
     const { hours, minutes } = DateTimeCalculator.parseTime(startTime);
     
     // Calculate end time
@@ -369,6 +370,7 @@ export class TimeSlotGenerator {
     this.fallbackStrategies.set('peak-avoidance', {
       name: 'peak-avoidance',
       execute: (originalTime: string, fallbackRange: number) => {
+        // Alternatives array available if needed
         const peakTimes = ['12:00', '13:00', '18:00', '19:00', '20:00']; // Common peak times
         
         // Generate alternatives that avoid peak times

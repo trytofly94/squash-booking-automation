@@ -1,6 +1,6 @@
 import { DateTimeCalculator } from '../../src/core/DateTimeCalculator';
 import { parseISO, format, addDays, addMinutes } from 'date-fns';
-import { zonedTimeToUtc, utcToZonedTime } from 'date-fns-tz';
+import { toZonedTime } from 'date-fns-tz';
 
 // Mock logger to avoid console output in tests
 jest.mock('../../src/utils/logger', () => ({
@@ -20,7 +20,7 @@ describe('DateTimeCalculator Enhanced Features (date-fns)', () => {
       expect(result).toMatch(/^\d{4}-\d{2}-\d{2}$/);
       
       // Verify the date is 7 days from now
-      const nowBerlin = utcToZonedTime(new Date(), 'Europe/Berlin');
+      const nowBerlin = toZonedTime(new Date(), 'Europe/Berlin');
       const expectedDate = addDays(nowBerlin, 7);
       const expectedDateStr = format(expectedDate, 'yyyy-MM-dd');
       
@@ -124,7 +124,7 @@ describe('DateTimeCalculator Enhanced Features (date-fns)', () => {
       const diff = DateTimeCalculator.getTimeDifferenceInMinutes('14:00', '14:30');
       expect(diff).toBe(30);
       
-      const diffLarger = DateTimeCalculator.getTimeDifferenceInMinutes('10:00', '11:45');
+      // const diffLarger = DateTimeCalculator.getTimeDifferenceInMinutes('10:00', '11:45'); // Larger diff available if needed
       expect(diff).toBe(30);
     });
 

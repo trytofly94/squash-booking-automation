@@ -4,6 +4,11 @@ import type {
   CourtScoringWeights, 
   TimePreference
 } from '../types/booking.types';
+<<<<<<< HEAD
+=======
+import type { MonitoringConfig } from '../types/monitoring.types';
+import type { HealthCheckConfig } from '../types/health.types';
+>>>>>>> origin/main
 
 /**
  * Configuration manager for advanced booking features
@@ -12,9 +17,19 @@ import type {
 export class ConfigurationManager {
   private static instance: ConfigurationManager;
   private config: AdvancedBookingConfig;
+<<<<<<< HEAD
 
   private constructor() {
     this.config = this.loadConfiguration();
+=======
+  private monitoringConfig: MonitoringConfig;
+  private healthCheckConfig: HealthCheckConfig;
+
+  private constructor() {
+    this.config = this.loadConfiguration();
+    this.monitoringConfig = this.loadMonitoringConfiguration();
+    this.healthCheckConfig = this.loadHealthCheckConfiguration();
+>>>>>>> origin/main
     this.validateConfiguration();
   }
 
@@ -36,6 +51,23 @@ export class ConfigurationManager {
   }
 
   /**
+<<<<<<< HEAD
+=======
+   * Get monitoring configuration
+   */
+  getMonitoringConfig(): MonitoringConfig {
+    return { ...this.monitoringConfig };
+  }
+
+  /**
+   * Get health check configuration
+   */
+  getHealthCheckConfig(): HealthCheckConfig {
+    return { ...this.healthCheckConfig };
+  }
+
+  /**
+>>>>>>> origin/main
    * Update configuration at runtime
    */
   updateConfig(updates: Partial<AdvancedBookingConfig>): void {
@@ -62,6 +94,37 @@ export class ConfigurationManager {
   }
 
   /**
+<<<<<<< HEAD
+=======
+   * Update monitoring configuration
+   */
+  updateMonitoringConfig(updates: Partial<MonitoringConfig>): void {
+    const oldConfig = { ...this.monitoringConfig };
+    this.monitoringConfig = { ...this.monitoringConfig, ...updates };
+    
+    logger.info('Monitoring configuration updated', 'ConfigurationManager', {
+      updatedFields: Object.keys(updates),
+      oldConfig,
+      newConfig: this.monitoringConfig
+    });
+  }
+
+  /**
+   * Update health check configuration
+   */
+  updateHealthCheckConfig(updates: Partial<HealthCheckConfig>): void {
+    const oldConfig = { ...this.healthCheckConfig };
+    this.healthCheckConfig = { ...this.healthCheckConfig, ...updates };
+    
+    logger.info('Health check configuration updated', 'ConfigurationManager', {
+      updatedFields: Object.keys(updates),
+      oldConfig,
+      newConfig: this.healthCheckConfig
+    });
+  }
+
+  /**
+>>>>>>> origin/main
    * Load configuration from environment variables with defaults
    */
   private loadConfiguration(): AdvancedBookingConfig {
@@ -90,6 +153,47 @@ export class ConfigurationManager {
   }
 
   /**
+<<<<<<< HEAD
+=======
+   * Load monitoring configuration from environment variables
+   */
+  private loadMonitoringConfiguration(): MonitoringConfig {
+    const config: MonitoringConfig = {
+      enableCorrelationId: this.parseBoolean(process.env['LOG_CORRELATION_ID'], true),
+      enablePerformanceLogging: this.parseBoolean(process.env['LOG_PERFORMANCE'], true),
+      performanceThresholdWarning: this.parseNumber(process.env['PERFORMANCE_THRESHOLD_WARNING'], 5000),
+      performanceThresholdError: this.parseNumber(process.env['PERFORMANCE_THRESHOLD_ERROR'], 10000),
+      metricsEnabled: this.parseBoolean(process.env['METRICS_ENABLED'], false),
+      maxMetricsHistory: this.parseNumber(process.env['MAX_METRICS_HISTORY'], 1000)
+    };
+
+    logger.info('Monitoring configuration loaded', 'ConfigurationManager', { config });
+    return config;
+  }
+
+  /**
+   * Load health check configuration from environment variables
+   */
+  private loadHealthCheckConfiguration(): HealthCheckConfig {
+    const config: HealthCheckConfig = {
+      enabled: this.parseBoolean(process.env['HEALTH_CHECK_ENABLED'], true),
+      interval: this.parseNumber(process.env['HEALTH_CHECK_INTERVAL'], 300000), // 5 minutes
+      timeout: this.parseNumber(process.env['HEALTH_CHECK_TIMEOUT'], 30000), // 30 seconds
+      websiteUrl: process.env['WEBSITE_URL'] || 'https://www.eversports.de/sb/sportcenter-kautz?sport=squash',
+      retryAttempts: this.parseNumber(process.env['HEALTH_CHECK_RETRIES'], 3),
+      alertThresholds: {
+        responseTime: this.parseNumber(process.env['ALERT_THRESHOLD_RESPONSE_TIME'], 5000),
+        errorRate: this.parseNumber(process.env['ALERT_THRESHOLD_ERROR_RATE'], 10),
+        memoryUsage: this.parseNumber(process.env['ALERT_THRESHOLD_MEMORY'], 80)
+      }
+    };
+
+    logger.info('Health check configuration loaded', 'ConfigurationManager', { config });
+    return config;
+  }
+
+  /**
+>>>>>>> origin/main
    * Validate the configuration
    */
   private validateConfiguration(): void {
@@ -277,6 +381,7 @@ export class ConfigurationManager {
    */
   getEnvironmentVariables(): Record<string, string> {
     return {
+      // Booking configuration
       DAYS_AHEAD: this.config.daysAhead.toString(),
       TARGET_START_TIME: this.config.targetStartTime,
       DURATION: this.config.duration.toString(),
@@ -289,7 +394,25 @@ export class ConfigurationManager {
       COURT_WEIGHT_AVAILABILITY: this.config.courtScoringWeights.availability.toString(),
       COURT_WEIGHT_HISTORICAL: this.config.courtScoringWeights.historical.toString(),
       COURT_WEIGHT_PREFERENCE: this.config.courtScoringWeights.preference.toString(),
-      COURT_WEIGHT_POSITION: this.config.courtScoringWeights.position.toString()
+      COURT_WEIGHT_POSITION: this.config.courtScoringWeights.position.toString(),
+      
+      // Monitoring configuration
+      LOG_CORRELATION_ID: this.monitoringConfig.enableCorrelationId.toString(),
+      LOG_PERFORMANCE: this.monitoringConfig.enablePerformanceLogging.toString(),
+      PERFORMANCE_THRESHOLD_WARNING: this.monitoringConfig.performanceThresholdWarning.toString(),
+      PERFORMANCE_THRESHOLD_ERROR: this.monitoringConfig.performanceThresholdError.toString(),
+      METRICS_ENABLED: this.monitoringConfig.metricsEnabled.toString(),
+      MAX_METRICS_HISTORY: this.monitoringConfig.maxMetricsHistory.toString(),
+      
+      // Health check configuration
+      HEALTH_CHECK_ENABLED: this.healthCheckConfig.enabled.toString(),
+      HEALTH_CHECK_INTERVAL: this.healthCheckConfig.interval.toString(),
+      HEALTH_CHECK_TIMEOUT: this.healthCheckConfig.timeout.toString(),
+      WEBSITE_URL: this.healthCheckConfig.websiteUrl,
+      HEALTH_CHECK_RETRIES: this.healthCheckConfig.retryAttempts.toString(),
+      ALERT_THRESHOLD_RESPONSE_TIME: this.healthCheckConfig.alertThresholds.responseTime.toString(),
+      ALERT_THRESHOLD_ERROR_RATE: this.healthCheckConfig.alertThresholds.errorRate.toString(),
+      ALERT_THRESHOLD_MEMORY: this.healthCheckConfig.alertThresholds.memoryUsage.toString()
     };
   }
 
@@ -317,7 +440,9 @@ export class ConfigurationManager {
    */
   resetToDefaults(): void {
     this.config = this.loadConfiguration();
-    logger.info('Configuration reset to defaults', 'ConfigurationManager');
+    this.monitoringConfig = this.loadMonitoringConfiguration();
+    this.healthCheckConfig = this.loadHealthCheckConfiguration();
+    logger.info('All configurations reset to defaults', 'ConfigurationManager');
   }
 
   /**
@@ -329,13 +454,36 @@ export class ConfigurationManager {
     patternLearningEnabled: boolean;
     hasFallbackRange: boolean;
     isProductionMode: boolean;
+    monitoringEnabled: boolean;
+    healthChecksEnabled: boolean;
+    correlationTrackingEnabled: boolean;
+    performanceTrackingEnabled: boolean;
   } {
     return {
       totalPreferences: this.config.timePreferences.length,
       totalPreferredCourts: this.config.preferredCourts.length,
       patternLearningEnabled: this.config.enablePatternLearning,
       hasFallbackRange: this.config.fallbackTimeRange > 0,
-      isProductionMode: !this.config.dryRun
+      isProductionMode: !this.config.dryRun,
+      monitoringEnabled: this.monitoringConfig.enableCorrelationId || this.monitoringConfig.enablePerformanceLogging,
+      healthChecksEnabled: this.healthCheckConfig.enabled,
+      correlationTrackingEnabled: this.monitoringConfig.enableCorrelationId,
+      performanceTrackingEnabled: this.monitoringConfig.enablePerformanceLogging
+    };
+  }
+
+  /**
+   * Get all configurations combined
+   */
+  getAllConfigurations(): {
+    booking: AdvancedBookingConfig;
+    monitoring: MonitoringConfig;
+    healthCheck: HealthCheckConfig;
+  } {
+    return {
+      booking: this.getConfig(),
+      monitoring: this.getMonitoringConfig(),
+      healthCheck: this.getHealthCheckConfig()
     };
   }
 }

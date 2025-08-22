@@ -1,4 +1,5 @@
 import { ConfigurationManager } from '../../src/utils/ConfigurationManager';
+// import type { AdvancedBookingConfig } from '../../src/types/booking.types'; // Not used
 
 // Mock logger to avoid console output in tests
 jest.mock('../../src/utils/logger', () => ({
@@ -74,7 +75,7 @@ describe('ConfigurationManager', () => {
         position: 0.1
       });
       expect(config.timePreferences).toHaveLength(1);
-      expect(config.timePreferences[0].startTime).toBe('14:00');
+      expect(config.timePreferences[0]?.startTime).toBe('14:00');
     });
   });
 
@@ -280,14 +281,14 @@ describe('ConfigurationManager', () => {
       
       const envVars = manager.getEnvironmentVariables();
       
-      expect(envVars.PREFERRED_COURTS).toBe('1,2,3');
-      expect(envVars.BOOKING_PATTERN_LEARNING).toBe('true');
-      expect(envVars.TARGET_START_TIME).toBe('14:00');
+      expect(envVars['PREFERRED_COURTS']).toBe('1,2,3');
+      expect(envVars['BOOKING_PATTERN_LEARNING']).toBe('true');
+      expect(envVars['TARGET_START_TIME']).toBe('14:00');
     });
 
     it('should export and import configuration as JSON', () => {
       const manager = ConfigurationManager.getInstance();
-      const originalConfig = manager.getConfig();
+      // const originalConfig = manager.getConfig(); // Not used
       
       manager.updateConfig({
         daysAhead: 30,

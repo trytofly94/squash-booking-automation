@@ -13,6 +13,9 @@ import { PatternStorage } from './PatternStorage';
 import { TimeSlotGenerator } from './TimeSlotGenerator';
 import { logger } from '../utils/logger';
 import { DryRunValidator } from '../utils/DryRunValidator';
+import { correlationManager } from '../utils/CorrelationManager';
+import { bookingAnalytics } from '../monitoring/BookingAnalytics';
+import { ErrorCategory } from '../types/monitoring.types';
 import { getDay } from 'date-fns';
 
 /**
@@ -32,7 +35,7 @@ export class BookingManager {
     this.page = page;
     
     // Extended configuration with new advanced features
-    this.config = {
+    const advancedConfig: AdvancedBookingConfig = {
       // Basic configuration
       daysAhead: config.daysAhead || 20,
       targetStartTime: config.targetStartTime || '14:00',
@@ -53,9 +56,15 @@ export class BookingManager {
         preference: 0.2,
         position: 0.1
       },
-      timePreferences: config.timePreferences || this.generateDefaultTimePreferences(),
-      ...(config.holidayProvider && { holidayProvider: config.holidayProvider })
+      timePreferences: config.timePreferences || this.generateDefaultTimePreferences()
     };
+    
+    // Only add holidayProvider if it exists
+    if (config.holidayProvider) {
+      advancedConfig.holidayProvider = config.holidayProvider;
+    }
+    
+    this.config = advancedConfig;
 
     this.patternLearningEnabled = this.config.enablePatternLearning;
 
@@ -119,12 +128,81 @@ export class BookingManager {
   }
 
   /**
-   * Execute the complete booking process with enhanced intelligence
+   * Execute the complete booking process with enhanced intelligence and monitoring
    */
   async executeBooking(): Promise<BookingResult> {
     const component = 'BookingManager';
-    const startTime = DateTimeCalculator.getCurrentTimestamp();
-
+    const startTime = Date.now();
+    
+    // Create correlation context for this booking operation
+    return correlationManager.runWithNewContext(async () => {
+      correlationManager.setComponent(component);
+      const correlationId = correlationManager.getCurrentCorrelationId()!;
+      
+      // Start performance tracking for entire booking process
+      const bookingTimerId = logger.startTiming('complete_booking_process', component, {
+        correlationId,
+        dryRun: this.config.dryRun,
+        targetTime: this.config.targetStartTime,
+        daysAhead: this.config.daysAhead
+      });
+      
+      logger.info('Starting booking process with enhanced monitoring', component, {
+        correlationId,
+        config: this.sanitizeConfigForLogging(),
+        mode: this.config.dryRun ? 'DRY_RUN' : 'PRODUCTION'
+      });
+      
+      try {
+        const result = await this.executeBookingWithRetries(startTime, component, correlationId);
+        
+        // Record booking analytics
+        bookingAnalytics.recordBookingAttempt({
+          success: result.success,
+          responseTime: Date.now() - startTime,
+          retryCount: result.retryAttempts || 0,
+          ...(result.bookedPair?.courtId && { courtId: result.bookedPair.courtId }),
+          ...(result.bookedPair?.slot1.date && { date: result.bookedPair.slot1.date }),
+          ...(result.bookedPair?.slot1.startTime && { startTime: result.bookedPair.slot1.startTime }),
+          ...(this.config.duration && { duration: this.config.duration }),
+          ...(result.error && { error: result.error }),
+          ...((!result.success && result.error) && { errorCategory: this.categorizeError(result.error) })
+        });
+        
+        logger.endTiming(bookingTimerId, component);
+        return result;
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        const errorCategory = this.categorizeError(errorMessage);
+        
+        // Record failed booking attempt
+        bookingAnalytics.recordBookingAttempt({
+          success: false,
+          responseTime: Date.now() - startTime,
+          retryCount: this.config.maxRetries,
+          error: errorMessage,
+          errorCategory
+        });
+        
+        logger.logStructuredError(errorMessage, errorCategory, component, {
+          correlationId,
+          operation: 'complete_booking_process'
+        });
+        
+        logger.endTiming(bookingTimerId, component);
+        throw error;
+      }
+    });
+  }
+  
+  /**
+   * Execute booking with retries and enhanced monitoring
+   */
+  private async executeBookingWithRetries(
+    startTime: number, 
+    component: string, 
+    _correlationId: string
+  ): Promise<BookingResult> {
     // Validate configuration before starting
     const configValidation = this.validator.validateBookingConfig(this.config);
     if (!configValidation.isValid) {
@@ -138,7 +216,7 @@ export class BookingManager {
         success: false,
         error: errorMessage,
         retryAttempts: 0,
-        timestamp: startTime,
+        timestamp: new Date(startTime),
       };
     }
 
@@ -177,7 +255,7 @@ export class BookingManager {
           return {
             ...result,
             retryAttempts: attempt,
-            timestamp: startTime,
+            timestamp: new Date(startTime),
           };
         }
 
@@ -205,7 +283,7 @@ export class BookingManager {
       success: false,
       error: `All ${this.config.maxRetries} booking attempts failed. Last error: ${lastError}`,
       retryAttempts: attempt,
-      timestamp: startTime,
+      timestamp: new Date(startTime),
     };
 
     logger.logBookingFailure(finalResult.error!, component);
@@ -225,7 +303,7 @@ export class BookingManager {
         this.config.timezone
       );
       
-      const dayOfWeek = getDay(DateTimeCalculator.getCurrentTimestamp(this.config.timezone));
+      const dayOfWeek = getDay(new Date(targetDate));
 
       // Generate prioritized time slots with fallback alternatives
       const prioritizedTimeSlots = this.timeSlotGenerator.generatePrioritizedTimeSlots(
@@ -298,6 +376,8 @@ export class BookingManager {
     timeSlot: { startTime: string; endTime: string; priority: number },
     dayOfWeek: number
   ): Promise<BookingResult> {
+    // Component name for logging
+    
     try {
       // Generate time slots for this specific time
       const timeSlots = DateTimeCalculator.generateTimeSlots(
@@ -699,5 +779,63 @@ export class BookingManager {
     });
 
     return allSlots;
+  }
+
+  /**
+   * Categorize error for structured logging
+   */
+  private categorizeError(errorMessage: string): ErrorCategory {
+    const lowerError = errorMessage.toLowerCase();
+    
+    if (lowerError.includes('timeout') || lowerError.includes('timed out')) {
+      return ErrorCategory.TIMEOUT;
+    } else if (lowerError.includes('network') || lowerError.includes('connection') || lowerError.includes('fetch')) {
+      return ErrorCategory.NETWORK;
+    } else if (lowerError.includes('auth') || lowerError.includes('login') || lowerError.includes('permission')) {
+      return ErrorCategory.AUTHENTICATION;
+    } else if (lowerError.includes('validation') || lowerError.includes('invalid') || lowerError.includes('format')) {
+      return ErrorCategory.VALIDATION;
+    } else if (lowerError.includes('booking') || lowerError.includes('slot') || lowerError.includes('court')) {
+      return ErrorCategory.BUSINESS_LOGIC;
+    } else if (lowerError.includes('system') || lowerError.includes('memory') || lowerError.includes('resource')) {
+      return ErrorCategory.SYSTEM;
+    } else {
+      return ErrorCategory.UNKNOWN;
+    }
+  }
+
+  /**
+   * Sanitize configuration for logging (remove sensitive data)
+   */
+  private sanitizeConfigForLogging(): Record<string, unknown> {
+    return {
+      daysAhead: this.config.daysAhead,
+      targetStartTime: this.config.targetStartTime,
+      duration: this.config.duration,
+      maxRetries: this.config.maxRetries,
+      dryRun: this.config.dryRun,
+      timezone: this.config.timezone,
+      preferredCourtsCount: this.config.preferredCourts.length,
+      patternLearningEnabled: this.config.enablePatternLearning,
+      fallbackTimeRange: this.config.fallbackTimeRange,
+      timePreferencesCount: this.config.timePreferences.length
+    };
+  }
+
+  /**
+   * Get booking manager statistics for monitoring
+   */
+  getBookingStats(): {
+    config: Record<string, unknown>;
+    patternLearningEnabled: boolean;
+    courtScorerStats: ReturnType<CourtScorer['getStats']>;
+    validatorStats: ReturnType<DryRunValidator['getValidationStats']>;
+  } {
+    return {
+      config: this.sanitizeConfigForLogging(),
+      patternLearningEnabled: this.patternLearningEnabled,
+      courtScorerStats: this.courtScorer.getStats(),
+      validatorStats: this.validator.getValidationStats()
+    };
   }
 }

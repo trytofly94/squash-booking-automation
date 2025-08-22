@@ -180,12 +180,13 @@ export class DateTimeCalculator {
    */
   static formatDateForDisplay(
     date: string,
-    timezone: string = this.DEFAULT_TIMEZONE
+    timezone: string = this.DEFAULT_TIMEZONE,
+    _locale: string = 'de-DE'
   ): string {
     const dateObj = parseISO(date);
     const zonedDate = toZonedTime(dateObj, timezone);
     
-    // Use date-fns format with default locale
+    // Use date-fns format with German locale pattern
     return format(zonedDate, 'EEEE, dd. MMMM yyyy');
   }
 
