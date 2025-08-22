@@ -3,16 +3,16 @@ declare module 'playwright-extra' {
   
   interface PlaywrightExtra {
     chromium: BrowserType<Browser> & {
-      use(plugin: any): void;
-      launch(options?: LaunchOptions): Promise<Browser>;
+      use(_plugin: any): void;
+      launch(_options?: LaunchOptions): Promise<Browser>;
     };
     firefox: BrowserType<Browser> & {
-      use(plugin: any): void;
-      launch(options?: LaunchOptions): Promise<Browser>;
+      use(_plugin: any): void;
+      launch(_options?: LaunchOptions): Promise<Browser>;
     };
     webkit: BrowserType<Browser> & {
-      use(plugin: any): void;
-      launch(options?: LaunchOptions): Promise<Browser>;
+      use(_plugin: any): void;
+      launch(_options?: LaunchOptions): Promise<Browser>;
     };
   }
   

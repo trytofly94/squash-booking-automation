@@ -7,6 +7,8 @@ import { ConfigurationManager } from '../../src/utils/ConfigurationManager';
 import type { AdvancedBookingConfig, BookingPattern } from '../../src/types/booking.types';
 import type { Page } from '@playwright/test';
 
+/// <reference types="node" />
+
 // Mock logger to avoid console output in tests
 jest.mock('../../src/utils/logger', () => ({
   logger: {
@@ -44,7 +46,7 @@ const createMockPage = (): Partial<Page> => ({
 
 describe('Advanced Booking Logic Integration Tests', () => {
   let mockPage: Page;
-  let originalEnv: NodeJS.ProcessEnv;
+  let originalEnv: typeof process.env;
 
   beforeAll(() => {
     // Save original environment
@@ -365,7 +367,7 @@ describe('Advanced Booking Logic Integration Tests', () => {
       // Add custom strategy
       const customStrategy = {
         name: 'test-strategy',
-        execute: (originalTime: string, range: number) => {
+        execute: (_originalTime: string, _range: number) => {
           return ['12:00', '16:00']; // Fixed alternatives for testing
         }
       };
