@@ -65,6 +65,10 @@ export interface BookingResult {
   retryAttempts: number;
   /** Timestamp of the booking attempt */
   timestamp: Date;
+  /** Whether circuit breaker was tripped during execution */
+  circuitBreakerTripped?: boolean;
+  /** Detailed retry attempt information */
+  retryDetails?: RetryAttemptSummary[];
 }
 
 export interface IsolationCheckResult {
@@ -172,4 +176,56 @@ export interface TimeSlot {
   priority: number;
   /** Distance from preferred time in minutes */
   distanceFromPreferred: number;
+}
+
+// Retry System Types (Issue #7)
+
+export interface RetryAttemptSummary {
+  /** Attempt number (1-based) */
+  attemptNumber: number;
+  /** Error that occurred */
+  error: string;
+  /** Classified error type */
+  errorType: string;
+  /** Delay before this attempt in milliseconds */
+  delayMs: number;
+  /** Timestamp of this attempt */
+  timestamp: Date;
+  /** Circuit breaker state during attempt */
+  circuitBreakerState: string;
+}
+
+export interface RetryConfiguration {
+  /** Whether retry system is enabled globally */
+  enabled: boolean;
+  /** Default maximum retry attempts */
+  maxAttempts: number;
+  /** Initial delay in milliseconds */
+  initialDelayMs: number;
+  /** Maximum delay in milliseconds */
+  maxDelayMs: number;
+  /** Exponential backoff multiplier */
+  backoffMultiplier: number;
+  /** Maximum jitter factor (0-1) */
+  maxJitter: number;
+  /** Circuit breaker configuration */
+  circuitBreaker: {
+    enabled: boolean;
+    failureThreshold: number;
+    openTimeoutMs: number;
+    successThreshold: number;
+  };
+}
+
+export interface OperationRetryOptions {
+  /** Operation name for logging */
+  operationName: string;
+  /** Error type override */
+  errorType?: string;
+  /** Skip circuit breaker for this operation */
+  skipCircuitBreaker?: boolean;
+  /** Timeout for entire operation */
+  timeoutMs?: number;
+  /** Additional context for logging */
+  context?: Record<string, unknown>;
 }

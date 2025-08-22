@@ -3,7 +3,8 @@ import {
   BookingResult, 
   BookingPair,
   AdvancedBookingConfig,
-  TimePreference
+  TimePreference,
+  RetryAttemptSummary
 } from '../types/booking.types';
 import { DateTimeCalculator } from './DateTimeCalculator';
 import { SlotSearcher } from './SlotSearcher';
@@ -11,6 +12,9 @@ import { IsolationChecker } from './IsolationChecker';
 import { CourtScorer } from './CourtScorer';
 import { PatternStorage } from './PatternStorage';
 import { TimeSlotGenerator } from './TimeSlotGenerator';
+import { RetryManager } from './retry/RetryManager';
+import { RetryConfigFactory } from './retry/RetryConfig';
+import { ErrorClassifier } from './retry/ErrorClassifier';
 import { logger } from '../utils/logger';
 import { DryRunValidator } from '../utils/DryRunValidator';
 import { correlationManager } from '../utils/CorrelationManager';
@@ -29,6 +33,7 @@ export class BookingManager {
   private courtScorer: CourtScorer;
   private patternStorage: PatternStorage;
   private timeSlotGenerator: TimeSlotGenerator;
+  private retryManager: RetryManager;
   private patternLearningEnabled: boolean;
 
   constructor(page: Page, config: Partial<AdvancedBookingConfig> = {}) {
@@ -69,6 +74,10 @@ export class BookingManager {
     this.courtScorer = new CourtScorer(this.config.courtScoringWeights);
     this.patternStorage = new PatternStorage();
     this.timeSlotGenerator = new TimeSlotGenerator();
+    
+    // Initialize retry manager with configuration from environment
+    const retryConfig = RetryConfigFactory.createFromEnvironment();
+    this.retryManager = new RetryManager(retryConfig);
 
     // Initialize pattern learning if enabled
     if (this.patternLearningEnabled) {
@@ -80,7 +89,9 @@ export class BookingManager {
       preferredCourts: this.config.preferredCourts,
       patternLearning: this.patternLearningEnabled,
       fallbackRange: this.config.fallbackTimeRange,
-      scoringWeights: this.config.courtScoringWeights
+      scoringWeights: this.config.courtScoringWeights,
+      retrySystemEnabled: retryConfig.global.enabled,
+      circuitBreakerEnabled: retryConfig.circuitBreaker.enabled
     });
   }
 
@@ -148,7 +159,7 @@ export class BookingManager {
       });
       
       try {
-        const result = await this.executeBookingWithRetries(startTime, component, correlationId);
+        const result = await this.executeBookingWithRetryManager(startTime, component, correlationId);
         
         // Record booking analytics
         bookingAnalytics.recordBookingAttempt({
@@ -190,9 +201,9 @@ export class BookingManager {
   }
   
   /**
-   * Execute booking with retries and enhanced monitoring
+   * Execute booking with sophisticated retry manager and enhanced monitoring
    */
-  private async executeBookingWithRetries(
+  private async executeBookingWithRetryManager(
     startTime: number, 
     component: string, 
     correlationId: string
@@ -212,6 +223,7 @@ export class BookingManager {
         error: errorMessage,
         retryAttempts: 0,
         timestamp: startTime,
+        circuitBreakerTripped: false
       };
     }
 
@@ -223,66 +235,99 @@ export class BookingManager {
       });
     }
 
-    logger.info('Starting booking process', component, {
-      config: this.config,
+    logger.info('Starting booking process with retry manager', component, {
+      config: this.sanitizeConfigForLogging(),
       mode: this.config.dryRun ? 'DRY_RUN' : 'PRODUCTION',
-      validationPassed: true
+      validationPassed: true,
+      retrySystemEnabled: this.retryManager.getStats().isEnabled,
+      circuitBreakerState: this.retryManager.getCircuitBreakerState()
     });
 
-    let attempt = 0;
-    let lastError = '';
-
-    while (attempt < this.config.maxRetries) {
-      attempt++;
-      logger.logBookingAttempt(attempt, this.config.maxRetries, component);
-
-      try {
-        const result = await this.attemptBooking();
-
-        if (result.success) {
-          logger.logBookingSuccess(
-            result.bookedPair!.courtId,
-            result.bookedPair!.slot1.date,
-            result.bookedPair!.slot1.startTime,
-            component
-          );
-
-          return {
-            ...result,
-            retryAttempts: attempt,
-            timestamp: startTime,
-          };
+    try {
+      // Execute booking with retry manager
+      const retryResult = await this.retryManager.execute(
+        async () => await this.attemptBooking(),
+        {
+          operation: 'complete-booking-process',
+          context: {
+            correlationId,
+            dryRun: this.config.dryRun,
+            targetTime: this.config.targetStartTime,
+            daysAhead: this.config.daysAhead
+          }
         }
+      );
 
-        lastError = result.error || 'Unknown error';
-        logger.warn(`Booking attempt ${attempt} failed`, component, { error: lastError });
+      if (retryResult.success && retryResult.result) {
+        const bookingResult = retryResult.result;
+        
+        logger.logBookingSuccess(
+          bookingResult.bookedPair!.courtId,
+          bookingResult.bookedPair!.slot1.date,
+          bookingResult.bookedPair!.slot1.startTime,
+          component
+        );
 
-        // Wait before retry (exponential backoff)
-        if (attempt < this.config.maxRetries) {
-          const waitTime = Math.pow(2, attempt) * 1000; // 2s, 4s, 8s, etc.
-          logger.info(`Waiting ${waitTime}ms before retry`, component);
-          await this.page.waitForTimeout(waitTime);
-        }
-      } catch (error) {
-        lastError = error instanceof Error ? error.message : String(error);
-        logger.error(`Booking attempt ${attempt} threw error`, component, { error: lastError });
+        // Convert retry attempt info to summary format
+        const retryDetails: RetryAttemptSummary[] = retryResult.attempts.map(attempt => ({
+          attemptNumber: attempt.attemptNumber,
+          error: attempt.error.message,
+          errorType: attempt.errorType,
+          delayMs: attempt.delayMs,
+          timestamp: new Date(startTime + attempt.elapsedMs),
+          circuitBreakerState: attempt.circuitBreakerState
+        }));
 
-        if (attempt < this.config.maxRetries) {
-          await this.page.waitForTimeout(2000);
-        }
+        return {
+          ...bookingResult,
+          retryAttempts: retryResult.totalAttempts,
+          timestamp: startTime,
+          circuitBreakerTripped: retryResult.circuitBreakerTripped,
+          retryDetails
+        };
+      } else {
+        // All retry attempts failed
+        const finalError = retryResult.error?.message || 'Unknown error occurred during booking';
+        
+        // Convert retry attempt info to summary format
+        const retryDetails: RetryAttemptSummary[] = retryResult.attempts.map(attempt => ({
+          attemptNumber: attempt.attemptNumber,
+          error: attempt.error.message,
+          errorType: attempt.errorType,
+          delayMs: attempt.delayMs,
+          timestamp: new Date(startTime + attempt.elapsedMs),
+          circuitBreakerState: attempt.circuitBreakerState
+        }));
+
+        const finalResult: BookingResult = {
+          success: false,
+          error: `Booking failed after ${retryResult.totalAttempts} attempts (${retryResult.totalTimeMs}ms). ${retryResult.circuitBreakerTripped ? 'Circuit breaker tripped. ' : ''}Last error: ${finalError}`,
+          retryAttempts: retryResult.totalAttempts,
+          timestamp: startTime,
+          circuitBreakerTripped: retryResult.circuitBreakerTripped,
+          retryDetails
+        };
+
+        logger.logBookingFailure(finalResult.error!, component);
+        return finalResult;
       }
+    } catch (error) {
+      // Fallback error handling (should not happen with retry manager)
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      
+      logger.error('Unexpected error in retry manager execution', component, {
+        error: errorMessage,
+        correlationId
+      });
+
+      return {
+        success: false,
+        error: `Unexpected booking error: ${errorMessage}`,
+        retryAttempts: 1,
+        timestamp: startTime,
+        circuitBreakerTripped: this.retryManager.getCircuitBreakerState() === 'OPEN'
+      };
     }
-
-    // All attempts failed
-    const finalResult: BookingResult = {
-      success: false,
-      error: `All ${this.config.maxRetries} booking attempts failed. Last error: ${lastError}`,
-      retryAttempts: attempt,
-      timestamp: startTime,
-    };
-
-    logger.logBookingFailure(finalResult.error!, component);
-    return finalResult;
   }
 
   /**
@@ -383,9 +428,15 @@ export class BookingManager {
       // Navigate to booking page
       await this.navigateToBookingPage(targetDate);
 
-      // Search for available slots
-      const slotSearcher = new SlotSearcher(this.page, targetDate, timeSlots);
-      const searchResult = await slotSearcher.searchAvailableSlots();
+      // Search for available slots with retry support
+      const searchResult = await this.retryManager.executeSimple(
+        async () => {
+          const slotSearcher = new SlotSearcher(this.page, targetDate, timeSlots);
+          return await slotSearcher.searchAvailableSlots();
+        },
+        'slot-search',
+        { targetDate, timeSlot: timeSlot.startTime }
+      );
 
       if (searchResult.availablePairs.length === 0) {
         // Update pattern learning on failure
@@ -420,11 +471,20 @@ export class BookingManager {
         };
       }
 
-      // Execute booking
+      // Execute booking with retry support
       if (this.config.dryRun) {
         return await this.simulateBooking(selectedPair);
       } else {
-        return await this.executeRealBooking(selectedPair);
+        return await this.retryManager.executeSimple(
+          async () => await this.executeRealBooking(selectedPair),
+          'booking-execution',
+          { 
+            courtId: selectedPair.courtId,
+            slot1: selectedPair.slot1.startTime,
+            slot2: selectedPair.slot2.startTime,
+            date: selectedPair.slot1.date
+          }
+        );
       }
     } catch (error) {
       return {
@@ -557,71 +617,69 @@ export class BookingManager {
   }
 
   /**
-   * Navigate to the booking page for the target date
+   * Navigate to the booking page for the target date with retry support
    */
   private async navigateToBookingPage(targetDate: string): Promise<void> {
     const component = 'BookingManager.navigateToBookingPage';
 
-    try {
-      // Navigate to the base booking URL
-      const baseUrl = 'https://www.eversports.de/sb/sportcenter-kautz?sport=squash';
-      await this.page.goto(baseUrl);
+    await this.retryManager.executeSimple(
+      async () => {
+        // Navigate to the base booking URL
+        const baseUrl = 'https://www.eversports.de/sb/sportcenter-kautz?sport=squash';
+        await this.page.goto(baseUrl);
 
-      logger.info('Navigated to booking page', component, { baseUrl });
+        logger.info('Navigated to booking page', component, { baseUrl });
 
-      // Wait for page to load
-      await this.page.waitForLoadState('networkidle');
+        // Wait for page to load
+        await this.page.waitForLoadState('networkidle');
 
-      // Look for date selector and navigate to target date
-      await this.navigateToTargetDate(targetDate);
-    } catch (error) {
-      logger.error('Error navigating to booking page', component, {
-        error: error instanceof Error ? error.message : String(error),
-      });
-      throw error;
-    }
+        // Look for date selector and navigate to target date
+        await this.navigateToTargetDate(targetDate);
+      },
+      'navigate-to-booking-page',
+      { targetDate, baseUrl: 'https://www.eversports.de/sb/sportcenter-kautz?sport=squash' }
+    );
   }
 
   /**
-   * Navigate to the target booking date
+   * Navigate to the target booking date with retry support
    */
   private async navigateToTargetDate(targetDate: string): Promise<void> {
     const component = 'BookingManager.navigateToTargetDate';
 
-    try {
-      // Try different selectors for date navigation
-      const dateSelectors = [
-        '[data-testid="date-picker"]',
-        '.date-picker',
-        '.calendar-navigation',
-        'input[type="date"]',
-      ];
+    await this.retryManager.executeSimple(
+      async () => {
+        // Try different selectors for date navigation
+        const dateSelectors = [
+          '[data-testid="date-picker"]',
+          '.date-picker',
+          '.calendar-navigation',
+          'input[type="date"]',
+        ];
 
-      let dateElement = null;
-      for (const selector of dateSelectors) {
-        dateElement = await this.page.$(selector);
-        if (dateElement) {
-          logger.debug(`Found date selector: ${selector}`, component);
-          break;
+        let dateElement = null;
+        for (const selector of dateSelectors) {
+          dateElement = await this.page.$(selector);
+          if (dateElement) {
+            logger.debug(`Found date selector: ${selector}`, component);
+            break;
+          }
         }
-      }
 
-      if (dateElement) {
-        await dateElement.fill(targetDate);
-        await this.page.keyboard.press('Enter');
-        await this.page.waitForTimeout(2000);
-      } else {
-        // Try alternative navigation methods
-        await this.navigateToDateAlternative(targetDate);
-      }
+        if (dateElement) {
+          await dateElement.fill(targetDate);
+          await this.page.keyboard.press('Enter');
+          await this.page.waitForTimeout(2000);
+        } else {
+          // Try alternative navigation methods
+          await this.navigateToDateAlternative(targetDate);
+        }
 
-      logger.info('Navigated to target date', component, { targetDate });
-    } catch (error) {
-      logger.error('Error navigating to target date', component, {
-        error: error instanceof Error ? error.message : String(error),
-      });
-      throw error;
-    }
+        logger.info('Navigated to target date', component, { targetDate });
+      },
+      'navigate-to-target-date',
+      { targetDate }
+    );
   }
 
   /**
@@ -686,11 +744,19 @@ export class BookingManager {
         await this.page.waitForTimeout(500);
       }
 
-      // Proceed to checkout
-      await this.proceedToCheckout();
+      // Proceed to checkout with retry support
+      await this.retryManager.executeSimple(
+        async () => await this.proceedToCheckout(),
+        'checkout-process',
+        { courtId: pair.courtId }
+      );
 
-      // Complete booking process
-      await this.completeBookingProcess();
+      // Complete booking process with retry support
+      await this.retryManager.executeSimple(
+        async () => await this.completeBookingProcess(),
+        'complete-booking',
+        { courtId: pair.courtId }
+      );
 
       return {
         success: true,
@@ -825,12 +891,36 @@ export class BookingManager {
     patternLearningEnabled: boolean;
     courtScorerStats: ReturnType<CourtScorer['getStats']>;
     validatorStats: ReturnType<DryRunValidator['getValidationStats']>;
+    retryStats: ReturnType<RetryManager['getStats']>;
   } {
     return {
       config: this.sanitizeConfigForLogging(),
       patternLearningEnabled: this.patternLearningEnabled,
       courtScorerStats: this.courtScorer.getStats(),
-      validatorStats: this.validator.getValidationStats()
+      validatorStats: this.validator.getValidationStats(),
+      retryStats: this.retryManager.getStats()
     };
+  }
+
+  /**
+   * Get retry manager instance for advanced operations
+   */
+  getRetryManager(): RetryManager {
+    return this.retryManager;
+  }
+
+  /**
+   * Reset circuit breaker manually (useful for testing/maintenance)
+   */
+  resetCircuitBreaker(): void {
+    this.retryManager.resetCircuitBreaker();
+    logger.info('Circuit breaker reset via BookingManager', 'BookingManager');
+  }
+
+  /**
+   * Check if retry system is currently allowing requests
+   */
+  isRetrySystemHealthy(): boolean {
+    return this.retryManager.isRequestAllowed();
   }
 }

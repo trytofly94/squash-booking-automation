@@ -3,4 +3,304 @@
  * Provides comprehensive insights into booking performance and behavior
  */
 
-import { BookingSuccessMetrics, BookingAnalytics } from '@/types/health.types';\nimport { performanceMonitor } from '@/utils/PerformanceMonitor';\nimport { correlationManager } from '@/utils/CorrelationManager';\nimport { logger } from '@/utils/logger';\nimport { ErrorCategory } from '@/types/monitoring.types';\n\ninterface BookingAttempt {\n  id: string;\n  timestamp: number;\n  correlationId: string;\n  courtId?: string;\n  date?: string;\n  startTime?: string;\n  duration?: number;\n  success: boolean;\n  error?: string;\n  errorCategory?: ErrorCategory;\n  responseTime: number;\n  retryCount: number;\n}\n\ninterface BookingPattern {\n  timeSlot: string;\n  courtId: string;\n  dayOfWeek: string;\n  date: string;\n  success: boolean;\n  responseTime: number;\n}\n\nclass BookingAnalyticsManager {\n  private bookingAttempts: BookingAttempt[] = [];\n  private bookingPatterns: BookingPattern[] = [];\n  private maxHistorySize: number;\n  private enabled: boolean;\n\n  constructor() {\n    this.maxHistorySize = parseInt(process.env['BOOKING_ANALYTICS_HISTORY'] || '1000', 10);\n    this.enabled = process.env['BOOKING_ANALYTICS_ENABLED']?.toLowerCase() !== 'false';\n  }\n\n  /**\n   * Record a booking attempt\n   */\n  recordBookingAttempt({\n    courtId,\n    date,\n    startTime,\n    duration,\n    success,\n    error,\n    errorCategory,\n    responseTime,\n    retryCount = 0\n  }: {\n    courtId?: string;\n    date?: string;\n    startTime?: string;\n    duration?: number;\n    success: boolean;\n    error?: string;\n    errorCategory?: ErrorCategory;\n    responseTime: number;\n    retryCount?: number;\n  }): void {\n    if (!this.enabled) {\n      return;\n    }\n\n    const correlationId = correlationManager.getCurrentCorrelationId() || correlationManager.generateCorrelationId();\n    const timestamp = Date.now();\n\n    const attempt: BookingAttempt = {\n      id: `${correlationId}-${timestamp}`,\n      timestamp,\n      correlationId,\n      courtId,\n      date,\n      startTime,\n      duration,\n      success,\n      error,\n      errorCategory,\n      responseTime,\n      retryCount\n    };\n\n    this.bookingAttempts.push(attempt);\n    this.trimBookingAttempts();\n\n    // Record pattern if successful\n    if (success && courtId && date && startTime) {\n      this.recordBookingPattern({\n        courtId,\n        date,\n        startTime,\n        success,\n        responseTime\n      });\n    }\n\n    logger.info('Booking attempt recorded', 'BookingAnalytics', {\n      correlationId,\n      success,\n      responseTime,\n      retryCount,\n      courtId,\n      date,\n      startTime\n    });\n  }\n\n  /**\n   * Record a booking pattern\n   */\n  private recordBookingPattern({\n    courtId,\n    date,\n    startTime,\n    success,\n    responseTime\n  }: {\n    courtId: string;\n    date: string;\n    startTime: string;\n    success: boolean;\n    responseTime: number;\n  }): void {\n    const dateObj = new Date(date);\n    const dayOfWeek = dateObj.toLocaleDateString('en-US', { weekday: 'long' });\n\n    const pattern: BookingPattern = {\n      timeSlot: startTime,\n      courtId,\n      dayOfWeek,\n      date,\n      success,\n      responseTime\n    };\n\n    this.bookingPatterns.push(pattern);\n    this.trimBookingPatterns();\n  }\n\n  /**\n   * Get booking success metrics\n   */\n  getBookingSuccessMetrics(timeRangeHours?: number): BookingSuccessMetrics {\n    const cutoffTime = timeRangeHours ? Date.now() - (timeRangeHours * 60 * 60 * 1000) : 0;\n    const relevantAttempts = this.bookingAttempts.filter(attempt => attempt.timestamp >= cutoffTime);\n\n    const totalAttempts = relevantAttempts.length;\n    const successfulBookings = relevantAttempts.filter(a => a.success).length;\n    const failedBookings = totalAttempts - successfulBookings;\n    const successRate = totalAttempts > 0 ? (successfulBookings / totalAttempts) * 100 : 0;\n\n    const responseTimes = relevantAttempts.map(a => a.responseTime);\n    const averageResponseTime = responseTimes.length > 0 \n      ? responseTimes.reduce((sum, time) => sum + time, 0) / responseTimes.length \n      : 0;\n\n    // Error breakdown by category\n    const errorBreakdown: Record<string, number> = {};\n    relevantAttempts\n      .filter(a => !a.success && a.errorCategory)\n      .forEach(a => {\n        const category = a.errorCategory!;\n        errorBreakdown[category] = (errorBreakdown[category] || 0) + 1;\n      });\n\n    return {\n      totalAttempts,\n      successfulBookings,\n      failedBookings,\n      successRate,\n      averageResponseTime,\n      errorBreakdown,\n      lastUpdated: Date.now()\n    };\n  }\n\n  /**\n   * Get comprehensive booking analytics\n   */\n  getBookingAnalytics(timeRangeHours = 24): BookingAnalytics {\n    const timeRange = {\n      start: Date.now() - (timeRangeHours * 60 * 60 * 1000),\n      end: Date.now()\n    };\n\n    const metrics = this.getBookingSuccessMetrics(timeRangeHours);\n    const patterns = this.analyzePatte\nrns(timeRange.start);\n    const trends = this.analyzeTrends(timeRange.start);\n\n    return {\n      timeRange,\n      metrics,\n      patterns,\n      trends\n    };\n  }\n\n  /**\n   * Analyze booking patterns\n   */\n  private analyzePatterns(sinceTimestamp: number): {\n    preferredTimeSlots: Record<string, number>;\n    courtUsage: Record<string, number>;\n    dayOfWeekPatterns: Record<string, number>;\n  } {\n    const relevantPatterns = this.bookingPatterns.filter(p => \n      new Date(p.date).getTime() >= sinceTimestamp && p.success\n    );\n\n    const preferredTimeSlots: Record<string, number> = {};\n    const courtUsage: Record<string, number> = {};\n    const dayOfWeekPatterns: Record<string, number> = {};\n\n    relevantPatterns.forEach(pattern => {\n      // Time slot preferences\n      preferredTimeSlots[pattern.timeSlot] = (preferredTimeSlots[pattern.timeSlot] || 0) + 1;\n      \n      // Court usage\n      courtUsage[pattern.courtId] = (courtUsage[pattern.courtId] || 0) + 1;\n      \n      // Day of week patterns\n      dayOfWeekPatterns[pattern.dayOfWeek] = (dayOfWeekPatterns[pattern.dayOfWeek] || 0) + 1;\n    });\n\n    return {\n      preferredTimeSlots,\n      courtUsage,\n      dayOfWeekPatterns\n    };\n  }\n\n  /**\n   * Analyze trends over time\n   */\n  private analyzeTrends(sinceTimestamp: number): {\n    successRateOverTime: Array<{ timestamp: number; rate: number }>;\n    responseTimeOverTime: Array<{ timestamp: number; time: number }>;\n  } {\n    const relevantAttempts = this.bookingAttempts.filter(a => a.timestamp >= sinceTimestamp);\n    \n    // Group by hour for trend analysis\n    const hourlyData: Record<number, { attempts: BookingAttempt[]; hour: number }> = {};\n    \n    relevantAttempts.forEach(attempt => {\n      const hour = Math.floor(attempt.timestamp / (60 * 60 * 1000)) * (60 * 60 * 1000);\n      if (!hourlyData[hour]) {\n        hourlyData[hour] = { attempts: [], hour };\n      }\n      hourlyData[hour].attempts.push(attempt);\n    });\n\n    const successRateOverTime: Array<{ timestamp: number; rate: number }> = [];\n    const responseTimeOverTime: Array<{ timestamp: number; time: number }> = [];\n\n    Object.values(hourlyData)\n      .sort((a, b) => a.hour - b.hour)\n      .forEach(({ attempts, hour }) => {\n        const successfulCount = attempts.filter(a => a.success).length;\n        const successRate = attempts.length > 0 ? (successfulCount / attempts.length) * 100 : 0;\n        \n        const avgResponseTime = attempts.length > 0 \n          ? attempts.reduce((sum, a) => sum + a.responseTime, 0) / attempts.length \n          : 0;\n\n        successRateOverTime.push({ timestamp: hour, rate: successRate });\n        responseTimeOverTime.push({ timestamp: hour, time: avgResponseTime });\n      });\n\n    return {\n      successRateOverTime,\n      responseTimeOverTime\n    };\n  }\n\n  /**\n   * Get most successful booking patterns\n   */\n  getMostSuccessfulPatterns(limit = 10): Array<{\n    pattern: string;\n    successRate: number;\n    totalAttempts: number;\n    averageResponseTime: number;\n  }> {\n    const patternStats: Record<string, {\n      attempts: number;\n      successes: number;\n      totalResponseTime: number;\n    }> = {};\n\n    this.bookingAttempts.forEach(attempt => {\n      if (attempt.courtId && attempt.startTime) {\n        const patternKey = `${attempt.courtId}-${attempt.startTime}`;\n        \n        if (!patternStats[patternKey]) {\n          patternStats[patternKey] = { attempts: 0, successes: 0, totalResponseTime: 0 };\n        }\n        \n        patternStats[patternKey].attempts++;\n        patternStats[patternKey].totalResponseTime += attempt.responseTime;\n        \n        if (attempt.success) {\n          patternStats[patternKey].successes++;\n        }\n      }\n    });\n\n    return Object.entries(patternStats)\n      .map(([pattern, stats]) => ({\n        pattern,\n        successRate: (stats.successes / stats.attempts) * 100,\n        totalAttempts: stats.attempts,\n        averageResponseTime: stats.totalResponseTime / stats.attempts\n      }))\n      .filter(item => item.totalAttempts >= 2) // Only include patterns with at least 2 attempts\n      .sort((a, b) => b.successRate - a.successRate)\n      .slice(0, limit);\n  }\n\n  /**\n   * Get error analysis\n   */\n  getErrorAnalysis(timeRangeHours = 24): {\n    totalErrors: number;\n    errorsByCategory: Record<string, number>;\n    errorsByTimeOfDay: Record<string, number>;\n    mostCommonErrors: Array<{ error: string; count: number; category?: ErrorCategory }>;\n  } {\n    const cutoffTime = Date.now() - (timeRangeHours * 60 * 60 * 1000);\n    const failedAttempts = this.bookingAttempts.filter(a => \n      !a.success && a.timestamp >= cutoffTime\n    );\n\n    const totalErrors = failedAttempts.length;\n    \n    const errorsByCategory: Record<string, number> = {};\n    const errorsByTimeOfDay: Record<string, number> = {};\n    const errorCounts: Record<string, { count: number; category?: ErrorCategory }> = {};\n\n    failedAttempts.forEach(attempt => {\n      // Category breakdown\n      if (attempt.errorCategory) {\n        errorsByCategory[attempt.errorCategory] = (errorsByCategory[attempt.errorCategory] || 0) + 1;\n      }\n      \n      // Time of day breakdown\n      const hour = new Date(attempt.timestamp).getHours();\n      const timeSlot = `${hour}:00-${hour + 1}:00`;\n      errorsByTimeOfDay[timeSlot] = (errorsByTimeOfDay[timeSlot] || 0) + 1;\n      \n      // Error message counts\n      if (attempt.error) {\n        if (!errorCounts[attempt.error]) {\n          errorCounts[attempt.error] = { count: 0, category: attempt.errorCategory };\n        }\n        errorCounts[attempt.error].count++;\n      }\n    });\n\n    const mostCommonErrors = Object.entries(errorCounts)\n      .map(([error, data]) => ({ error, count: data.count, category: data.category }))\n      .sort((a, b) => b.count - a.count)\n      .slice(0, 10);\n\n    return {\n      totalErrors,\n      errorsByCategory,\n      errorsByTimeOfDay,\n      mostCommonErrors\n    };\n  }\n\n  /**\n   * Export analytics data\n   */\n  exportAnalyticsData(): {\n    bookingAttempts: BookingAttempt[];\n    bookingPatterns: BookingPattern[];\n    summary: BookingSuccessMetrics;\n    analytics: BookingAnalytics;\n  } {\n    return {\n      bookingAttempts: [...this.bookingAttempts],\n      bookingPatterns: [...this.bookingPatterns],\n      summary: this.getBookingSuccessMetrics(),\n      analytics: this.getBookingAnalytics()\n    };\n  }\n\n  /**\n   * Clear analytics data\n   */\n  clearAnalyticsData(): void {\n    this.bookingAttempts = [];\n    this.bookingPatterns = [];\n    logger.info('Analytics data cleared', 'BookingAnalytics');\n  }\n\n  /**\n   * Get analytics configuration\n   */\n  getConfig(): {\n    enabled: boolean;\n    maxHistorySize: number;\n    currentDataSize: number;\n  } {\n    return {\n      enabled: this.enabled,\n      maxHistorySize: this.maxHistorySize,\n      currentDataSize: this.bookingAttempts.length\n    };\n  }\n\n  /**\n   * Update configuration\n   */\n  updateConfig(config: Partial<{ enabled: boolean; maxHistorySize: number }>): void {\n    if (config.enabled !== undefined) {\n      this.enabled = config.enabled;\n    }\n    if (config.maxHistorySize !== undefined) {\n      this.maxHistorySize = config.maxHistorySize;\n      this.trimBookingAttempts();\n      this.trimBookingPatterns();\n    }\n\n    logger.info('BookingAnalytics configuration updated', 'BookingAnalytics', config);\n  }\n\n  /**\n   * Trim booking attempts to max history size\n   */\n  private trimBookingAttempts(): void {\n    if (this.bookingAttempts.length > this.maxHistorySize) {\n      this.bookingAttempts = this.bookingAttempts.slice(-this.maxHistorySize);\n    }\n  }\n\n  /**\n   * Trim booking patterns to max history size\n   */\n  private trimBookingPatterns(): void {\n    if (this.bookingPatterns.length > this.maxHistorySize) {\n      this.bookingPatterns = this.bookingPatterns.slice(-this.maxHistorySize);\n    }\n  }\n\n  /**\n   * Get real-time booking metrics\n   */\n  getRealTimeMetrics(): {\n    currentSuccessRate: number;\n    averageResponseTime: number;\n    recentErrors: number;\n    activeBookingProcesses: number;\n  } {\n    // Get metrics for the last hour\n    const lastHour = Date.now() - (60 * 60 * 1000);\n    const recentAttempts = this.bookingAttempts.filter(a => a.timestamp >= lastHour);\n    \n    const successfulCount = recentAttempts.filter(a => a.success).length;\n    const currentSuccessRate = recentAttempts.length > 0 ? (successfulCount / recentAttempts.length) * 100 : 0;\n    \n    const responseTimes = recentAttempts.map(a => a.responseTime);\n    const averageResponseTime = responseTimes.length > 0 \n      ? responseTimes.reduce((sum, time) => sum + time, 0) / responseTimes.length \n      : 0;\n    \n    const recentErrors = recentAttempts.filter(a => !a.success).length;\n    \n    // Get count of active booking processes (correlation IDs from last 10 minutes)\n    const last10Minutes = Date.now() - (10 * 60 * 1000);\n    const activeCorrelationIds = new Set(\n      this.bookingAttempts\n        .filter(a => a.timestamp >= last10Minutes)\n        .map(a => a.correlationId)\n    );\n    \n    return {\n      currentSuccessRate,\n      averageResponseTime,\n      recentErrors,\n      activeBookingProcesses: activeCorrelationIds.size\n    };\n  }\n}\n\n// Export singleton instance\nexport const bookingAnalytics = new BookingAnalyticsManager();\nexport { BookingAnalyticsManager };
+import { BookingSuccessMetrics, BookingAnalytics } from '@/types/health.types';
+import { performanceMonitor } from '@/utils/PerformanceMonitor';
+import { correlationManager } from '@/utils/CorrelationManager';
+import { logger } from '@/utils/logger';
+import { ErrorCategory } from '@/types/monitoring.types';
+
+interface BookingAttempt {
+  id: string;
+  timestamp: number;
+  correlationId: string;
+  courtId?: string;
+  date?: string;
+  startTime?: string;
+  duration?: number;
+  success: boolean;
+  error?: string;
+  errorCategory?: ErrorCategory;
+  responseTime: number;
+  retryCount: number;
+}
+
+interface BookingPattern {
+  timeSlot: string;
+  courtId: string;
+  dayOfWeek: string;
+  date: string;
+  success: boolean;
+  responseTime: number;
+}
+
+class BookingAnalyticsManager {
+  private bookingAttempts: BookingAttempt[] = [];
+  private bookingPatterns: BookingPattern[] = [];
+  private maxHistorySize: number;
+  private enabled: boolean;
+
+  constructor() {
+    this.maxHistorySize = parseInt(process.env['BOOKING_ANALYTICS_HISTORY'] || '1000', 10);
+    this.enabled = process.env['BOOKING_ANALYTICS_ENABLED']?.toLowerCase() !== 'false';
+  }
+
+  /**
+   * Record a booking attempt
+   */
+  recordBookingAttempt({
+    courtId,
+    date,
+    startTime,
+    duration,
+    success,
+    error,
+    errorCategory,
+    responseTime,
+    retryCount = 0
+  }: {
+    courtId?: string;
+    date?: string;
+    startTime?: string;
+    duration?: number;
+    success: boolean;
+    error?: string;
+    errorCategory?: ErrorCategory;
+    responseTime: number;
+    retryCount?: number;
+  }): void {
+    if (!this.enabled) {
+      return;
+    }
+
+    const correlationId = correlationManager.getCurrentCorrelationId() || correlationManager.generateCorrelationId();
+    const timestamp = Date.now();
+
+    const attempt: BookingAttempt = {
+      id: `${correlationId}-${timestamp}`,
+      timestamp,
+      correlationId,
+      courtId,
+      date,
+      startTime,
+      duration,
+      success,
+      error,
+      errorCategory,
+      responseTime,
+      retryCount
+    };
+
+    this.bookingAttempts.push(attempt);
+    this.trimBookingAttempts();
+
+    // Record pattern if successful
+    if (success && courtId && date && startTime) {
+      this.recordBookingPattern({
+        courtId,
+        date,
+        startTime,
+        success,
+        responseTime
+      });
+    }
+
+    logger.info('Booking attempt recorded', 'BookingAnalytics', {
+      correlationId,
+      success,
+      responseTime,
+      retryCount,
+      courtId,
+      date,
+      startTime
+    });
+  }
+
+  /**
+   * Record a booking pattern
+   */
+  private recordBookingPattern({
+    courtId,
+    date,
+    startTime,
+    success,
+    responseTime
+  }: {
+    courtId: string;
+    date: string;
+    startTime: string;
+    success: boolean;
+    responseTime: number;
+  }): void {
+    const dateObj = new Date(date);
+    const dayOfWeek = dateObj.toLocaleDateString('en-US', { weekday: 'long' });
+
+    const pattern: BookingPattern = {
+      timeSlot: startTime,
+      courtId,
+      dayOfWeek,
+      date,
+      success,
+      responseTime
+    };
+
+    this.bookingPatterns.push(pattern);
+    this.trimBookingPatterns();
+  }
+
+  /**
+   * Get booking success metrics
+   */
+  getBookingSuccessMetrics(timeRangeHours?: number): BookingSuccessMetrics {
+    const cutoffTime = timeRangeHours ? Date.now() - (timeRangeHours * 60 * 60 * 1000) : 0;
+    const relevantAttempts = this.bookingAttempts.filter(attempt => attempt.timestamp >= cutoffTime);
+
+    const totalAttempts = relevantAttempts.length;
+    const successfulBookings = relevantAttempts.filter(a => a.success).length;
+    const failedBookings = totalAttempts - successfulBookings;
+    const successRate = totalAttempts > 0 ? (successfulBookings / totalAttempts) * 100 : 0;
+
+    const responseTimes = relevantAttempts.map(a => a.responseTime);
+    const averageResponseTime = responseTimes.length > 0 
+      ? responseTimes.reduce((sum, time) => sum + time, 0) / responseTimes.length 
+      : 0;
+
+    // Error breakdown by category
+    const errorBreakdown: Record<string, number> = {};
+    relevantAttempts
+      .filter(a => !a.success && a.errorCategory)
+      .forEach(a => {
+        const category = a.errorCategory!;
+        errorBreakdown[category] = (errorBreakdown[category] || 0) + 1;
+      });
+
+    return {
+      totalAttempts,
+      successfulBookings,
+      failedBookings,
+      successRate,
+      averageResponseTime,
+      errorBreakdown,
+      lastUpdated: Date.now()
+    };
+  }
+
+  /**
+   * Get comprehensive booking analytics
+   */
+  getBookingAnalytics(timeRangeHours = 24): BookingAnalytics {
+    const timeRange = {
+      start: Date.now() - (timeRangeHours * 60 * 60 * 1000),
+      end: Date.now()
+    };
+
+    const metrics = this.getBookingSuccessMetrics(timeRangeHours);
+    const patterns = this.analyzePatterns(timeRange.start);
+    const trends = this.analyzeTrends(timeRange.start);
+
+    return {
+      timeRange,
+      metrics,
+      patterns,
+      trends
+    };
+  }
+
+  /**
+   * Analyze booking patterns
+   */
+  private analyzePatterns(sinceTimestamp: number): {
+    preferredTimeSlots: Record<string, number>;
+    courtUsage: Record<string, number>;
+    dayOfWeekPatterns: Record<string, number>;
+  } {
+    const relevantPatterns = this.bookingPatterns.filter(p => 
+      new Date(p.date).getTime() >= sinceTimestamp && p.success
+    );
+
+    const preferredTimeSlots: Record<string, number> = {};
+    const courtUsage: Record<string, number> = {};
+    const dayOfWeekPatterns: Record<string, number> = {};
+
+    relevantPatterns.forEach(pattern => {
+      // Time slot preferences
+      preferredTimeSlots[pattern.timeSlot] = (preferredTimeSlots[pattern.timeSlot] || 0) + 1;
+      
+      // Court usage
+      courtUsage[pattern.courtId] = (courtUsage[pattern.courtId] || 0) + 1;
+      
+      // Day of week patterns
+      dayOfWeekPatterns[pattern.dayOfWeek] = (dayOfWeekPatterns[pattern.dayOfWeek] || 0) + 1;
+    });
+
+    return {
+      preferredTimeSlots,
+      courtUsage,
+      dayOfWeekPatterns
+    };
+  }
+
+  /**
+   * Analyze trends over time
+   */
+  private analyzeTrends(sinceTimestamp: number): {
+    successRateOverTime: Array<{ timestamp: number; rate: number }>;
+    responseTimeOverTime: Array<{ timestamp: number; time: number }>;
+  } {
+    const relevantAttempts = this.bookingAttempts.filter(a => a.timestamp >= sinceTimestamp);
+    
+    // Group by hour for trend analysis
+    const hourlyData: Record<number, { attempts: BookingAttempt[]; hour: number }> = {};
+    
+    relevantAttempts.forEach(attempt => {
+      const hour = Math.floor(attempt.timestamp / (60 * 60 * 1000)) * (60 * 60 * 1000);
+      if (!hourlyData[hour]) {
+        hourlyData[hour] = { attempts: [], hour };
+      }
+      hourlyData[hour].attempts.push(attempt);
+    });
+
+    const successRateOverTime: Array<{ timestamp: number; rate: number }> = [];
+    const responseTimeOverTime: Array<{ timestamp: number; time: number }> = [];
+
+    Object.values(hourlyData)
+      .sort((a, b) => a.hour - b.hour)
+      .forEach(({ attempts, hour }) => {
+        const successfulCount = attempts.filter(a => a.success).length;
+        const successRate = attempts.length > 0 ? (successfulCount / attempts.length) * 100 : 0;
+        
+        const avgResponseTime = attempts.length > 0 
+          ? attempts.reduce((sum, a) => sum + a.responseTime, 0) / attempts.length 
+          : 0;
+
+        successRateOverTime.push({ timestamp: hour, rate: successRate });
+        responseTimeOverTime.push({ timestamp: hour, time: avgResponseTime });
+      });
+
+    return {
+      successRateOverTime,
+      responseTimeOverTime
+    };
+  }
+
+  /**
+   * Trim booking attempts to max history size
+   */
+  private trimBookingAttempts(): void {
+    if (this.bookingAttempts.length > this.maxHistorySize) {
+      this.bookingAttempts = this.bookingAttempts.slice(-this.maxHistorySize);
+    }
+  }
+
+  /**
+   * Trim booking patterns to max history size
+   */
+  private trimBookingPatterns(): void {
+    if (this.bookingPatterns.length > this.maxHistorySize) {
+      this.bookingPatterns = this.bookingPatterns.slice(-this.maxHistorySize);
+    }
+  }
+}
+
+// Export singleton instance
+export const bookingAnalytics = new BookingAnalyticsManager();
+export { BookingAnalyticsManager };
