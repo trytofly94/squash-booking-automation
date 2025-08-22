@@ -11,7 +11,7 @@ import {
   parse,
   isValid
 } from 'date-fns';
-import { fromZonedTime, toZonedTime } from 'date-fns-tz';
+import { toZonedTime, fromZonedTime } from 'date-fns-tz';
 import type { HolidayProvider } from '../types/booking.types';
 
 /**

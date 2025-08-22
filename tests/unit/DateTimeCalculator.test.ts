@@ -177,16 +177,16 @@ describe('DateTimeCalculator', () => {
     });
 
     it('should generate consistent slot times across different systems', () => {
-      const originalTimezone = process.env.TZ;
+      const originalTimezone = process.env['TZ'];
       
       // Test in different timezone contexts
-      process.env.TZ = 'Europe/Berlin';
+      process.env['TZ'] = 'Europe/Berlin';
       const berlinSlots = DateTimeCalculator.generateTimeSlots('14:00');
       
-      process.env.TZ = 'America/New_York';
+      process.env['TZ'] = 'America/New_York';
       const nySlots = DateTimeCalculator.generateTimeSlots('14:00');
       
-      process.env.TZ = 'Asia/Tokyo';
+      process.env['TZ'] = 'Asia/Tokyo';
       const tokyoSlots = DateTimeCalculator.generateTimeSlots('14:00');
       
       // Should be identical regardless of timezone for time calculations
@@ -196,9 +196,9 @@ describe('DateTimeCalculator', () => {
       
       // Restore original timezone
       if (originalTimezone) {
-        process.env.TZ = originalTimezone;
+        process.env['TZ'] = originalTimezone;
       } else {
-        delete process.env.TZ;
+        delete process.env['TZ'];
       }
     });
 

@@ -42,6 +42,8 @@ export class ConfigurationManager {
   }
 
   /**
+<<<<<<< HEAD
+=======
    * Get monitoring configuration
    */
   getMonitoringConfig(): MonitoringConfig {
@@ -56,6 +58,7 @@ export class ConfigurationManager {
   }
 
   /**
+>>>>>>> origin/main
    * Update configuration at runtime
    */
   updateConfig(updates: Partial<AdvancedBookingConfig>): void {
@@ -82,6 +85,8 @@ export class ConfigurationManager {
   }
 
   /**
+<<<<<<< HEAD
+=======
    * Update monitoring configuration
    */
   updateMonitoringConfig(updates: Partial<MonitoringConfig>): void {
@@ -110,6 +115,7 @@ export class ConfigurationManager {
   }
 
   /**
+>>>>>>> origin/main
    * Load configuration from environment variables with defaults
    */
   private loadConfiguration(): AdvancedBookingConfig {
@@ -138,6 +144,8 @@ export class ConfigurationManager {
   }
 
   /**
+<<<<<<< HEAD
+=======
    * Load monitoring configuration from environment variables
    */
   private loadMonitoringConfiguration(): MonitoringConfig {
@@ -176,6 +184,7 @@ export class ConfigurationManager {
   }
 
   /**
+>>>>>>> origin/main
    * Validate the configuration
    */
   private validateConfiguration(): void {
