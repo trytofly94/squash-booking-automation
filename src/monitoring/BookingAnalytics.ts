@@ -4,7 +4,7 @@
  */
 
 import { BookingSuccessMetrics, BookingAnalytics } from '@/types/health.types';
-import { performanceMonitor } from '@/utils/PerformanceMonitor';
+// performanceMonitor import removed as it's unused
 import { correlationManager } from '@/utils/CorrelationManager';
 import { logger } from '@/utils/logger';
 import { ErrorCategory } from '@/types/monitoring.types';
@@ -79,13 +79,13 @@ class BookingAnalyticsManager {
       id: `${correlationId}-${timestamp}`,
       timestamp,
       correlationId,
-      courtId,
-      date,
-      startTime,
-      duration,
+      ...(courtId !== undefined && { courtId }),
+      ...(date !== undefined && { date }),
+      ...(startTime !== undefined && { startTime }),
+      ...(duration !== undefined && { duration }),
       success,
-      error,
-      errorCategory,
+      ...(error !== undefined && { error }),
+      ...(errorCategory !== undefined && { errorCategory }),
       responseTime,
       retryCount
     };
@@ -360,14 +360,21 @@ class BookingAnalyticsManager {
       // Error message counts
       if (attempt.error) {
         if (!errorCounts[attempt.error]) {
-          errorCounts[attempt.error] = { count: 0, category: attempt.errorCategory };
+          errorCounts[attempt.error] = { 
+            count: 0, 
+            ...(attempt.errorCategory !== undefined && { category: attempt.errorCategory })
+          };
         }
-        errorCounts[attempt.error].count++;
+        errorCounts[attempt.error]!.count++;
       }
     });
 
     const mostCommonErrors = Object.entries(errorCounts)
-      .map(([error, data]) => ({ error, count: data.count, category: data.category }))
+      .map(([error, data]) => ({ 
+        error, 
+        count: data.count, 
+        ...(data.category !== undefined && { category: data.category })
+      }))
       .sort((a, b) => b.count - a.count)
       .slice(0, 10);
 

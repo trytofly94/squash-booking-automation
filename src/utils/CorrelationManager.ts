@@ -30,9 +30,9 @@ class CorrelationManager {
     return {
       correlationId: options.correlationId || this.generateCorrelationId(),
       timestamp: options.timestamp || Date.now(),
-      component: options.component || undefined,
-      userId: options.userId || undefined,
-      sessionId: options.sessionId || undefined
+      ...(options.component !== undefined && { component: options.component }),
+      ...(options.userId !== undefined && { userId: options.userId }),
+      ...(options.sessionId !== undefined && { sessionId: options.sessionId })
     };
   }
 
@@ -101,9 +101,9 @@ class CorrelationManager {
   createChildContext(parentContext?: CorrelationContext): CorrelationContext {
     const parent = parentContext || this.getCurrentContext();
     return this.createContext({
-      component: parent?.component,
-      userId: parent?.userId,
-      sessionId: parent?.sessionId
+      ...(parent?.component !== undefined && { component: parent.component }),
+      ...(parent?.userId !== undefined && { userId: parent.userId }),
+      ...(parent?.sessionId !== undefined && { sessionId: parent.sessionId })
     });
   }
 

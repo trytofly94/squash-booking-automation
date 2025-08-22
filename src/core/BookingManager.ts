@@ -161,12 +161,12 @@ export class BookingManager {
           success: result.success,
           responseTime: Date.now() - startTime,
           retryCount: result.retryAttempts || 0,
-          courtId: result.bookedPair?.courtId || undefined,
-          date: result.bookedPair?.slot1.date || undefined,
-          startTime: result.bookedPair?.slot1.startTime || undefined,
-          duration: this.config.duration,
-          error: result.error || undefined,
-          errorCategory: result.success ? undefined : this.categorizeError(result.error || '')
+          ...(result.bookedPair?.courtId && { courtId: result.bookedPair.courtId }),
+          ...(result.bookedPair?.slot1.date && { date: result.bookedPair.slot1.date }),
+          ...(result.bookedPair?.slot1.startTime && { startTime: result.bookedPair.slot1.startTime }),
+          ...(this.config.duration && { duration: this.config.duration }),
+          ...(result.error && { error: result.error }),
+          ...((!result.success && result.error) && { errorCategory: this.categorizeError(result.error) })
         });
         
         logger.endTiming(bookingTimerId, component);
@@ -201,7 +201,7 @@ export class BookingManager {
   private async executeBookingWithRetries(
     startTime: number, 
     component: string, 
-    correlationId: string
+    _correlationId: string
   ): Promise<BookingResult> {
     // Validate configuration before starting
     const configValidation = this.validator.validateBookingConfig(this.config);
@@ -216,7 +216,7 @@ export class BookingManager {
         success: false,
         error: errorMessage,
         retryAttempts: 0,
-        timestamp: startTime,
+        timestamp: new Date(startTime),
       };
     }
 
@@ -255,7 +255,7 @@ export class BookingManager {
           return {
             ...result,
             retryAttempts: attempt,
-            timestamp: startTime,
+            timestamp: new Date(startTime),
           };
         }
 
@@ -283,7 +283,7 @@ export class BookingManager {
       success: false,
       error: `All ${this.config.maxRetries} booking attempts failed. Last error: ${lastError}`,
       retryAttempts: attempt,
-      timestamp: startTime,
+      timestamp: new Date(startTime),
     };
 
     logger.logBookingFailure(finalResult.error!, component);
@@ -376,7 +376,7 @@ export class BookingManager {
     timeSlot: { startTime: string; endTime: string; priority: number },
     dayOfWeek: number
   ): Promise<BookingResult> {
-    const component = 'BookingManager.attemptBookingForTimeSlot';
+    // Component name for logging
     
     try {
       // Generate time slots for this specific time

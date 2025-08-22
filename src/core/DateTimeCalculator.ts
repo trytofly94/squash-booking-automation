@@ -181,7 +181,7 @@ export class DateTimeCalculator {
   static formatDateForDisplay(
     date: string,
     timezone: string = this.DEFAULT_TIMEZONE,
-    locale: string = 'de-DE'
+    _locale: string = 'de-DE'
   ): string {
     const dateObj = parseISO(date);
     const zonedDate = toZonedTime(dateObj, timezone);

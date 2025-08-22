@@ -151,8 +151,8 @@ class Logger {
       message: errorMessage,
       correlationId,
       component,
-      stack: stack || undefined,
-      metadata: metadata || undefined,
+      ...(stack !== undefined && { stack }),
+      ...(metadata !== undefined && { metadata }),
       timestamp: Date.now()
     };
 
@@ -242,7 +242,7 @@ class Logger {
     const systemInfo = performanceMonitor.getSystemResourceInfo();
 
     return {
-      component: component || undefined,
+      ...(component !== undefined && { component }),
       ...correlationMetadata,
       ...metadata,
       system: {

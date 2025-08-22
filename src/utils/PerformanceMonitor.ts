@@ -156,7 +156,7 @@ class PerformanceMonitor {
       endTime: timestamp,
       duration: duration || 0,
       success,
-      error: error || undefined,
+      ...(error !== undefined && { error }),
       correlationId
     };
 
@@ -260,7 +260,7 @@ class PerformanceMonitor {
       if (!stepBreakdown[step.step]) {
         stepBreakdown[step.step] = { count: 0, successRate: 0, avgDuration: 0 };
       }
-      stepBreakdown[step.step].count++;
+      stepBreakdown[step.step]!.count++;
     }
 
     // Calculate success rates and average durations for each step

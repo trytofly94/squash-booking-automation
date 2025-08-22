@@ -4,7 +4,7 @@
  */
 
 import { healthCheckManager, HealthCheckManager } from '@/monitoring/HealthCheckManager';
-import { HealthStatus, HealthCheckResult, SystemHealth } from '@/types/health.types';
+import { HealthStatus, /* HealthCheckResult, */ SystemHealth } from '@/types/health.types';
 import { performanceMonitor } from '@/utils/PerformanceMonitor';
 import { logger } from '@/utils/logger';
 

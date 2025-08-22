@@ -382,7 +382,7 @@ export class CourtScorer {
       if (!acc[pattern.courtId]) {
         acc[pattern.courtId] = [];
       }
-      acc[pattern.courtId].push(pattern);
+      acc[pattern.courtId]!.push(pattern);
       return acc;
     }, {} as Record<string, BookingPattern[]>);
 
@@ -443,7 +443,7 @@ export class CourtScorer {
       if (!acc[pattern.courtId]) {
         acc[pattern.courtId] = [];
       }
-      acc[pattern.courtId].push(pattern);
+      acc[pattern.courtId]!.push(pattern);
       return acc;
     }, {} as Record<string, BookingPattern[]>);
 

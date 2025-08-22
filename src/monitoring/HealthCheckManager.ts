@@ -3,7 +3,7 @@
  * Provides website availability, system health, and booking analytics
  */
 
-import { Page } from '@playwright/test';
+// Page import removed as it's unused
 import { 
   HealthStatus, 
   HealthCheckResult, 
@@ -15,6 +15,7 @@ import {
 import { performanceMonitor } from '@/utils/PerformanceMonitor';
 import { correlationManager } from '@/utils/CorrelationManager';
 import { logger } from '@/utils/logger';
+import { ErrorCategory } from '@/types/monitoring.types';
 
 class HealthCheckManager {
   private config: HealthCheckConfig;
@@ -22,7 +23,7 @@ class HealthCheckManager {
   private healthCheckHistory: HealthCheckResult[] = [];
   private systemMetrics: SystemMetrics;
   private isRunning = false;
-  private intervalId: NodeJS.Timer | null = null;
+  private intervalId: NodeJS.Timeout | null = null;
 
   constructor() {
     this.config = {
@@ -61,7 +62,7 @@ class HealthCheckManager {
 
     // Run initial health check
     this.runFullHealthCheck().catch(error => {
-      logger.logStructuredError(error, 'system', 'HealthCheckManager', {
+      logger.logStructuredError(error, ErrorCategory.SYSTEM, 'HealthCheckManager', {
         operation: 'initial_health_check'
       });
     });
@@ -69,7 +70,7 @@ class HealthCheckManager {
     // Schedule periodic checks
     this.intervalId = setInterval(() => {
       this.runFullHealthCheck().catch(error => {
-        logger.logStructuredError(error, 'system', 'HealthCheckManager', {
+        logger.logStructuredError(error, ErrorCategory.SYSTEM, 'HealthCheckManager', {
           operation: 'periodic_health_check'
         });
       });
@@ -142,7 +143,7 @@ class HealthCheckManager {
 
       return health;
     } catch (error) {
-      logger.logStructuredError(error, 'system', 'HealthCheckManager', {
+      logger.logStructuredError(error instanceof Error ? error : String(error), ErrorCategory.SYSTEM, 'HealthCheckManager', {
         operation: 'full_health_check'
       });
       throw error;
@@ -215,7 +216,7 @@ class HealthCheckManager {
           statusCode: availabilityCheck.statusCode,
           responseTime: availabilityCheck.responseTime
         },
-        error: availabilityCheck.error
+        ...(availabilityCheck.error !== undefined && { error: availabilityCheck.error })
       };
     } catch (error) {
       return {
