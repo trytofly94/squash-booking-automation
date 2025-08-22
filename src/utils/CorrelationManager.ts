@@ -30,9 +30,9 @@ class CorrelationManager {
     return {
       correlationId: options.correlationId || this.generateCorrelationId(),
       timestamp: options.timestamp || Date.now(),
-      component: options.component,
-      userId: options.userId,
-      sessionId: options.sessionId
+      component: options.component || undefined,
+      userId: options.userId || undefined,
+      sessionId: options.sessionId || undefined
     };
   }
 

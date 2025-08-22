@@ -39,7 +39,7 @@ class Logger {
             winston.format.simple(),
             winston.format.printf(({ timestamp, level, message, component, correlationId, ...meta }) => {
               const componentInfo = component ? `[${component}] ` : '';
-              const correlationInfo = correlationId ? `[${correlationId.substring(0, 8)}] ` : '';
+              const correlationInfo = correlationId && typeof correlationId === 'string' ? `[${correlationId.substring(0, 8)}] ` : '';
               const metaInfo = Object.keys(meta).length > 0 ? ` ${JSON.stringify(meta)}` : '';
               return `${timestamp} ${level}: ${correlationInfo}${componentInfo}${message}${metaInfo}`;
             })
@@ -151,8 +151,8 @@ class Logger {
       message: errorMessage,
       correlationId,
       component,
-      stack,
-      metadata,
+      stack: stack || undefined,
+      metadata: metadata || undefined,
       timestamp: Date.now()
     };
 
@@ -242,7 +242,7 @@ class Logger {
     const systemInfo = performanceMonitor.getSystemResourceInfo();
 
     return {
-      component,
+      component: component || undefined,
       ...correlationMetadata,
       ...metadata,
       system: {

@@ -35,7 +35,7 @@ export class BookingManager {
     this.page = page;
     
     // Extended configuration with new advanced features
-    this.config = {
+    const advancedConfig: AdvancedBookingConfig = {
       // Basic configuration
       daysAhead: config.daysAhead || 20,
       targetStartTime: config.targetStartTime || '14:00',
@@ -56,9 +56,15 @@ export class BookingManager {
         preference: 0.2,
         position: 0.1
       },
-      timePreferences: config.timePreferences || this.generateDefaultTimePreferences(),
-      holidayProvider: config.holidayProvider || undefined
+      timePreferences: config.timePreferences || this.generateDefaultTimePreferences()
     };
+    
+    // Only add holidayProvider if it exists
+    if (config.holidayProvider) {
+      advancedConfig.holidayProvider = config.holidayProvider;
+    }
+    
+    this.config = advancedConfig;
 
     this.patternLearningEnabled = this.config.enablePatternLearning;
 
@@ -126,7 +132,7 @@ export class BookingManager {
    */
   async executeBooking(): Promise<BookingResult> {
     const component = 'BookingManager';
-    const startTime = DateTimeCalculator.getCurrentTimestamp();
+    const startTime = Date.now();
     
     // Create correlation context for this booking operation
     return correlationManager.runWithNewContext(async () => {
@@ -155,11 +161,11 @@ export class BookingManager {
           success: result.success,
           responseTime: Date.now() - startTime,
           retryCount: result.retryAttempts || 0,
-          courtId: result.bookedPair?.courtId,
-          date: result.bookedPair?.slot1.date,
-          startTime: result.bookedPair?.slot1.startTime,
+          courtId: result.bookedPair?.courtId || undefined,
+          date: result.bookedPair?.slot1.date || undefined,
+          startTime: result.bookedPair?.slot1.startTime || undefined,
           duration: this.config.duration,
-          error: result.error,
+          error: result.error || undefined,
           errorCategory: result.success ? undefined : this.categorizeError(result.error || '')
         });
         
@@ -178,7 +184,7 @@ export class BookingManager {
           errorCategory
         });
         
-        logger.logStructuredError(error, errorCategory, component, {
+        logger.logStructuredError(errorMessage, errorCategory, component, {
           correlationId,
           operation: 'complete_booking_process'
         });
@@ -197,7 +203,6 @@ export class BookingManager {
     component: string, 
     correlationId: string
   ): Promise<BookingResult> {
-
     // Validate configuration before starting
     const configValidation = this.validator.validateBookingConfig(this.config);
     if (!configValidation.isValid) {
@@ -298,7 +303,7 @@ export class BookingManager {
         this.config.timezone
       );
       
-      const dayOfWeek = getDay(DateTimeCalculator.getCurrentTimestamp(this.config.timezone));
+      const dayOfWeek = getDay(new Date(targetDate));
 
       // Generate prioritized time slots with fallback alternatives
       const prioritizedTimeSlots = this.timeSlotGenerator.generatePrioritizedTimeSlots(
@@ -490,7 +495,7 @@ export class BookingManager {
 
     // Check for isolation before final selection
     const nonIsolatingPairs = availablePairs.filter((pair: BookingPair) => {
-      const isolationCheck = IsolationChecker.checkIsolation(
+      const isolationCheck = IsolationChecker.checkForIsolation(
         pair,
         this.getAllSlotsFromSearchResult(searchResult)
       );
@@ -498,7 +503,7 @@ export class BookingManager {
     });
 
     // Prefer the best scoring court if it doesn't create isolation
-    const bestPairIsolationCheck = IsolationChecker.checkIsolation(
+    const bestPairIsolationCheck = IsolationChecker.checkForIsolation(
       bestPair,
       this.getAllSlotsFromSearchResult(searchResult)
     );

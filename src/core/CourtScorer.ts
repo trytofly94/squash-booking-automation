@@ -327,6 +327,11 @@ export class CourtScorer {
 
     const bestCourt = availableScores[0];
     
+    if (!bestCourt) {
+      logger.warn('No best court available from scores', 'CourtScorer');
+      return null;
+    }
+    
     logger.info('Selected best court', 'CourtScorer', {
       courtId: bestCourt.courtId,
       score: bestCourt.score,
@@ -369,7 +374,9 @@ export class CourtScorer {
       };
     }
 
-    const averageSuccessRate = patterns.reduce((sum, p) => sum + p.successRate, 0) / patterns.length;
+    const averageSuccessRate = patterns.length > 0 
+      ? patterns.reduce((sum, p) => sum + p.successRate, 0) / patterns.length
+      : 0;
     
     const sortedByCourt = patterns.reduce((acc, pattern) => {
       if (!acc[pattern.courtId]) {
@@ -403,6 +410,68 @@ export class CourtScorer {
       averageSuccessRate,
       mostSuccessfulCourt,
       leastSuccessfulCourt
+    };
+  }
+
+  /**
+   * Get scoring statistics for monitoring
+   */
+  getStats(): {
+    totalPatterns: number;
+    averageSuccessRate: number;
+    mostSuccessfulCourt: string | null;
+    leastSuccessfulCourt: string | null;
+    weights: CourtScoringWeights;
+  } {
+    const patterns = Array.from(this.patterns.values());
+    
+    if (patterns.length === 0) {
+      return {
+        totalPatterns: 0,
+        averageSuccessRate: 0,
+        mostSuccessfulCourt: null,
+        leastSuccessfulCourt: null,
+        weights: { ...this.weights }
+      };
+    }
+
+    const averageSuccessRate = patterns.length > 0 
+      ? patterns.reduce((sum, p) => sum + p.successRate, 0) / patterns.length
+      : 0;
+    
+    const sortedByCourt = patterns.reduce((acc, pattern) => {
+      if (!acc[pattern.courtId]) {
+        acc[pattern.courtId] = [];
+      }
+      acc[pattern.courtId].push(pattern);
+      return acc;
+    }, {} as Record<string, BookingPattern[]>);
+
+    let mostSuccessfulCourt: string | null = null;
+    let leastSuccessfulCourt: string | null = null;
+    let highestRate = -1;
+    let lowestRate = 2;
+
+    Object.entries(sortedByCourt).forEach(([courtId, courtPatterns]) => {
+      const courtRate = courtPatterns.reduce((sum, p) => sum + p.successRate, 0) / courtPatterns.length;
+      
+      if (courtRate > highestRate) {
+        highestRate = courtRate;
+        mostSuccessfulCourt = courtId;
+      }
+      
+      if (courtRate < lowestRate) {
+        lowestRate = courtRate;
+        leastSuccessfulCourt = courtId;
+      }
+    });
+
+    return {
+      totalPatterns: patterns.length,
+      averageSuccessRate,
+      mostSuccessfulCourt,
+      leastSuccessfulCourt,
+      weights: { ...this.weights }
     };
   }
 

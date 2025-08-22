@@ -40,4 +40,462 @@ class HealthCheckManager {
 
     this.systemMetrics = this.initializeSystemMetrics();
     
-    if (this.config.enabled) {\n      this.startPeriodicHealthChecks();\n    }\n  }\n\n  /**\n   * Start periodic health checks\n   */\n  startPeriodicHealthChecks(): void {\n    if (this.isRunning || !this.config.enabled) {\n      return;\n    }\n\n    this.isRunning = true;\n    logger.info('Starting periodic health checks', 'HealthCheckManager', {\n      interval: this.config.interval,\n      websiteUrl: this.config.websiteUrl\n    });\n\n    // Run initial health check\n    this.runFullHealthCheck().catch(error => {\n      logger.logStructuredError(error, 'system', 'HealthCheckManager', {\n        operation: 'initial_health_check'\n      });\n    });\n\n    // Schedule periodic checks\n    this.intervalId = setInterval(() => {\n      this.runFullHealthCheck().catch(error => {\n        logger.logStructuredError(error, 'system', 'HealthCheckManager', {\n          operation: 'periodic_health_check'\n        });\n      });\n    }, this.config.interval);\n  }\n\n  /**\n   * Stop periodic health checks\n   */\n  stopPeriodicHealthChecks(): void {\n    if (this.intervalId) {\n      clearInterval(this.intervalId);\n      this.intervalId = null;\n    }\n    this.isRunning = false;\n    logger.info('Stopped periodic health checks', 'HealthCheckManager');\n  }\n\n  /**\n   * Run comprehensive health check\n   */\n  async runFullHealthCheck(): Promise<SystemHealth> {\n    const correlationId = correlationManager.getCurrentCorrelationId() || correlationManager.generateCorrelationId();\n    const timerId = logger.startTiming('full_health_check', 'HealthCheckManager');\n\n    try {\n      logger.info('Running full health check', 'HealthCheckManager', { correlationId });\n\n      const checks: HealthCheckResult[] = [];\n\n      // System resource check\n      checks.push(await this.checkSystemResources());\n\n      // Website availability check\n      checks.push(await this.checkWebsiteAvailability());\n\n      // Application health check\n      checks.push(await this.checkApplicationHealth());\n\n      // Performance health check\n      checks.push(await this.checkPerformanceHealth());\n\n      // Determine overall status\n      const overallStatus = this.determineOverallStatus(checks);\n      \n      // Update metrics\n      this.updateSystemMetrics();\n\n      const health: SystemHealth = {\n        status: overallStatus,\n        timestamp: Date.now(),\n        version: process.env['npm_package_version'] || '1.0.0',\n        uptime: process.uptime(),\n        checks,\n        metrics: {\n          memoryUsage: this.systemMetrics.memoryUsage.percentage,\n          responseTime: this.systemMetrics.averageResponseTime,\n          errorRate: this.systemMetrics.errorRate\n        }\n      };\n\n      this.lastHealthCheck = health;\n      this.addToHistory(checks);\n\n      logger.info('Health check completed', 'HealthCheckManager', {\n        status: overallStatus,\n        checksCount: checks.length,\n        failedChecks: checks.filter(c => c.status === HealthStatus.UNHEALTHY).length\n      });\n\n      return health;\n    } catch (error) {\n      logger.logStructuredError(error, 'system', 'HealthCheckManager', {\n        operation: 'full_health_check'\n      });\n      throw error;\n    } finally {\n      logger.endTiming(timerId);\n    }\n  }\n\n  /**\n   * Check system resources\n   */\n  async checkSystemResources(): Promise<HealthCheckResult> {\n    const startTime = Date.now();\n    \n    try {\n      const resourceInfo = performanceMonitor.getSystemResourceInfo();\n      const memoryUsagePercent = (resourceInfo.memoryUsage.heapUsed / resourceInfo.memoryUsage.heapTotal) * 100;\n      \n      const status = memoryUsagePercent > this.config.alertThresholds.memoryUsage \n        ? HealthStatus.DEGRADED \n        : HealthStatus.HEALTHY;\n\n      return {\n        name: 'system_resources',\n        status,\n        timestamp: Date.now(),\n        duration: Date.now() - startTime,\n        message: `Memory usage: ${memoryUsagePercent.toFixed(2)}%`,\n        details: {\n          memoryUsage: resourceInfo.memoryUsage,\n          uptime: resourceInfo.uptime,\n          nodeVersion: resourceInfo.nodeVersion,\n          platform: resourceInfo.platform\n        }\n      };\n    } catch (error) {\n      return {\n        name: 'system_resources',\n        status: HealthStatus.UNHEALTHY,\n        timestamp: Date.now(),\n        duration: Date.now() - startTime,\n        error: error instanceof Error ? error.message : String(error)\n      };\n    }\n  }\n\n  /**\n   * Check website availability\n   */\n  async checkWebsiteAvailability(): Promise<HealthCheckResult> {\n    const startTime = Date.now();\n    \n    try {\n      const availabilityCheck = await this.performWebsiteCheck();\n      \n      const status = availabilityCheck.status === HealthStatus.HEALTHY \n        ? HealthStatus.HEALTHY \n        : availabilityCheck.responseTime > this.config.alertThresholds.responseTime\n        ? HealthStatus.DEGRADED\n        : HealthStatus.UNHEALTHY;\n\n      return {\n        name: 'website_availability',\n        status,\n        timestamp: Date.now(),\n        duration: Date.now() - startTime,\n        message: `Response time: ${availabilityCheck.responseTime}ms`,\n        details: {\n          url: availabilityCheck.url,\n          statusCode: availabilityCheck.statusCode,\n          responseTime: availabilityCheck.responseTime\n        },\n        error: availabilityCheck.error\n      };\n    } catch (error) {\n      return {\n        name: 'website_availability',\n        status: HealthStatus.UNHEALTHY,\n        timestamp: Date.now(),\n        duration: Date.now() - startTime,\n        error: error instanceof Error ? error.message : String(error)\n      };\n    }\n  }\n\n  /**\n   * Check application health\n   */\n  async checkApplicationHealth(): Promise<HealthCheckResult> {\n    const startTime = Date.now();\n    \n    try {\n      // Check if core components are healthy\n      const correlationEnabled = correlationManager.isEnabled();\n      const performanceEnabled = performanceMonitor.isEnabled();\n      const loggerStats = logger.getStats();\n      \n      // Check if any critical errors occurred recently\n      const bookingMetrics = loggerStats.bookingMetrics;\n      const recentFailureRate = bookingMetrics.totalSteps > 0 \n        ? ((bookingMetrics.failedSteps / bookingMetrics.totalSteps) * 100)\n        : 0;\n\n      const status = recentFailureRate > this.config.alertThresholds.errorRate\n        ? HealthStatus.DEGRADED\n        : HealthStatus.HEALTHY;\n\n      return {\n        name: 'application_health',\n        status,\n        timestamp: Date.now(),\n        duration: Date.now() - startTime,\n        message: `Application components operational`,\n        details: {\n          correlationEnabled,\n          performanceEnabled,\n          totalBookingSteps: bookingMetrics.totalSteps,\n          successRate: bookingMetrics.successRate,\n          recentFailureRate\n        }\n      };\n    } catch (error) {\n      return {\n        name: 'application_health',\n        status: HealthStatus.UNHEALTHY,\n        timestamp: Date.now(),\n        duration: Date.now() - startTime,\n        error: error instanceof Error ? error.message : String(error)\n      };\n    }\n  }\n\n  /**\n   * Check performance health\n   */\n  async checkPerformanceHealth(): Promise<HealthCheckResult> {\n    const startTime = Date.now();\n    \n    try {\n      const performanceSummary = performanceMonitor.getMetricsSummary();\n      \n      const status = performanceSummary.metricsAboveErrorThreshold > 0\n        ? HealthStatus.UNHEALTHY\n        : performanceSummary.metricsAboveWarningThreshold > 0\n        ? HealthStatus.DEGRADED\n        : HealthStatus.HEALTHY;\n\n      return {\n        name: 'performance_health',\n        status,\n        timestamp: Date.now(),\n        duration: Date.now() - startTime,\n        message: `Average response time: ${performanceSummary.averageDuration.toFixed(2)}ms`,\n        details: {\n          totalMetrics: performanceSummary.totalMetrics,\n          averageDuration: performanceSummary.averageDuration,\n          metricsAboveWarning: performanceSummary.metricsAboveWarningThreshold,\n          metricsAboveError: performanceSummary.metricsAboveErrorThreshold\n        }\n      };\n    } catch (error) {\n      return {\n        name: 'performance_health',\n        status: HealthStatus.UNHEALTHY,\n        timestamp: Date.now(),\n        duration: Date.now() - startTime,\n        error: error instanceof Error ? error.message : String(error)\n      };\n    }\n  }\n\n  /**\n   * Perform website availability check using fetch\n   */\n  private async performWebsiteCheck(): Promise<WebsiteAvailabilityCheck> {\n    const startTime = Date.now();\n    \n    try {\n      const controller = new AbortController();\n      const timeoutId = setTimeout(() => controller.abort(), this.config.timeout);\n      \n      const response = await fetch(this.config.websiteUrl, {\n        method: 'HEAD',\n        signal: controller.signal,\n        headers: {\n          'User-Agent': 'SquashBooking-HealthCheck/1.0'\n        }\n      });\n      \n      clearTimeout(timeoutId);\n      const responseTime = Date.now() - startTime;\n      \n      return {\n        url: this.config.websiteUrl,\n        status: response.ok ? HealthStatus.HEALTHY : HealthStatus.DEGRADED,\n        responseTime,\n        statusCode: response.status,\n        timestamp: Date.now()\n      };\n    } catch (error) {\n      const responseTime = Date.now() - startTime;\n      \n      return {\n        url: this.config.websiteUrl,\n        status: HealthStatus.UNHEALTHY,\n        responseTime,\n        timestamp: Date.now(),\n        error: error instanceof Error ? error.message : String(error)\n      };\n    }\n  }\n\n  /**\n   * Determine overall health status from individual checks\n   */\n  private determineOverallStatus(checks: HealthCheckResult[]): HealthStatus {\n    const unhealthyCount = checks.filter(c => c.status === HealthStatus.UNHEALTHY).length;\n    const degradedCount = checks.filter(c => c.status === HealthStatus.DEGRADED).length;\n    \n    if (unhealthyCount > 0) {\n      return HealthStatus.UNHEALTHY;\n    } else if (degradedCount > 0) {\n      return HealthStatus.DEGRADED;\n    } else {\n      return HealthStatus.HEALTHY;\n    }\n  }\n\n  /**\n   * Initialize system metrics\n   */\n  private initializeSystemMetrics(): SystemMetrics {\n    const resourceInfo = performanceMonitor.getSystemResourceInfo();\n    \n    return {\n      memoryUsage: {\n        used: resourceInfo.memoryUsage.heapUsed,\n        total: resourceInfo.memoryUsage.heapTotal,\n        percentage: (resourceInfo.memoryUsage.heapUsed / resourceInfo.memoryUsage.heapTotal) * 100\n      },\n      uptime: resourceInfo.uptime,\n      averageResponseTime: 0,\n      errorRate: 0,\n      requestCount: 0,\n      lastRequestTime: Date.now()\n    };\n  }\n\n  /**\n   * Update system metrics\n   */\n  private updateSystemMetrics(): void {\n    const resourceInfo = performanceMonitor.getSystemResourceInfo();\n    const performanceSummary = performanceMonitor.getMetricsSummary();\n    const bookingMetrics = performanceMonitor.getBookingStepsSummary();\n    \n    this.systemMetrics = {\n      memoryUsage: {\n        used: resourceInfo.memoryUsage.heapUsed,\n        total: resourceInfo.memoryUsage.heapTotal,\n        percentage: (resourceInfo.memoryUsage.heapUsed / resourceInfo.memoryUsage.heapTotal) * 100\n      },\n      uptime: resourceInfo.uptime,\n      averageResponseTime: performanceSummary.averageDuration,\n      errorRate: bookingMetrics.totalSteps > 0 ? ((bookingMetrics.failedSteps / bookingMetrics.totalSteps) * 100) : 0,\n      requestCount: performanceSummary.totalMetrics,\n      lastRequestTime: Date.now()\n    };\n  }\n\n  /**\n   * Add health check results to history\n   */\n  private addToHistory(checks: HealthCheckResult[]): void {\n    this.healthCheckHistory.push(...checks);\n    \n    // Keep only last 100 checks\n    if (this.healthCheckHistory.length > 100) {\n      this.healthCheckHistory = this.healthCheckHistory.slice(-100);\n    }\n  }\n\n  /**\n   * Get last health check result\n   */\n  getLastHealthCheck(): SystemHealth | null {\n    return this.lastHealthCheck;\n  }\n\n  /**\n   * Get health check history\n   */\n  getHealthCheckHistory(): HealthCheckResult[] {\n    return [...this.healthCheckHistory];\n  }\n\n  /**\n   * Get current configuration\n   */\n  getConfig(): HealthCheckConfig {\n    return { ...this.config };\n  }\n\n  /**\n   * Update configuration\n   */\n  updateConfig(newConfig: Partial<HealthCheckConfig>): void {\n    this.config = { ...this.config, ...newConfig };\n    \n    if (this.config.enabled && !this.isRunning) {\n      this.startPeriodicHealthChecks();\n    } else if (!this.config.enabled && this.isRunning) {\n      this.stopPeriodicHealthChecks();\n    }\n  }\n\n  /**\n   * Manual health check trigger\n   */\n  async triggerHealthCheck(): Promise<SystemHealth> {\n    logger.info('Manual health check triggered', 'HealthCheckManager');\n    return await this.runFullHealthCheck();\n  }\n\n  /**\n   * Get system status summary\n   */\n  getSystemStatus(): {\n    isHealthy: boolean;\n    status: HealthStatus;\n    lastCheckTime: number | null;\n    nextCheckTime: number | null;\n    checksRunning: boolean;\n  } {\n    return {\n      isHealthy: this.lastHealthCheck?.status === HealthStatus.HEALTHY,\n      status: this.lastHealthCheck?.status || HealthStatus.UNHEALTHY,\n      lastCheckTime: this.lastHealthCheck?.timestamp || null,\n      nextCheckTime: this.isRunning ? Date.now() + this.config.interval : null,\n      checksRunning: this.isRunning\n    };\n  }\n\n  /**\n   * Clean up resources\n   */\n  dispose(): void {\n    this.stopPeriodicHealthChecks();\n    this.healthCheckHistory = [];\n    this.lastHealthCheck = null;\n  }\n}\n\n// Export singleton instance\nexport const healthCheckManager = new HealthCheckManager();\nexport { HealthCheckManager };
+    if (this.config.enabled) {
+      this.startPeriodicHealthChecks();
+    }
+  }
+
+  /**
+   * Start periodic health checks
+   */
+  startPeriodicHealthChecks(): void {
+    if (this.isRunning || !this.config.enabled) {
+      return;
+    }
+
+    this.isRunning = true;
+    logger.info('Starting periodic health checks', 'HealthCheckManager', {
+      interval: this.config.interval,
+      websiteUrl: this.config.websiteUrl
+    });
+
+    // Run initial health check
+    this.runFullHealthCheck().catch(error => {
+      logger.logStructuredError(error, 'system', 'HealthCheckManager', {
+        operation: 'initial_health_check'
+      });
+    });
+
+    // Schedule periodic checks
+    this.intervalId = setInterval(() => {
+      this.runFullHealthCheck().catch(error => {
+        logger.logStructuredError(error, 'system', 'HealthCheckManager', {
+          operation: 'periodic_health_check'
+        });
+      });
+    }, this.config.interval);
+  }
+
+  /**
+   * Stop periodic health checks
+   */
+  stopPeriodicHealthChecks(): void {
+    if (this.intervalId) {
+      clearInterval(this.intervalId);
+      this.intervalId = null;
+    }
+    this.isRunning = false;
+    logger.info('Stopped periodic health checks', 'HealthCheckManager');
+  }
+
+  /**
+   * Run comprehensive health check
+   */
+  async runFullHealthCheck(): Promise<SystemHealth> {
+    const correlationId = correlationManager.getCurrentCorrelationId() || correlationManager.generateCorrelationId();
+    const timerId = logger.startTiming('full_health_check', 'HealthCheckManager');
+
+    try {
+      logger.info('Running full health check', 'HealthCheckManager', { correlationId });
+
+      const checks: HealthCheckResult[] = [];
+
+      // System resource check
+      checks.push(await this.checkSystemResources());
+
+      // Website availability check
+      checks.push(await this.checkWebsiteAvailability());
+
+      // Application health check
+      checks.push(await this.checkApplicationHealth());
+
+      // Performance health check
+      checks.push(await this.checkPerformanceHealth());
+
+      // Determine overall status
+      const overallStatus = this.determineOverallStatus(checks);
+      
+      // Update metrics
+      this.updateSystemMetrics();
+
+      const health: SystemHealth = {
+        status: overallStatus,
+        timestamp: Date.now(),
+        version: process.env['npm_package_version'] || '1.0.0',
+        uptime: process.uptime(),
+        checks,
+        metrics: {
+          memoryUsage: this.systemMetrics.memoryUsage.percentage,
+          responseTime: this.systemMetrics.averageResponseTime,
+          errorRate: this.systemMetrics.errorRate
+        }
+      };
+
+      this.lastHealthCheck = health;
+      this.addToHistory(checks);
+
+      logger.info('Health check completed', 'HealthCheckManager', {
+        status: overallStatus,
+        checksCount: checks.length,
+        failedChecks: checks.filter(c => c.status === HealthStatus.UNHEALTHY).length
+      });
+
+      return health;
+    } catch (error) {
+      logger.logStructuredError(error, 'system', 'HealthCheckManager', {
+        operation: 'full_health_check'
+      });
+      throw error;
+    } finally {
+      logger.endTiming(timerId);
+    }
+  }
+
+  /**
+   * Check system resources
+   */
+  async checkSystemResources(): Promise<HealthCheckResult> {
+    const startTime = Date.now();
+    
+    try {
+      const resourceInfo = performanceMonitor.getSystemResourceInfo();
+      const memoryUsagePercent = (resourceInfo.memoryUsage.heapUsed / resourceInfo.memoryUsage.heapTotal) * 100;
+      
+      const status = memoryUsagePercent > this.config.alertThresholds.memoryUsage 
+        ? HealthStatus.DEGRADED 
+        : HealthStatus.HEALTHY;
+
+      return {
+        name: 'system_resources',
+        status,
+        timestamp: Date.now(),
+        duration: Date.now() - startTime,
+        message: `Memory usage: ${memoryUsagePercent.toFixed(2)}%`,
+        details: {
+          memoryUsage: resourceInfo.memoryUsage,
+          uptime: resourceInfo.uptime,
+          nodeVersion: resourceInfo.nodeVersion,
+          platform: resourceInfo.platform
+        }
+      };
+    } catch (error) {
+      return {
+        name: 'system_resources',
+        status: HealthStatus.UNHEALTHY,
+        timestamp: Date.now(),
+        duration: Date.now() - startTime,
+        error: error instanceof Error ? error.message : String(error)
+      };
+    }
+  }
+
+  /**
+   * Check website availability
+   */
+  async checkWebsiteAvailability(): Promise<HealthCheckResult> {
+    const startTime = Date.now();
+    
+    try {
+      const availabilityCheck = await this.performWebsiteCheck();
+      
+      const status = availabilityCheck.status === HealthStatus.HEALTHY 
+        ? HealthStatus.HEALTHY 
+        : availabilityCheck.responseTime > this.config.alertThresholds.responseTime
+        ? HealthStatus.DEGRADED
+        : HealthStatus.UNHEALTHY;
+
+      return {
+        name: 'website_availability',
+        status,
+        timestamp: Date.now(),
+        duration: Date.now() - startTime,
+        message: `Response time: ${availabilityCheck.responseTime}ms`,
+        details: {
+          url: availabilityCheck.url,
+          statusCode: availabilityCheck.statusCode,
+          responseTime: availabilityCheck.responseTime
+        },
+        error: availabilityCheck.error
+      };
+    } catch (error) {
+      return {
+        name: 'website_availability',
+        status: HealthStatus.UNHEALTHY,
+        timestamp: Date.now(),
+        duration: Date.now() - startTime,
+        error: error instanceof Error ? error.message : String(error)
+      };
+    }
+  }
+
+  /**
+   * Check application health
+   */
+  async checkApplicationHealth(): Promise<HealthCheckResult> {
+    const startTime = Date.now();
+    
+    try {
+      // Check if core components are healthy
+      const correlationEnabled = correlationManager.isEnabled();
+      const performanceEnabled = performanceMonitor.isEnabled();
+      const loggerStats = logger.getStats();
+      
+      // Check if any critical errors occurred recently
+      const bookingMetrics = loggerStats.bookingMetrics;
+      const recentFailureRate = bookingMetrics.totalSteps > 0 
+        ? ((bookingMetrics.failedSteps / bookingMetrics.totalSteps) * 100)
+        : 0;
+
+      const status = recentFailureRate > this.config.alertThresholds.errorRate
+        ? HealthStatus.DEGRADED
+        : HealthStatus.HEALTHY;
+
+      return {
+        name: 'application_health',
+        status,
+        timestamp: Date.now(),
+        duration: Date.now() - startTime,
+        message: `Application components operational`,
+        details: {
+          correlationEnabled,
+          performanceEnabled,
+          totalBookingSteps: bookingMetrics.totalSteps,
+          successRate: bookingMetrics.successRate,
+          recentFailureRate
+        }
+      };
+    } catch (error) {
+      return {
+        name: 'application_health',
+        status: HealthStatus.UNHEALTHY,
+        timestamp: Date.now(),
+        duration: Date.now() - startTime,
+        error: error instanceof Error ? error.message : String(error)
+      };
+    }
+  }
+
+  /**
+   * Check performance health
+   */
+  async checkPerformanceHealth(): Promise<HealthCheckResult> {
+    const startTime = Date.now();
+    
+    try {
+      const performanceSummary = performanceMonitor.getMetricsSummary();
+      
+      const status = performanceSummary.metricsAboveErrorThreshold > 0
+        ? HealthStatus.UNHEALTHY
+        : performanceSummary.metricsAboveWarningThreshold > 0
+        ? HealthStatus.DEGRADED
+        : HealthStatus.HEALTHY;
+
+      return {
+        name: 'performance_health',
+        status,
+        timestamp: Date.now(),
+        duration: Date.now() - startTime,
+        message: `Average response time: ${performanceSummary.averageDuration.toFixed(2)}ms`,
+        details: {
+          totalMetrics: performanceSummary.totalMetrics,
+          averageDuration: performanceSummary.averageDuration,
+          metricsAboveWarning: performanceSummary.metricsAboveWarningThreshold,
+          metricsAboveError: performanceSummary.metricsAboveErrorThreshold
+        }
+      };
+    } catch (error) {
+      return {
+        name: 'performance_health',
+        status: HealthStatus.UNHEALTHY,
+        timestamp: Date.now(),
+        duration: Date.now() - startTime,
+        error: error instanceof Error ? error.message : String(error)
+      };
+    }
+  }
+
+  /**
+   * Perform website availability check using fetch
+   */
+  private async performWebsiteCheck(): Promise<WebsiteAvailabilityCheck> {
+    const startTime = Date.now();
+    
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), this.config.timeout);
+      
+      const response = await fetch(this.config.websiteUrl, {
+        method: 'HEAD',
+        signal: controller.signal,
+        headers: {
+          'User-Agent': 'SquashBooking-HealthCheck/1.0'
+        }
+      });
+      
+      clearTimeout(timeoutId);
+      const responseTime = Date.now() - startTime;
+      
+      return {
+        url: this.config.websiteUrl,
+        status: response.ok ? HealthStatus.HEALTHY : HealthStatus.DEGRADED,
+        responseTime,
+        statusCode: response.status,
+        timestamp: Date.now()
+      };
+    } catch (error) {
+      const responseTime = Date.now() - startTime;
+      
+      return {
+        url: this.config.websiteUrl,
+        status: HealthStatus.UNHEALTHY,
+        responseTime,
+        timestamp: Date.now(),
+        error: error instanceof Error ? error.message : String(error)
+      };
+    }
+  }
+
+  /**
+   * Determine overall health status from individual checks
+   */
+  private determineOverallStatus(checks: HealthCheckResult[]): HealthStatus {
+    const unhealthyCount = checks.filter(c => c.status === HealthStatus.UNHEALTHY).length;
+    const degradedCount = checks.filter(c => c.status === HealthStatus.DEGRADED).length;
+    
+    if (unhealthyCount > 0) {
+      return HealthStatus.UNHEALTHY;
+    } else if (degradedCount > 0) {
+      return HealthStatus.DEGRADED;
+    } else {
+      return HealthStatus.HEALTHY;
+    }
+  }
+
+  /**
+   * Initialize system metrics
+   */
+  private initializeSystemMetrics(): SystemMetrics {
+    const resourceInfo = performanceMonitor.getSystemResourceInfo();
+    
+    return {
+      memoryUsage: {
+        used: resourceInfo.memoryUsage.heapUsed,
+        total: resourceInfo.memoryUsage.heapTotal,
+        percentage: (resourceInfo.memoryUsage.heapUsed / resourceInfo.memoryUsage.heapTotal) * 100
+      },
+      uptime: resourceInfo.uptime,
+      averageResponseTime: 0,
+      errorRate: 0,
+      requestCount: 0,
+      lastRequestTime: Date.now()
+    };
+  }
+
+  /**
+   * Update system metrics
+   */
+  private updateSystemMetrics(): void {
+    const resourceInfo = performanceMonitor.getSystemResourceInfo();
+    const performanceSummary = performanceMonitor.getMetricsSummary();
+    const bookingMetrics = performanceMonitor.getBookingStepsSummary();
+    
+    this.systemMetrics = {
+      memoryUsage: {
+        used: resourceInfo.memoryUsage.heapUsed,
+        total: resourceInfo.memoryUsage.heapTotal,
+        percentage: (resourceInfo.memoryUsage.heapUsed / resourceInfo.memoryUsage.heapTotal) * 100
+      },
+      uptime: resourceInfo.uptime,
+      averageResponseTime: performanceSummary.averageDuration,
+      errorRate: bookingMetrics.totalSteps > 0 ? ((bookingMetrics.failedSteps / bookingMetrics.totalSteps) * 100) : 0,
+      requestCount: performanceSummary.totalMetrics,
+      lastRequestTime: Date.now()
+    };
+  }
+
+  /**
+   * Add health check results to history
+   */
+  private addToHistory(checks: HealthCheckResult[]): void {
+    this.healthCheckHistory.push(...checks);
+    
+    // Keep only last 100 checks
+    if (this.healthCheckHistory.length > 100) {
+      this.healthCheckHistory = this.healthCheckHistory.slice(-100);
+    }
+  }
+
+  /**
+   * Get last health check result
+   */
+  getLastHealthCheck(): SystemHealth | null {
+    return this.lastHealthCheck;
+  }
+
+  /**
+   * Get health check history
+   */
+  getHealthCheckHistory(): HealthCheckResult[] {
+    return [...this.healthCheckHistory];
+  }
+
+  /**
+   * Get current configuration
+   */
+  getConfig(): HealthCheckConfig {
+    return { ...this.config };
+  }
+
+  /**
+   * Update configuration
+   */
+  updateConfig(newConfig: Partial<HealthCheckConfig>): void {
+    this.config = { ...this.config, ...newConfig };
+    
+    if (this.config.enabled && !this.isRunning) {
+      this.startPeriodicHealthChecks();
+    } else if (!this.config.enabled && this.isRunning) {
+      this.stopPeriodicHealthChecks();
+    }
+  }
+
+  /**
+   * Manual health check trigger
+   */
+  async triggerHealthCheck(): Promise<SystemHealth> {
+    logger.info('Manual health check triggered', 'HealthCheckManager');
+    return await this.runFullHealthCheck();
+  }
+
+  /**
+   * Get system status summary
+   */
+  getSystemStatus(): {
+    isHealthy: boolean;
+    status: HealthStatus;
+    lastCheckTime: number | null;
+    nextCheckTime: number | null;
+    checksRunning: boolean;
+  } {
+    return {
+      isHealthy: this.lastHealthCheck?.status === HealthStatus.HEALTHY,
+      status: this.lastHealthCheck?.status || HealthStatus.UNHEALTHY,
+      lastCheckTime: this.lastHealthCheck?.timestamp || null,
+      nextCheckTime: this.isRunning ? Date.now() + this.config.interval : null,
+      checksRunning: this.isRunning
+    };
+  }
+
+  /**
+   * Clean up resources
+   */
+  dispose(): void {
+    this.stopPeriodicHealthChecks();
+    this.healthCheckHistory = [];
+    this.lastHealthCheck = null;
+  }
+}
+
+// Export singleton instance
+export const healthCheckManager = new HealthCheckManager();
+export { HealthCheckManager };

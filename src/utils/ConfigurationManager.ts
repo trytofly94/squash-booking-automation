@@ -2,10 +2,10 @@ import { logger } from './logger';
 import type { 
   AdvancedBookingConfig, 
   CourtScoringWeights, 
-  TimePreference,
-  HolidayProvider
+  TimePreference
 } from '../types/booking.types';
-import type { MonitoringConfig, HealthCheckConfig } from '../types/monitoring.types';
+import type { MonitoringConfig } from '../types/monitoring.types';
+import type { HealthCheckConfig } from '../types/health.types';
 
 /**
  * Configuration manager for advanced booking features
@@ -115,17 +115,17 @@ export class ConfigurationManager {
   private loadConfiguration(): AdvancedBookingConfig {
     const config: AdvancedBookingConfig = {
       // Basic configuration
-      daysAhead: this.parseNumber(process.env.DAYS_AHEAD, 20),
-      targetStartTime: process.env.TARGET_START_TIME || '14:00',
-      duration: this.parseNumber(process.env.DURATION, 60),
-      maxRetries: this.parseNumber(process.env.MAX_RETRIES, 3),
-      dryRun: this.parseBoolean(process.env.DRY_RUN, true), // Default to true for safety
+      daysAhead: this.parseNumber(process.env['DAYS_AHEAD'], 20),
+      targetStartTime: process.env['TARGET_START_TIME'] || '14:00',
+      duration: this.parseNumber(process.env['DURATION'], 60),
+      maxRetries: this.parseNumber(process.env['MAX_RETRIES'], 3),
+      dryRun: this.parseBoolean(process.env['DRY_RUN'], true), // Default to true for safety
       
       // Advanced configuration
-      timezone: process.env.TIMEZONE || 'Europe/Berlin',
-      preferredCourts: this.parsePreferredCourts(process.env.PREFERRED_COURTS),
-      enablePatternLearning: this.parseBoolean(process.env.BOOKING_PATTERN_LEARNING, false),
-      fallbackTimeRange: this.parseNumber(process.env.FALLBACK_TIME_RANGE, 120),
+      timezone: process.env['TIMEZONE'] || 'Europe/Berlin',
+      preferredCourts: this.parsePreferredCourts(process.env['PREFERRED_COURTS']),
+      enablePatternLearning: this.parseBoolean(process.env['BOOKING_PATTERN_LEARNING'], false),
+      fallbackTimeRange: this.parseNumber(process.env['FALLBACK_TIME_RANGE'], 120),
       courtScoringWeights: this.parseCourtScoringWeights(),
       timePreferences: this.parseTimePreferences()
     };
@@ -142,12 +142,12 @@ export class ConfigurationManager {
    */
   private loadMonitoringConfiguration(): MonitoringConfig {
     const config: MonitoringConfig = {
-      enableCorrelationId: this.parseBoolean(process.env.LOG_CORRELATION_ID, true),
-      enablePerformanceLogging: this.parseBoolean(process.env.LOG_PERFORMANCE, true),
-      performanceThresholdWarning: this.parseNumber(process.env.PERFORMANCE_THRESHOLD_WARNING, 5000),
-      performanceThresholdError: this.parseNumber(process.env.PERFORMANCE_THRESHOLD_ERROR, 10000),
-      metricsEnabled: this.parseBoolean(process.env.METRICS_ENABLED, false),
-      maxMetricsHistory: this.parseNumber(process.env.MAX_METRICS_HISTORY, 1000)
+      enableCorrelationId: this.parseBoolean(process.env['LOG_CORRELATION_ID'], true),
+      enablePerformanceLogging: this.parseBoolean(process.env['LOG_PERFORMANCE'], true),
+      performanceThresholdWarning: this.parseNumber(process.env['PERFORMANCE_THRESHOLD_WARNING'], 5000),
+      performanceThresholdError: this.parseNumber(process.env['PERFORMANCE_THRESHOLD_ERROR'], 10000),
+      metricsEnabled: this.parseBoolean(process.env['METRICS_ENABLED'], false),
+      maxMetricsHistory: this.parseNumber(process.env['MAX_METRICS_HISTORY'], 1000)
     };
 
     logger.info('Monitoring configuration loaded', 'ConfigurationManager', { config });
@@ -159,15 +159,15 @@ export class ConfigurationManager {
    */
   private loadHealthCheckConfiguration(): HealthCheckConfig {
     const config: HealthCheckConfig = {
-      enabled: this.parseBoolean(process.env.HEALTH_CHECK_ENABLED, true),
-      interval: this.parseNumber(process.env.HEALTH_CHECK_INTERVAL, 300000), // 5 minutes
-      timeout: this.parseNumber(process.env.HEALTH_CHECK_TIMEOUT, 30000), // 30 seconds
-      websiteUrl: process.env.WEBSITE_URL || 'https://www.eversports.de/sb/sportcenter-kautz?sport=squash',
-      retryAttempts: this.parseNumber(process.env.HEALTH_CHECK_RETRIES, 3),
+      enabled: this.parseBoolean(process.env['HEALTH_CHECK_ENABLED'], true),
+      interval: this.parseNumber(process.env['HEALTH_CHECK_INTERVAL'], 300000), // 5 minutes
+      timeout: this.parseNumber(process.env['HEALTH_CHECK_TIMEOUT'], 30000), // 30 seconds
+      websiteUrl: process.env['WEBSITE_URL'] || 'https://www.eversports.de/sb/sportcenter-kautz?sport=squash',
+      retryAttempts: this.parseNumber(process.env['HEALTH_CHECK_RETRIES'], 3),
       alertThresholds: {
-        responseTime: this.parseNumber(process.env.ALERT_THRESHOLD_RESPONSE_TIME, 5000),
-        errorRate: this.parseNumber(process.env.ALERT_THRESHOLD_ERROR_RATE, 10),
-        memoryUsage: this.parseNumber(process.env.ALERT_THRESHOLD_MEMORY, 80)
+        responseTime: this.parseNumber(process.env['ALERT_THRESHOLD_RESPONSE_TIME'], 5000),
+        errorRate: this.parseNumber(process.env['ALERT_THRESHOLD_ERROR_RATE'], 10),
+        memoryUsage: this.parseNumber(process.env['ALERT_THRESHOLD_MEMORY'], 80)
       }
     };
 
@@ -253,10 +253,10 @@ export class ConfigurationManager {
    */
   private parseCourtScoringWeights(): CourtScoringWeights {
     return {
-      availability: this.parseNumber(process.env.COURT_WEIGHT_AVAILABILITY, 0.4),
-      historical: this.parseNumber(process.env.COURT_WEIGHT_HISTORICAL, 0.3),
-      preference: this.parseNumber(process.env.COURT_WEIGHT_PREFERENCE, 0.2),
-      position: this.parseNumber(process.env.COURT_WEIGHT_POSITION, 0.1)
+      availability: this.parseNumber(process.env['COURT_WEIGHT_AVAILABILITY'], 0.4),
+      historical: this.parseNumber(process.env['COURT_WEIGHT_HISTORICAL'], 0.3),
+      preference: this.parseNumber(process.env['COURT_WEIGHT_PREFERENCE'], 0.2),
+      position: this.parseNumber(process.env['COURT_WEIGHT_POSITION'], 0.1)
     };
   }
 
@@ -267,15 +267,15 @@ export class ConfigurationManager {
     const preferences: TimePreference[] = [];
     
     // Parse primary preference (always included)
-    const targetTime = process.env.TARGET_START_TIME || '14:00';
+    const targetTime = process.env['TARGET_START_TIME'] || '14:00';
     preferences.push({
       startTime: targetTime,
       priority: 10,
-      flexibility: this.parseNumber(process.env.TIME_FLEXIBILITY, 30)
+      flexibility: this.parseNumber(process.env['TIME_FLEXIBILITY'], 30)
     });
 
     // Parse additional preferences from environment
-    const additionalPrefs = process.env.ADDITIONAL_TIME_PREFERENCES;
+    const additionalPrefs = process.env['ADDITIONAL_TIME_PREFERENCES'];
     if (additionalPrefs) {
       try {
         const parsedPrefs = JSON.parse(additionalPrefs) as TimePreference[];

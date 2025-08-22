@@ -47,7 +47,7 @@ class PerformanceMonitor {
       startTime: process.hrtime.bigint(),
       correlationId,
       component,
-      metadata
+      metadata: metadata || {}
     };
 
     this.activeTimers.set(id, metric);
@@ -145,7 +145,7 @@ class PerformanceMonitor {
     success: boolean,
     duration?: number,
     error?: string,
-    metadata?: Record<string, unknown>
+    _metadata?: Record<string, unknown>
   ): void {
     const correlationId = correlationManager.getCurrentCorrelationId() || 'unknown';
     const timestamp = Date.now();
@@ -154,9 +154,9 @@ class PerformanceMonitor {
       step,
       startTime: timestamp - (duration || 0),
       endTime: timestamp,
-      duration,
+      duration: duration || 0,
       success,
-      error,
+      error: error || undefined,
       correlationId
     };
 
