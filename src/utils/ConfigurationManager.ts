@@ -2,8 +2,7 @@ import { logger } from './logger';
 import type { 
   AdvancedBookingConfig, 
   CourtScoringWeights, 
-  TimePreference,
-  HolidayProvider
+  TimePreference
 } from '../types/booking.types';
 
 /**
@@ -68,17 +67,17 @@ export class ConfigurationManager {
   private loadConfiguration(): AdvancedBookingConfig {
     const config: AdvancedBookingConfig = {
       // Basic configuration
-      daysAhead: this.parseNumber(process.env.DAYS_AHEAD, 20),
-      targetStartTime: process.env.TARGET_START_TIME || '14:00',
-      duration: this.parseNumber(process.env.DURATION, 60),
-      maxRetries: this.parseNumber(process.env.MAX_RETRIES, 3),
-      dryRun: this.parseBoolean(process.env.DRY_RUN, true), // Default to true for safety
+      daysAhead: this.parseNumber(process.env['DAYS_AHEAD'], 20),
+      targetStartTime: process.env['TARGET_START_TIME'] || '14:00',
+      duration: this.parseNumber(process.env['DURATION'], 60),
+      maxRetries: this.parseNumber(process.env['MAX_RETRIES'], 3),
+      dryRun: this.parseBoolean(process.env['DRY_RUN'], true), // Default to true for safety
       
       // Advanced configuration
-      timezone: process.env.TIMEZONE || 'Europe/Berlin',
-      preferredCourts: this.parsePreferredCourts(process.env.PREFERRED_COURTS),
-      enablePatternLearning: this.parseBoolean(process.env.BOOKING_PATTERN_LEARNING, false),
-      fallbackTimeRange: this.parseNumber(process.env.FALLBACK_TIME_RANGE, 120),
+      timezone: process.env['TIMEZONE'] || 'Europe/Berlin',
+      preferredCourts: this.parsePreferredCourts(process.env['PREFERRED_COURTS']),
+      enablePatternLearning: this.parseBoolean(process.env['BOOKING_PATTERN_LEARNING'], false),
+      fallbackTimeRange: this.parseNumber(process.env['FALLBACK_TIME_RANGE'], 120),
       courtScoringWeights: this.parseCourtScoringWeights(),
       timePreferences: this.parseTimePreferences()
     };
@@ -168,10 +167,10 @@ export class ConfigurationManager {
    */
   private parseCourtScoringWeights(): CourtScoringWeights {
     return {
-      availability: this.parseNumber(process.env.COURT_WEIGHT_AVAILABILITY, 0.4),
-      historical: this.parseNumber(process.env.COURT_WEIGHT_HISTORICAL, 0.3),
-      preference: this.parseNumber(process.env.COURT_WEIGHT_PREFERENCE, 0.2),
-      position: this.parseNumber(process.env.COURT_WEIGHT_POSITION, 0.1)
+      availability: this.parseNumber(process.env['COURT_WEIGHT_AVAILABILITY'], 0.4),
+      historical: this.parseNumber(process.env['COURT_WEIGHT_HISTORICAL'], 0.3),
+      preference: this.parseNumber(process.env['COURT_WEIGHT_PREFERENCE'], 0.2),
+      position: this.parseNumber(process.env['COURT_WEIGHT_POSITION'], 0.1)
     };
   }
 
@@ -182,15 +181,15 @@ export class ConfigurationManager {
     const preferences: TimePreference[] = [];
     
     // Parse primary preference (always included)
-    const targetTime = process.env.TARGET_START_TIME || '14:00';
+    const targetTime = process.env['TARGET_START_TIME'] || '14:00';
     preferences.push({
       startTime: targetTime,
       priority: 10,
-      flexibility: this.parseNumber(process.env.TIME_FLEXIBILITY, 30)
+      flexibility: this.parseNumber(process.env['TIME_FLEXIBILITY'], 30)
     });
 
     // Parse additional preferences from environment
-    const additionalPrefs = process.env.ADDITIONAL_TIME_PREFERENCES;
+    const additionalPrefs = process.env['ADDITIONAL_TIME_PREFERENCES'];
     if (additionalPrefs) {
       try {
         const parsedPrefs = JSON.parse(additionalPrefs) as TimePreference[];

@@ -1,5 +1,4 @@
 import { ConfigurationManager } from '../../src/utils/ConfigurationManager';
-import type { AdvancedBookingConfig } from '../../src/types/booking.types';
 
 // Mock logger to avoid console output in tests
 jest.mock('../../src/utils/logger', () => ({
@@ -19,21 +18,21 @@ describe('ConfigurationManager', () => {
     originalEnv = { ...process.env };
     
     // Clear environment variables
-    delete process.env.DAYS_AHEAD;
-    delete process.env.TARGET_START_TIME;
-    delete process.env.DURATION;
-    delete process.env.MAX_RETRIES;
-    delete process.env.DRY_RUN;
-    delete process.env.TIMEZONE;
-    delete process.env.PREFERRED_COURTS;
-    delete process.env.BOOKING_PATTERN_LEARNING;
-    delete process.env.FALLBACK_TIME_RANGE;
-    delete process.env.COURT_WEIGHT_AVAILABILITY;
-    delete process.env.COURT_WEIGHT_HISTORICAL;
-    delete process.env.COURT_WEIGHT_PREFERENCE;
-    delete process.env.COURT_WEIGHT_POSITION;
-    delete process.env.TIME_FLEXIBILITY;
-    delete process.env.ADDITIONAL_TIME_PREFERENCES;
+    delete process.env['DAYS_AHEAD'];
+    delete process.env['TARGET_START_TIME'];
+    delete process.env['DURATION'];
+    delete process.env['MAX_RETRIES'];
+    delete process.env['DRY_RUN'];
+    delete process.env['TIMEZONE'];
+    delete process.env['PREFERRED_COURTS'];
+    delete process.env['BOOKING_PATTERN_LEARNING'];
+    delete process.env['FALLBACK_TIME_RANGE'];
+    delete process.env['COURT_WEIGHT_AVAILABILITY'];
+    delete process.env['COURT_WEIGHT_HISTORICAL'];
+    delete process.env['COURT_WEIGHT_PREFERENCE'];
+    delete process.env['COURT_WEIGHT_POSITION'];
+    delete process.env['TIME_FLEXIBILITY'];
+    delete process.env['ADDITIONAL_TIME_PREFERENCES'];
 
     // Reset singleton instance
     (ConfigurationManager as any).instance = undefined;
@@ -81,11 +80,11 @@ describe('ConfigurationManager', () => {
 
   describe('environment variable parsing', () => {
     it('should parse basic configuration from environment', () => {
-      process.env.DAYS_AHEAD = '15';
-      process.env.TARGET_START_TIME = '13:30';
-      process.env.DURATION = '90';
-      process.env.MAX_RETRIES = '5';
-      process.env.DRY_RUN = 'false';
+      process.env['DAYS_AHEAD'] = '15';
+      process.env['TARGET_START_TIME'] = '13:30';
+      process.env['DURATION'] = '90';
+      process.env['MAX_RETRIES'] = '5';
+      process.env['DRY_RUN'] = 'false';
 
       const config = ConfigurationManager.getInstance().getConfig();
       
@@ -97,10 +96,10 @@ describe('ConfigurationManager', () => {
     });
 
     it('should parse advanced configuration from environment', () => {
-      process.env.TIMEZONE = 'America/New_York';
-      process.env.PREFERRED_COURTS = '1,3,5';
-      process.env.BOOKING_PATTERN_LEARNING = 'true';
-      process.env.FALLBACK_TIME_RANGE = '180';
+      process.env['TIMEZONE'] = 'America/New_York';
+      process.env['PREFERRED_COURTS'] = '1,3,5';
+      process.env['BOOKING_PATTERN_LEARNING'] = 'true';
+      process.env['FALLBACK_TIME_RANGE'] = '180';
 
       const config = ConfigurationManager.getInstance().getConfig();
       
@@ -111,10 +110,10 @@ describe('ConfigurationManager', () => {
     });
 
     it('should parse court scoring weights', () => {
-      process.env.COURT_WEIGHT_AVAILABILITY = '0.5';
-      process.env.COURT_WEIGHT_HISTORICAL = '0.2';
-      process.env.COURT_WEIGHT_PREFERENCE = '0.2';
-      process.env.COURT_WEIGHT_POSITION = '0.1';
+      process.env['COURT_WEIGHT_AVAILABILITY'] = '0.5';
+      process.env['COURT_WEIGHT_HISTORICAL'] = '0.2';
+      process.env['COURT_WEIGHT_PREFERENCE'] = '0.2';
+      process.env['COURT_WEIGHT_POSITION'] = '0.1';
 
       const config = ConfigurationManager.getInstance().getConfig();
       
@@ -128,36 +127,36 @@ describe('ConfigurationManager', () => {
 
     it('should parse boolean values correctly', () => {
       // Test various boolean representations
-      process.env.DRY_RUN = 'true';
+      process.env['DRY_RUN'] = 'true';
       expect(ConfigurationManager.getInstance().getConfig().dryRun).toBe(true);
       
       (ConfigurationManager as any).instance = undefined;
-      process.env.DRY_RUN = '1';
+      process.env['DRY_RUN'] = '1';
       expect(ConfigurationManager.getInstance().getConfig().dryRun).toBe(true);
       
       (ConfigurationManager as any).instance = undefined;
-      process.env.DRY_RUN = 'yes';
+      process.env['DRY_RUN'] = 'yes';
       expect(ConfigurationManager.getInstance().getConfig().dryRun).toBe(true);
       
       (ConfigurationManager as any).instance = undefined;
-      process.env.DRY_RUN = 'false';
+      process.env['DRY_RUN'] = 'false';
       expect(ConfigurationManager.getInstance().getConfig().dryRun).toBe(false);
       
       (ConfigurationManager as any).instance = undefined;
-      process.env.DRY_RUN = '0';
+      process.env['DRY_RUN'] = '0';
       expect(ConfigurationManager.getInstance().getConfig().dryRun).toBe(false);
     });
 
     it('should handle malformed preferred courts gracefully', () => {
-      process.env.PREFERRED_COURTS = '1,,3, ,5,';
+      process.env['PREFERRED_COURTS'] = '1,,3, ,5,';
       
       const config = ConfigurationManager.getInstance().getConfig();
       expect(config.preferredCourts).toEqual(['1', '3', '5']);
     });
 
     it('should handle invalid numbers gracefully', () => {
-      process.env.DAYS_AHEAD = 'invalid';
-      process.env.DURATION = 'not-a-number';
+      process.env['DAYS_AHEAD'] = 'invalid';
+      process.env['DURATION'] = 'not-a-number';
       
       const config = ConfigurationManager.getInstance().getConfig();
       expect(config.daysAhead).toBe(20); // Default value

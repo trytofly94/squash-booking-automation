@@ -327,6 +327,10 @@ export class CourtScorer {
 
     const bestCourt = availableScores[0];
     
+    if (!bestCourt) {
+      return null;
+    }
+    
     logger.info('Selected best court', 'CourtScorer', {
       courtId: bestCourt.courtId,
       score: bestCourt.score,
@@ -375,7 +379,7 @@ export class CourtScorer {
       if (!acc[pattern.courtId]) {
         acc[pattern.courtId] = [];
       }
-      acc[pattern.courtId].push(pattern);
+      acc[pattern.courtId]!.push(pattern);
       return acc;
     }, {} as Record<string, BookingPattern[]>);
 

@@ -1,12 +1,9 @@
 import type { Page } from '@playwright/test';
 import { 
-  BookingConfig, 
   BookingResult, 
   BookingPair,
   AdvancedBookingConfig,
-  CourtScoringWeights,
-  TimePreference,
-  BookingPattern
+  TimePreference
 } from '../types/booking.types';
 import { DateTimeCalculator } from './DateTimeCalculator';
 import { SlotSearcher } from './SlotSearcher';
@@ -44,12 +41,12 @@ export class BookingManager {
       dryRun: config.dryRun !== false, // Default to true for safety
       
       // Advanced configuration
-      timezone: config.timezone || process.env.TIMEZONE || 'Europe/Berlin',
+      timezone: config.timezone || process.env['TIMEZONE'] || 'Europe/Berlin',
       preferredCourts: config.preferredCourts || this.parsePreferredCourts(),
       enablePatternLearning: config.enablePatternLearning ?? 
-        (process.env.BOOKING_PATTERN_LEARNING === 'true'),
+        (process.env['BOOKING_PATTERN_LEARNING'] === 'true'),
       fallbackTimeRange: config.fallbackTimeRange || 
-        parseInt(process.env.FALLBACK_TIME_RANGE || '120'),
+        parseInt(process.env['FALLBACK_TIME_RANGE'] || '120'),
       courtScoringWeights: config.courtScoringWeights || {
         availability: 0.4,
         historical: 0.3,
@@ -57,7 +54,7 @@ export class BookingManager {
         position: 0.1
       },
       timePreferences: config.timePreferences || this.generateDefaultTimePreferences(),
-      holidayProvider: config.holidayProvider
+      ...(config.holidayProvider && { holidayProvider: config.holidayProvider })
     };
 
     this.patternLearningEnabled = this.config.enablePatternLearning;
@@ -106,7 +103,7 @@ export class BookingManager {
    * Parse preferred courts from environment variable
    */
   private parsePreferredCourts(): string[] {
-    const prefCourts = process.env.PREFERRED_COURTS || '';
+    const prefCourts = process.env['PREFERRED_COURTS'] || '';
     return prefCourts.split(',').map(c => c.trim()).filter(c => c.length > 0);
   }
 
@@ -301,8 +298,6 @@ export class BookingManager {
     timeSlot: { startTime: string; endTime: string; priority: number },
     dayOfWeek: number
   ): Promise<BookingResult> {
-    const component = 'BookingManager.attemptBookingForTimeSlot';
-    
     try {
       // Generate time slots for this specific time
       const timeSlots = DateTimeCalculator.generateTimeSlots(
@@ -420,7 +415,7 @@ export class BookingManager {
 
     // Check for isolation before final selection
     const nonIsolatingPairs = availablePairs.filter((pair: BookingPair) => {
-      const isolationCheck = IsolationChecker.checkIsolation(
+      const isolationCheck = IsolationChecker.checkForIsolation(
         pair,
         this.getAllSlotsFromSearchResult(searchResult)
       );
@@ -428,7 +423,7 @@ export class BookingManager {
     });
 
     // Prefer the best scoring court if it doesn't create isolation
-    const bestPairIsolationCheck = IsolationChecker.checkIsolation(
+    const bestPairIsolationCheck = IsolationChecker.checkForIsolation(
       bestPair,
       this.getAllSlotsFromSearchResult(searchResult)
     );

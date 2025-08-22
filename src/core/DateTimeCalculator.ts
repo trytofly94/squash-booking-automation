@@ -8,13 +8,10 @@ import {
   isWithinInterval,
   differenceInMinutes,
   isWeekend,
-  getDay,
   parse,
-  isValid,
-  setHours,
-  setMinutes
+  isValid
 } from 'date-fns';
-import { zonedTimeToUtc, utcToZonedTime } from 'date-fns-tz';
+import { toZonedTime, fromZonedTime } from 'date-fns-tz';
 import type { HolidayProvider } from '../types/booking.types';
 
 /**
@@ -42,7 +39,7 @@ export class DateTimeCalculator {
   ): string {
     // Get current date in the specified timezone
     const nowUtc = new Date();
-    const nowInTimezone = utcToZonedTime(nowUtc, timezone);
+    const nowInTimezone = toZonedTime(nowUtc, timezone);
     const today = startOfDay(nowInTimezone);
     
     // Add days and format
@@ -183,16 +180,13 @@ export class DateTimeCalculator {
    */
   static formatDateForDisplay(
     date: string,
-    timezone: string = this.DEFAULT_TIMEZONE,
-    locale: string = 'de-DE'
+    timezone: string = this.DEFAULT_TIMEZONE
   ): string {
     const dateObj = parseISO(date);
-    const zonedDate = utcToZonedTime(dateObj, timezone);
+    const zonedDate = toZonedTime(dateObj, timezone);
     
-    // Use date-fns format with German locale pattern
-    return format(zonedDate, 'EEEE, dd. MMMM yyyy', {
-      locale: undefined // For now, let date-fns use default locale
-    });
+    // Use date-fns format with default locale
+    return format(zonedDate, 'EEEE, dd. MMMM yyyy');
   }
 
   /**
@@ -202,7 +196,7 @@ export class DateTimeCalculator {
    */
   static getCurrentTimestamp(timezone: string = this.DEFAULT_TIMEZONE): Date {
     const nowUtc = new Date();
-    return utcToZonedTime(nowUtc, timezone);
+    return toZonedTime(nowUtc, timezone);
   }
 
   // New enhanced functionality for Issue #9
@@ -271,7 +265,7 @@ export class DateTimeCalculator {
       nextDay = addDays(nextDay, 1);
     }
     
-    return utcToZonedTime(nextDay, timezone);
+    return toZonedTime(nextDay, timezone);
   }
 
   /**
@@ -363,7 +357,7 @@ export class DateTimeCalculator {
    * @returns Date in local timezone
    */
   static convertToTimezone(utcDate: Date, timezone: string): Date {
-    return utcToZonedTime(utcDate, timezone);
+    return toZonedTime(utcDate, timezone);
   }
 
   /**
@@ -373,7 +367,7 @@ export class DateTimeCalculator {
    * @returns UTC date
    */
   static convertToUTC(localDate: Date, timezone: string): Date {
-    return zonedTimeToUtc(localDate, timezone);
+    return fromZonedTime(localDate, timezone);
   }
 
   /**
