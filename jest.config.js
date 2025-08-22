@@ -16,15 +16,6 @@ module.exports = {
   moduleFileExtensions: ['ts', 'js', 'json'],
   
   
-  // Module name mapping for path aliases
-  moduleNameMapper: {
-    '^@/(.*)$': '<rootDir>/src/$1',
-    '^@/core/(.*)$': '<rootDir>/src/core/$1',
-    '^@/pages/(.*)$': '<rootDir>/src/pages/$1',
-    '^@/types/(.*)$': '<rootDir>/src/types/$1',
-    '^@/utils/(.*)$': '<rootDir>/src/utils/$1'
-  },
-  
   // Setup files
   setupFilesAfterEnv: ['<rootDir>/tests/setup.ts'],
   
@@ -70,5 +61,21 @@ module.exports = {
   },
   
   // Error on deprecated features
-  errorOnDeprecated: true
+  errorOnDeprecated: true,
+  
+  // Transform ES modules in node_modules
+  transformIgnorePatterns: [
+    'node_modules/(?!(p-retry|is-network-error))'
+  ],
+  
+  // Mock ES modules that cause issues
+  moduleNameMapper: {
+    '^@/(.*)$': '<rootDir>/src/$1',
+    '^@/core/(.*)$': '<rootDir>/src/core/$1',
+    '^@/pages/(.*)$': '<rootDir>/src/pages/$1',
+    '^@/types/(.*)$': '<rootDir>/src/types/$1',
+    '^@/utils/(.*)$': '<rootDir>/src/utils/$1',
+    '^p-retry$': '<rootDir>/tests/mocks/p-retry.js',
+    '^is-network-error$': '<rootDir>/tests/mocks/is-network-error.js'
+  }
 };

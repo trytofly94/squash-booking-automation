@@ -27,13 +27,22 @@ class CorrelationManager {
    * Create a new correlation context
    */
   createContext(options: Partial<CorrelationContext> = {}): CorrelationContext {
-    return {
+    const context: CorrelationContext = {
       correlationId: options.correlationId || this.generateCorrelationId(),
-      timestamp: options.timestamp || Date.now(),
-      component: options.component,
-      userId: options.userId,
-      sessionId: options.sessionId
+      timestamp: options.timestamp || Date.now()
     };
+    
+    if (options.component) {
+      context.component = options.component;
+    }
+    if (options.userId) {
+      context.userId = options.userId;
+    }
+    if (options.sessionId) {
+      context.sessionId = options.sessionId;
+    }
+    
+    return context;
   }
 
   /**
@@ -100,11 +109,19 @@ class CorrelationManager {
    */
   createChildContext(parentContext?: CorrelationContext): CorrelationContext {
     const parent = parentContext || this.getCurrentContext();
-    return this.createContext({
-      component: parent?.component,
-      userId: parent?.userId,
-      sessionId: parent?.sessionId
-    });
+    const options: Partial<CorrelationContext> = {};
+    
+    if (parent?.component) {
+      options.component = parent.component;
+    }
+    if (parent?.userId) {
+      options.userId = parent.userId;
+    }
+    if (parent?.sessionId) {
+      options.sessionId = parent.sessionId;
+    }
+    
+    return this.createContext(options);
   }
 
   /**

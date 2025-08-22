@@ -3,26 +3,19 @@
  * Provides website availability, system health, and booking analytics
  */
 
-import { Page } from '@playwright/test';
 import { 
-  HealthStatus, 
-  HealthCheckResult, 
   SystemHealth, 
-  WebsiteAvailabilityCheck, 
   HealthCheckConfig, 
   SystemMetrics 
 } from '@/types/health.types';
 import { performanceMonitor } from '@/utils/PerformanceMonitor';
-import { correlationManager } from '@/utils/CorrelationManager';
 import { logger } from '@/utils/logger';
 
 class HealthCheckManager {
   private config: HealthCheckConfig;
   private lastHealthCheck: SystemHealth | null = null;
-  private healthCheckHistory: HealthCheckResult[] = [];
-  private systemMetrics: SystemMetrics;
   private isRunning = false;
-  private intervalId: NodeJS.Timer | null = null;
+  private systemMetrics: SystemMetrics;
 
   constructor() {
     this.config = {
@@ -92,6 +85,13 @@ class HealthCheckManager {
    */
   getConfig(): HealthCheckConfig {
     return { ...this.config };
+  }
+
+  /**
+   * Get current system metrics
+   */
+  getSystemMetrics(): SystemMetrics {
+    return { ...this.systemMetrics };
   }
 }
 

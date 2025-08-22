@@ -205,19 +205,32 @@ export class CircuitBreaker {
    * Get current circuit breaker statistics
    */
   getStats(): CircuitBreakerStats {
-    return {
+    const stats: CircuitBreakerStats = {
       state: this.state,
       failureCount: this.failureCount,
       successCount: this.successCount,
       totalRequests: this.totalRequests,
       totalFailures: this.totalFailures,
       totalSuccesses: this.totalSuccesses,
-      lastOpenedAt: this.lastOpenedAt,
-      lastClosedAt: this.lastClosedAt,
-      lastHalfOpenAt: this.lastHalfOpenAt,
-      timeToHalfOpen: this.getTimeToHalfOpen(),
       config: { ...this.config }
     };
+    
+    if (this.lastOpenedAt !== undefined) {
+      stats.lastOpenedAt = this.lastOpenedAt;
+    }
+    if (this.lastClosedAt !== undefined) {
+      stats.lastClosedAt = this.lastClosedAt;
+    }
+    if (this.lastHalfOpenAt !== undefined) {
+      stats.lastHalfOpenAt = this.lastHalfOpenAt;
+    }
+    
+    const timeToHalfOpen = this.getTimeToHalfOpen();
+    if (timeToHalfOpen !== undefined) {
+      stats.timeToHalfOpen = timeToHalfOpen;
+    }
+    
+    return stats;
   }
 
   /**

@@ -327,6 +327,10 @@ export class CourtScorer {
 
     const bestCourt = availableScores[0];
     
+    if (!bestCourt) {
+      return null;
+    }
+    
     logger.info('Selected best court', 'CourtScorer', {
       courtId: bestCourt.courtId,
       score: bestCourt.score,
@@ -375,7 +379,7 @@ export class CourtScorer {
       if (!acc[pattern.courtId]) {
         acc[pattern.courtId] = [];
       }
-      acc[pattern.courtId].push(pattern);
+      acc[pattern.courtId]!.push(pattern);
       return acc;
     }, {} as Record<string, BookingPattern[]>);
 
@@ -403,6 +407,34 @@ export class CourtScorer {
       averageSuccessRate,
       mostSuccessfulCourt,
       leastSuccessfulCourt
+    };
+  }
+
+  /**
+   * Get comprehensive statistics about the court scorer
+   */
+  getStats() {
+    return {
+      patternsCount: this.patterns.size,
+      weights: { ...this.weights },
+      learningStats: this.getLearningStats()
+    };
+  }
+
+  /**
+   * Get learning statistics for the court scorer
+   */
+  private getLearningStats() {
+    const patterns = Array.from(this.patterns.values());
+    const totalAttempts = patterns.reduce((sum, p) => sum + p.totalAttempts, 0);
+    const totalSuccesses = patterns.reduce((sum, p) => sum + (p.totalAttempts * p.successRate), 0);
+    
+    return {
+      totalPatterns: patterns.length,
+      totalAttempts,
+      totalSuccesses,
+      overallSuccessRate: totalAttempts > 0 ? totalSuccesses / totalAttempts : 0,
+      avgAttemptsPerPattern: patterns.length > 0 ? totalAttempts / patterns.length : 0
     };
   }
 

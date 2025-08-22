@@ -187,9 +187,9 @@ export class PatternStorage {
       if (!acc[pattern.courtId]) {
         acc[pattern.courtId] = { totalRate: 0, totalAttempts: 0, count: 0 };
       }
-      acc[pattern.courtId].totalRate += pattern.successRate;
-      acc[pattern.courtId].totalAttempts += pattern.totalAttempts;
-      acc[pattern.courtId].count++;
+      acc[pattern.courtId]!.totalRate += pattern.successRate;
+      acc[pattern.courtId]!.totalAttempts += pattern.totalAttempts;
+      acc[pattern.courtId]!.count++;
       return acc;
     }, {} as Record<string, { totalRate: number; totalAttempts: number; count: number }>);
 
@@ -206,9 +206,9 @@ export class PatternStorage {
       if (!acc[pattern.timeSlot]) {
         acc[pattern.timeSlot] = { totalRate: 0, totalAttempts: 0, count: 0 };
       }
-      acc[pattern.timeSlot].totalRate += pattern.successRate;
-      acc[pattern.timeSlot].totalAttempts += pattern.totalAttempts;
-      acc[pattern.timeSlot].count++;
+      acc[pattern.timeSlot]!.totalRate += pattern.successRate;
+      acc[pattern.timeSlot]!.totalAttempts += pattern.totalAttempts;
+      acc[pattern.timeSlot]!.count++;
       return acc;
     }, {} as Record<string, { totalRate: number; totalAttempts: number; count: number }>);
 
@@ -225,9 +225,9 @@ export class PatternStorage {
       if (!acc[pattern.dayOfWeek]) {
         acc[pattern.dayOfWeek] = { totalRate: 0, totalAttempts: 0, count: 0 };
       }
-      acc[pattern.dayOfWeek].totalRate += pattern.successRate;
-      acc[pattern.dayOfWeek].totalAttempts += pattern.totalAttempts;
-      acc[pattern.dayOfWeek].count++;
+      acc[pattern.dayOfWeek]!.totalRate += pattern.successRate;
+      acc[pattern.dayOfWeek]!.totalAttempts += pattern.totalAttempts;
+      acc[pattern.dayOfWeek]!.count++;
       return acc;
     }, {} as Record<number, { totalRate: number; totalAttempts: number; count: number }>);
 

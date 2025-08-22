@@ -46,9 +46,12 @@ class PerformanceMonitor {
       name,
       startTime: process.hrtime.bigint(),
       correlationId,
-      component,
-      metadata
+      component
     };
+    
+    if (metadata) {
+      metric.metadata = metadata;
+    }
 
     this.activeTimers.set(id, metric);
     return id;
@@ -144,8 +147,7 @@ class PerformanceMonitor {
     step: string,
     success: boolean,
     duration?: number,
-    error?: string,
-    metadata?: Record<string, unknown>
+    error?: string
   ): void {
     const correlationId = correlationManager.getCurrentCorrelationId() || 'unknown';
     const timestamp = Date.now();
@@ -154,11 +156,14 @@ class PerformanceMonitor {
       step,
       startTime: timestamp - (duration || 0),
       endTime: timestamp,
-      duration,
+      duration: duration || 0,
       success,
-      error,
       correlationId
     };
+    
+    if (error) {
+      stepMetric.error = error;
+    }
 
     this.bookingSteps.push(stepMetric);
     this.trimBookingSteps();
@@ -260,7 +265,7 @@ class PerformanceMonitor {
       if (!stepBreakdown[step.step]) {
         stepBreakdown[step.step] = { count: 0, successRate: 0, avgDuration: 0 };
       }
-      stepBreakdown[step.step].count++;
+      stepBreakdown[step.step]!.count++;
     }
 
     // Calculate success rates and average durations for each step

@@ -4,7 +4,6 @@
  */
 
 import { BookingSuccessMetrics, BookingAnalytics } from '@/types/health.types';
-import { performanceMonitor } from '@/utils/PerformanceMonitor';
 import { correlationManager } from '@/utils/CorrelationManager';
 import { logger } from '@/utils/logger';
 import { ErrorCategory } from '@/types/monitoring.types';
@@ -79,13 +78,13 @@ class BookingAnalyticsManager {
       id: `${correlationId}-${timestamp}`,
       timestamp,
       correlationId,
-      courtId,
-      date,
-      startTime,
-      duration,
+      ...(courtId !== undefined && { courtId }),
+      ...(date !== undefined && { date }),
+      ...(startTime !== undefined && { startTime }),
+      ...(duration !== undefined && { duration }),
       success,
-      error,
-      errorCategory,
+      ...(error !== undefined && { error }),
+      ...(errorCategory !== undefined && { errorCategory }),
       responseTime,
       retryCount
     };

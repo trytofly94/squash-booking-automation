@@ -218,7 +218,6 @@ export class RetryManager {
 
         // Classify the error
         const errorType = options.errorType || ErrorClassifier.getErrorType(attemptError);
-        const classification = ErrorClassifier.classifyError(attemptError);
 
         // Get retry strategy
         const baseStrategy = this.getStrategyForError(errorType, options.operation);
@@ -279,14 +278,7 @@ export class RetryManager {
         throw attemptError; // Let p-retry handle the retry
       }
     }, {
-      retries: (attemptNumber, error) => {
-        // Determine if we should retry based on our custom logic
-        const errorType = options.errorType || ErrorClassifier.getErrorType(error);
-        const baseStrategy = this.getStrategyForError(errorType, options.operation);
-        const strategy = options.strategy ? { ...baseStrategy, ...options.strategy } : baseStrategy;
-        
-        return attemptNumber < strategy.maxAttempts;
-      },
+      retries: this.config.global.defaultMaxAttempts - 1, // Use global max attempts
       
       minTimeout: 0, // We'll handle delays ourselves
       maxTimeout: 0, // We'll handle delays ourselves
@@ -312,7 +304,7 @@ export class RetryManager {
         }
       },
 
-      signal: options.signal
+      ...(options.signal && { signal: options.signal })
     });
   }
 
@@ -363,10 +355,15 @@ export class RetryManager {
     operationName: string,
     context?: Record<string, unknown>
   ): Promise<T> {
-    const result = await this.execute(operation, {
-      operation: operationName,
-      context
-    });
+    const options: RetryOptions = {
+      operation: operationName
+    };
+    
+    if (context) {
+      options.context = context;
+    }
+    
+    const result = await this.execute(operation, options);
 
     if (result.success && result.result !== undefined) {
       return result.result;
@@ -384,11 +381,16 @@ export class RetryManager {
     timeoutMs: number,
     context?: Record<string, unknown>
   ): Promise<T> {
-    const result = await this.execute(operation, {
+    const options: RetryOptions = {
       operation: operationName,
-      timeoutMs,
-      context
-    });
+      timeoutMs
+    };
+    
+    if (context) {
+      options.context = context;
+    }
+    
+    const result = await this.execute(operation, options);
 
     if (result.success && result.result !== undefined) {
       return result.result;
@@ -450,7 +452,7 @@ export class RetryManager {
    */
   forceCircuitBreakerOpen(): void {
     this.circuitBreaker.forceOpen();
-    logger.warn('Circuit breaker forced open', this.component);
+    logger.warn('Circuit breaker forced open', 'RetryManager');
   }
 
   /**
@@ -459,7 +461,11 @@ export class RetryManager {
   async testConfiguration(): Promise<{
     success: boolean;
     message: string;
-    stats: ReturnType<typeof this.getStats>;
+    stats: {
+      config: RetryConfig;
+      circuitBreaker: ReturnType<CircuitBreaker['getStats']>;
+      isEnabled: boolean;
+    };
   }> {
     try {
       const testOperation = async () => {

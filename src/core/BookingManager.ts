@@ -14,7 +14,6 @@ import { PatternStorage } from './PatternStorage';
 import { TimeSlotGenerator } from './TimeSlotGenerator';
 import { RetryManager } from './retry/RetryManager';
 import { RetryConfigFactory } from './retry/RetryConfig';
-import { ErrorClassifier } from './retry/ErrorClassifier';
 import { logger } from '../utils/logger';
 import { DryRunValidator } from '../utils/DryRunValidator';
 import { correlationManager } from '../utils/CorrelationManager';
@@ -62,7 +61,7 @@ export class BookingManager {
         position: 0.1
       },
       timePreferences: config.timePreferences || this.generateDefaultTimePreferences(),
-      holidayProvider: config.holidayProvider || undefined
+      ...(config.holidayProvider && { holidayProvider: config.holidayProvider })
     };
 
     this.patternLearningEnabled = this.config.enablePatternLearning;
@@ -137,7 +136,7 @@ export class BookingManager {
    */
   async executeBooking(): Promise<BookingResult> {
     const component = 'BookingManager';
-    const startTime = DateTimeCalculator.getCurrentTimestamp();
+    const startTime = Date.now();
     
     // Create correlation context for this booking operation
     return correlationManager.runWithNewContext(async () => {
@@ -162,17 +161,30 @@ export class BookingManager {
         const result = await this.executeBookingWithRetryManager(startTime, component, correlationId);
         
         // Record booking analytics
-        bookingAnalytics.recordBookingAttempt({
+        const analyticsData: Parameters<typeof bookingAnalytics.recordBookingAttempt>[0] = {
           success: result.success,
           responseTime: Date.now() - startTime,
           retryCount: result.retryAttempts || 0,
-          courtId: result.bookedPair?.courtId,
-          date: result.bookedPair?.slot1.date,
-          startTime: result.bookedPair?.slot1.startTime,
-          duration: this.config.duration,
-          error: result.error,
-          errorCategory: result.success ? undefined : this.categorizeError(result.error || '')
-        });
+          duration: this.config.duration
+        };
+        
+        if (result.bookedPair?.courtId) {
+          analyticsData.courtId = result.bookedPair.courtId;
+        }
+        if (result.bookedPair?.slot1.date) {
+          analyticsData.date = result.bookedPair.slot1.date;
+        }
+        if (result.bookedPair?.slot1.startTime) {
+          analyticsData.startTime = result.bookedPair.slot1.startTime;
+        }
+        if (result.error) {
+          analyticsData.error = result.error;
+        }
+        if (!result.success && result.error) {
+          analyticsData.errorCategory = this.categorizeError(result.error);
+        }
+        
+        bookingAnalytics.recordBookingAttempt(analyticsData);
         
         logger.endTiming(bookingTimerId, component);
         return result;
@@ -189,10 +201,15 @@ export class BookingManager {
           errorCategory
         });
         
-        logger.logStructuredError(error, errorCategory, component, {
-          correlationId,
-          operation: 'complete_booking_process'
-        });
+        logger.logStructuredError(
+          error instanceof Error ? error : new Error(String(error)), 
+          errorCategory, 
+          component, 
+          {
+            correlationId,
+            operation: 'complete_booking_process'
+          }
+        );
         
         logger.endTiming(bookingTimerId, component);
         throw error;
@@ -222,7 +239,7 @@ export class BookingManager {
         success: false,
         error: errorMessage,
         retryAttempts: 0,
-        timestamp: startTime,
+        timestamp: new Date(startTime),
         circuitBreakerTripped: false
       };
     }
@@ -281,7 +298,7 @@ export class BookingManager {
         return {
           ...bookingResult,
           retryAttempts: retryResult.totalAttempts,
-          timestamp: startTime,
+          timestamp: new Date(startTime),
           circuitBreakerTripped: retryResult.circuitBreakerTripped,
           retryDetails
         };
@@ -303,7 +320,7 @@ export class BookingManager {
           success: false,
           error: `Booking failed after ${retryResult.totalAttempts} attempts (${retryResult.totalTimeMs}ms). ${retryResult.circuitBreakerTripped ? 'Circuit breaker tripped. ' : ''}Last error: ${finalError}`,
           retryAttempts: retryResult.totalAttempts,
-          timestamp: startTime,
+          timestamp: new Date(startTime),
           circuitBreakerTripped: retryResult.circuitBreakerTripped,
           retryDetails
         };
@@ -324,7 +341,7 @@ export class BookingManager {
         success: false,
         error: `Unexpected booking error: ${errorMessage}`,
         retryAttempts: 1,
-        timestamp: startTime,
+        timestamp: new Date(startTime),
         circuitBreakerTripped: this.retryManager.getCircuitBreakerState() === 'OPEN'
       };
     }
@@ -416,7 +433,6 @@ export class BookingManager {
     timeSlot: { startTime: string; endTime: string; priority: number },
     dayOfWeek: number
   ): Promise<BookingResult> {
-    const component = 'BookingManager.attemptBookingForTimeSlot';
     
     try {
       // Generate time slots for this specific time
@@ -467,7 +483,7 @@ export class BookingManager {
           success: false,
           error: 'No suitable courts available after intelligent selection',
           retryAttempts: 0,
-          timestamp: DateTimeCalculator.getCurrentTimestamp(this.config.timezone),
+          timestamp: DateTimeCalculator.getCurrentTimestamp(this.config.timezone)
         };
       }
 
@@ -491,7 +507,7 @@ export class BookingManager {
         success: false,
         error: `Time slot booking failed: ${error instanceof Error ? error.message : String(error)}`,
         retryAttempts: 0,
-        timestamp: DateTimeCalculator.getCurrentTimestamp(this.config.timezone),
+        timestamp: DateTimeCalculator.getCurrentTimestamp(this.config.timezone)
       };
     }
   }
@@ -550,7 +566,7 @@ export class BookingManager {
 
     // Check for isolation before final selection
     const nonIsolatingPairs = availablePairs.filter((pair: BookingPair) => {
-      const isolationCheck = IsolationChecker.checkIsolation(
+      const isolationCheck = IsolationChecker.checkForIsolation(
         pair,
         this.getAllSlotsFromSearchResult(searchResult)
       );
@@ -558,7 +574,7 @@ export class BookingManager {
     });
 
     // Prefer the best scoring court if it doesn't create isolation
-    const bestPairIsolationCheck = IsolationChecker.checkIsolation(
+    const bestPairIsolationCheck = IsolationChecker.checkForIsolation(
       bestPair,
       this.getAllSlotsFromSearchResult(searchResult)
     );

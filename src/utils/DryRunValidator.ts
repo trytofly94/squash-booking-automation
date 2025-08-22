@@ -508,6 +508,30 @@ export class DryRunValidator {
     return checks;
   }
 
+  /**
+   * Get validation statistics
+   */
+  getValidationStats(): {
+    totalValidationPoints: number;
+    validationsByStatus: Record<string, number>;
+    safetyLevel: string;
+    lastValidation: ValidationPoint | null;
+  } {
+    const validationsByStatus = this.validationPoints.reduce((acc, point) => {
+      acc[point.status] = (acc[point.status] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+
+    return {
+      totalValidationPoints: this.validationPoints.length,
+      validationsByStatus,
+      safetyLevel: this.safetyLevel,
+      lastValidation: this.validationPoints.length > 0 
+        ? this.validationPoints[this.validationPoints.length - 1] || null
+        : null
+    };
+  }
+
   private parseTime(timeStr: string): Date | null {
     try {
       const [hours, minutes] = timeStr.split(':').map(Number);

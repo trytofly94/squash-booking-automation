@@ -273,7 +273,7 @@ export class RetryStrategies {
   /**
    * Handle rate limiting error specific logic
    */
-  private static handleRateLimitError(errorMessage: string, strategy: ErrorRetryStrategy): RetryDecision {
+  private static handleRateLimitError(_errorMessage: string, strategy: ErrorRetryStrategy): RetryDecision {
     // Always retry rate limiting with longer delays
     return {
       shouldRetry: true,
@@ -335,7 +335,7 @@ export class RetryStrategies {
   /**
    * Handle navigation error specific logic
    */
-  private static handleNavigationError(errorMessage: string, strategy: ErrorRetryStrategy): RetryDecision {
+  private static handleNavigationError(_errorMessage: string, strategy: ErrorRetryStrategy): RetryDecision {
     // Always retry navigation errors as they're often transient
     return {
       shouldRetry: true,
