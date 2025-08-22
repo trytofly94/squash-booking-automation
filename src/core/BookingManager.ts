@@ -278,12 +278,14 @@ export class BookingManager {
       if (retryResult.success && retryResult.result) {
         const bookingResult = retryResult.result;
         
-        logger.logBookingSuccess(
-          bookingResult.bookedPair!.courtId,
-          bookingResult.bookedPair!.slot1.date,
-          bookingResult.bookedPair!.slot1.startTime,
-          component
-        );
+        if (bookingResult.bookedPair) {
+          logger.logBookingSuccess(
+            bookingResult.bookedPair.courtId,
+            bookingResult.bookedPair.slot1.date,
+            bookingResult.bookedPair.slot1.startTime,
+            component
+          );
+        }
 
         // Convert retry attempt info to summary format
         const retryDetails: RetryAttemptSummary[] = retryResult.attempts.map(attempt => ({

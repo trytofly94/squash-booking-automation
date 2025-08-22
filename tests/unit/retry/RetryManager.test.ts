@@ -250,7 +250,13 @@ describe('RetryManager', () => {
     test('should allow configuration updates', () => {
       const newConfig = {
         global: {
-          enabled: false
+          enabled: false,
+          defaultMaxAttempts: 3,
+          defaultInitialDelay: 1000,
+          defaultMaxDelay: 30000,
+          defaultBackoffMultiplier: 2,
+          defaultMaxJitter: 0.1,
+          enableDetailedLogging: false
         }
       };
 

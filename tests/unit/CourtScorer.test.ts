@@ -58,7 +58,7 @@ describe('CourtScorer', () => {
       );
 
       expect(scores).toHaveLength(3);
-      expect(scores[0].score).toBeGreaterThan(scores[2].score); // Should be sorted by score
+      expect(scores[0]!.score).toBeGreaterThan(scores[2]!.score); // Should be sorted by score
       
       // Available courts should score higher than unavailable ones
       const court1Score = scores.find(s => s.courtId === '1')!;
@@ -125,7 +125,7 @@ describe('CourtScorer', () => {
       const patterns = courtScorer.exportPatterns();
       expect(patterns).toHaveLength(1);
       
-      const pattern = patterns[0];
+      const pattern = patterns[0]!;
       expect(pattern.courtId).toBe(courtId);
       expect(pattern.timeSlot).toBe(timeSlot);
       expect(pattern.dayOfWeek).toBe(dayOfWeek);
@@ -146,7 +146,7 @@ describe('CourtScorer', () => {
       courtScorer.updatePattern(courtId, timeSlot, dayOfWeek, true);
 
       const patterns = courtScorer.exportPatterns();
-      const pattern = patterns[0];
+      const pattern = patterns[0]!;
       
       expect(pattern.totalAttempts).toBe(3);
       expect(pattern.successRate).toBeCloseTo(2/3, 2); // 2 successes out of 3 attempts

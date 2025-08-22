@@ -4,7 +4,6 @@
  */
 
 import { performanceMonitor, PerformanceMonitor } from '@/utils/PerformanceMonitor';
-import { correlationManager } from '@/utils/CorrelationManager';
 import { MonitoringConfig } from '@/types/monitoring.types';
 
 // Mock correlationManager for controlled testing
@@ -170,10 +169,10 @@ describe('PerformanceMonitor', () => {
       
       const summary = monitor.getBookingStepsSummary();
       
-      expect(summary.stepBreakdown.login.count).toBe(2);
-      expect(summary.stepBreakdown.login.successRate).toBe(50);
-      expect(summary.stepBreakdown.search.count).toBe(1);
-      expect(summary.stepBreakdown.search.successRate).toBe(100);
+      expect(summary.stepBreakdown['login'].count).toBe(2);
+      expect(summary.stepBreakdown['login'].successRate).toBe(50);
+      expect(summary.stepBreakdown['search'].count).toBe(1);
+      expect(summary.stepBreakdown['search'].successRate).toBe(100);
     });
   });
 

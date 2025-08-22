@@ -18,6 +18,7 @@ import { CircuitBreaker } from './CircuitBreaker';
 import { RetryStrategies } from './RetryStrategies';
 import { logger } from '../../utils/logger';
 
+
 /**
  * Options for retry operation
  */
@@ -186,13 +187,13 @@ export class RetryManager {
     attempts: RetryAttemptInfo[],
     startTime: number
   ): Promise<T> {
-    return pRetry(async (attemptNumber) => {
+    return pRetry(async (attemptNumber: number) => {
       const attemptStartTime = Date.now();
 
       // Check circuit breaker (unless skipped)
       if (!options.skipCircuitBreaker && !this.circuitBreaker.canExecute()) {
         const error = new Error('Circuit breaker is OPEN - failing fast');
-        throw new AbortError(error); // Don't retry when circuit is open
+        throw new AbortError(error.message); // Don't retry when circuit is open
       }
 
       try {
@@ -259,7 +260,7 @@ export class RetryManager {
             errorMessage: attemptError.message
           });
           
-          throw new AbortError(attemptError); // Don't retry
+          throw new AbortError(attemptError.message); // Don't retry
         }
 
         logger.debug('Retry decision: will retry', this.component, {
@@ -283,7 +284,7 @@ export class RetryManager {
       minTimeout: 0, // We'll handle delays ourselves
       maxTimeout: 0, // We'll handle delays ourselves
       
-      onFailedAttempt: async (error) => {
+      onFailedAttempt: async (error: any) => {
         const errorType = options.errorType || ErrorClassifier.getErrorType(error.error);
         const baseStrategy = this.getStrategyForError(errorType, options.operation);
         const strategy = options.strategy ? { ...baseStrategy, ...options.strategy } : baseStrategy;

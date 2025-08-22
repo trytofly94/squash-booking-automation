@@ -1,5 +1,23 @@
-// Mock implementation of p-retry for Jest
-const pRetry = async (fn, options = {}) => {
+// TypeScript mock implementation of p-retry for Jest
+interface RetryOptions {
+  retries?: number;
+  minTimeout?: number;
+  maxTimeout?: number;
+  onFailedAttempt?: (error: { attemptNumber: number; retriesLeft: number; error: Error }) => void | Promise<void>;
+  signal?: AbortSignal;
+}
+
+export class AbortError extends Error {
+  constructor(message?: string) {
+    super(message);
+    this.name = 'AbortError';
+  }
+}
+
+const pRetry = async <T>(
+  fn: (attemptNumber: number) => Promise<T>,
+  options: RetryOptions = {}
+): Promise<T> => {
   const maxRetries = options.retries || 3;
   let lastError;
   
@@ -10,7 +28,7 @@ const pRetry = async (fn, options = {}) => {
       lastError = error;
       
       // Check if it's an AbortError
-      if (error.name === 'AbortError') {
+      if (error instanceof Error && error.name === 'AbortError') {
         throw error;
       }
       
@@ -23,7 +41,7 @@ const pRetry = async (fn, options = {}) => {
         await options.onFailedAttempt({
           attemptNumber: attempt + 1,
           retriesLeft: maxRetries - attempt,
-          error: error
+          error: error as Error
         });
       }
       
@@ -35,13 +53,5 @@ const pRetry = async (fn, options = {}) => {
   throw lastError;
 };
 
-class AbortError extends Error {
-  constructor(message) {
-    super(message);
-    this.name = 'AbortError';
-  }
-}
-
-module.exports = pRetry;
-module.exports.default = pRetry;
-module.exports.AbortError = AbortError;
+export default pRetry;
+export { pRetry };

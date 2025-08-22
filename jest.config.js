@@ -75,7 +75,7 @@ module.exports = {
     '^@/pages/(.*)$': '<rootDir>/src/pages/$1',
     '^@/types/(.*)$': '<rootDir>/src/types/$1',
     '^@/utils/(.*)$': '<rootDir>/src/utils/$1',
-    '^p-retry$': '<rootDir>/tests/mocks/p-retry.js',
+    '^p-retry$': '<rootDir>/tests/mocks/p-retry.ts',
     '^is-network-error$': '<rootDir>/tests/mocks/is-network-error.js'
   }
 };

@@ -170,14 +170,21 @@ class CorrelationManager {
       return promise;
     }
 
-    return new Promise<T>((resolve, reject) => {
-      this.runWithContext(currentContext, () => {
-        if (component) {
-          this.setComponent(component);
-        }
-        promise.then(resolve).catch(reject);
-      });
-    });
+    if (component) {
+      this.setComponent(component);
+    }
+
+    // Ensure promise handlers run with the captured context
+    return promise.then(
+      (result) => {
+        return this.runWithContext(currentContext, () => result);
+      },
+      (error) => {
+        return this.runWithContext(currentContext, () => {
+          throw error;
+        });
+      }
+    );
   }
 
   /**

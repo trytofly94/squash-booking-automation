@@ -308,7 +308,9 @@ export class RetryStrategies {
    */
   private static handleAuthenticationError(errorMessage: string, strategy: ErrorRetryStrategy): RetryDecision {
     // Don't retry on invalid credentials
-    if (errorMessage.includes('invalid') && errorMessage.includes('credential')) {
+    if ((errorMessage.includes('invalid') && (errorMessage.includes('credential') || errorMessage.includes('credentials'))) ||
+        errorMessage.includes('401') ||
+        errorMessage.includes('unauthorized')) {
       return {
         shouldRetry: false,
         reason: 'Invalid credentials - retry will not resolve',
