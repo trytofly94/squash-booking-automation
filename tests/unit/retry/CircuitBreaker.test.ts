@@ -114,22 +114,29 @@ describe('CircuitBreaker', () => {
 
   describe('Recovery Logic', () => {
     test('should transition to HALF_OPEN after recovery timeout', async () => {
-      // Open the circuit
-      circuitBreaker.setState(CircuitState.OPEN);
-      
-      // Mock time passage
+      // Open the circuit with proper failure time setup
       const originalNow = Date.now;
       const baseTime = 1000000000;
-      Date.now = jest.fn().mockReturnValue(baseTime);
       
-      // Set last failure time to allow recovery
-      const operation = jest.fn().mockResolvedValue('success');
+      // Set the failure time first
+      Date.now = jest.fn().mockReturnValue(baseTime);
+      circuitBreaker.setState(CircuitState.OPEN);
+      
+      // Now advance time beyond recovery timeout
       Date.now = jest.fn().mockReturnValue(baseTime + defaultConfig.recoveryTimeout + 1000);
+      
+      const operation = jest.fn().mockResolvedValue('success');
       
       await circuitBreaker.execute(operation, 'test-operation');
       
-      expect(circuitBreaker.getState()).toBe(CircuitState.CLOSED);
+      // After one successful request, should still be HALF_OPEN (needs successThreshold=2 to close)
+      expect(circuitBreaker.getState()).toBe(CircuitState.HALF_OPEN);
       expect(operation).toHaveBeenCalledTimes(1);
+      
+      // Make another successful request to reach successThreshold
+      await circuitBreaker.execute(operation, 'test-operation');
+      expect(circuitBreaker.getState()).toBe(CircuitState.CLOSED);
+      expect(operation).toHaveBeenCalledTimes(2);
       
       // Restore original Date.now
       Date.now = originalNow;

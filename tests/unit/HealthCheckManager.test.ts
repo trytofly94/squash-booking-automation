@@ -51,7 +51,11 @@ jest.mock('@/utils/logger', () => ({
     info: jest.fn(),
     warn: jest.fn(),
     error: jest.fn(),
-    debug: jest.fn()
+    debug: jest.fn(),
+    getStats: jest.fn(),
+    logStructuredError: jest.fn(),
+    startTiming: jest.fn().mockReturnValue('mock-timer-id'),
+    endTiming: jest.fn()
   }
 }));
 
@@ -109,13 +113,35 @@ describe('HealthCheckManager', () => {
 
     // Mock logger methods
     (logger.getStats as jest.Mock).mockReturnValue({
+      performanceMetrics: {
+        totalMetrics: 10,
+        averageDuration: 150,
+        slowestOperation: null,
+        fastestOperation: null,
+        metricsAboveWarningThreshold: 1,
+        metricsAboveErrorThreshold: 0
+      },
       bookingMetrics: {
         totalSteps: 20,
         successfulSteps: 18,
         failedSteps: 2,
         successRate: 90,
         averageDuration: 200
-      }
+      },
+      systemInfo: {
+        memoryUsage: {
+          rss: 100000000,
+          heapTotal: 50000000,
+          heapUsed: 30000000,
+          external: 5000000,
+          arrayBuffers: 1000000
+        },
+        uptime: 3600,
+        nodeVersion: 'v18.0.0',
+        platform: 'linux'
+      },
+      correlationEnabled: true,
+      performanceEnabled: true
     });
 
     manager = new HealthCheckManager();
@@ -263,13 +289,35 @@ describe('HealthCheckManager', () => {
     it('should detect degraded application health', async () => {
       // Mock high failure rate
       (logger.getStats as jest.Mock).mockReturnValue({
+        performanceMetrics: {
+          totalMetrics: 10,
+          averageDuration: 150,
+          slowestOperation: null,
+          fastestOperation: null,
+          metricsAboveWarningThreshold: 1,
+          metricsAboveErrorThreshold: 0
+        },
         bookingMetrics: {
           totalSteps: 20,
           successfulSteps: 8,
           failedSteps: 12,
           successRate: 40,
           averageDuration: 200
-        }
+        },
+        systemInfo: {
+          memoryUsage: {
+            rss: 100000000,
+            heapTotal: 50000000,
+            heapUsed: 30000000,
+            external: 5000000,
+            arrayBuffers: 1000000
+          },
+          uptime: 3600,
+          nodeVersion: 'v18.0.0',
+          platform: 'linux'
+        },
+        correlationEnabled: true,
+        performanceEnabled: true
       });
 
       const result = await manager['checkApplicationHealth']();

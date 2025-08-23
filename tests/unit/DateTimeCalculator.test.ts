@@ -58,14 +58,24 @@ describe('DateTimeCalculator', () => {
         'Invalid time format: 14:75. Expected HH:MM format.'
       );
     });
+
+    it('should support custom duration and slot size', () => {
+      const result = DateTimeCalculator.generateTimeSlots('14:00', 90, 30);
+      expect(result).toEqual(['14:00', '14:30', '15:00']);
+    });
+
+    it('should handle non-standard slot sizes', () => {
+      const result = DateTimeCalculator.generateTimeSlots('14:00', 60, 20);
+      expect(result).toEqual(['14:00', '14:20', '14:40']);
+    });
   });
 
   describe('calculateNeighborSlots', () => {
-    it('should calculate correct neighbor slots', () => {
+    it('should calculate correct neighbor slots with default duration', () => {
       const result = DateTimeCalculator.calculateNeighborSlots('14:00');
       expect(result).toEqual({
         before: '13:30',
-        after: '15:00',
+        after: '15:00', // 14:00 + 60 minutes = 15:00
       });
     });
 
@@ -73,7 +83,7 @@ describe('DateTimeCalculator', () => {
       const result = DateTimeCalculator.calculateNeighborSlots('16:00');
       expect(result).toEqual({
         before: '15:30',
-        after: '17:00',
+        after: '17:00', // 16:00 + 60 minutes = 17:00
       });
     });
 
@@ -81,7 +91,15 @@ describe('DateTimeCalculator', () => {
       const result = DateTimeCalculator.calculateNeighborSlots('00:30');
       expect(result).toEqual({
         before: '00:00',
-        after: '01:30',
+        after: '01:30', // 00:30 + 60 minutes = 01:30
+      });
+    });
+
+    it('should support custom duration for neighbor calculation', () => {
+      const result = DateTimeCalculator.calculateNeighborSlots('14:00', 90);
+      expect(result).toEqual({
+        before: '13:30',
+        after: '15:30', // 14:00 + 90 minutes = 15:30
       });
     });
   });
