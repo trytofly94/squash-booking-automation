@@ -113,8 +113,8 @@ describe('MatrixIsolationChecker', () => {
       
       expect(result.hasIsolation).toBe(true);
       expect(result.isolatedSlots).toHaveLength(1);
-      expect(result.isolatedSlots[0].startTime).toBe('14:00');
-      expect(result.isolatedSlots[0].courtId).toBe('court1');
+      expect(result.isolatedSlots[0]?.startTime).toBe('14:00');
+      expect(result.isolatedSlots[0]?.courtId).toBe('court1');
       expect(result.recommendation).toContain('Booking would isolate 1 slot(s)');
     });
 
@@ -169,7 +169,7 @@ describe('MatrixIsolationChecker', () => {
       
       expect(result.hasIsolation).toBe(true);
       expect(result.isolatedSlots).toHaveLength(1);
-      expect(result.isolatedSlots[0].startTime).toBe('09:00');
+      expect(result.isolatedSlots[0]?.startTime).toBe('09:00');
     });
 
     it('should handle edge case at end of day', () => {
@@ -256,9 +256,9 @@ describe('MatrixIsolationChecker', () => {
       const results = checker.checkBatchIsolation(mockMatrix, bookingOptions);
       
       expect(results).toHaveLength(3);
-      expect(results[0].result.hasIsolation).toBe(false); // 14:00-15:00 safe
-      expect(results[1].result.hasIsolation).toBe(true);  // 14:30-15:30 isolates 14:00
-      expect(results[2].result.hasIsolation).toBe(false); // 15:00-16:00 safe
+      expect(results[0]?.result.hasIsolation).toBe(false); // 14:00-15:00 safe
+      expect(results[1]?.result.hasIsolation).toBe(true);  // 14:30-15:30 isolates 14:00
+      expect(results[2]?.result.hasIsolation).toBe(false); // 15:00-16:00 safe
     });
   });
 

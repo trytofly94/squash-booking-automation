@@ -200,8 +200,8 @@ describe('MatrixSlotSearcher', () => {
       const slots = getSlotsFromMatrix(mockMatrix, ['14:00', '14:30']);
       
       expect(slots).toHaveLength(2); // court1: 14:00, 14:30; court2: 14:00
-      expect(slots.every(slot => slot.isAvailable)).toBe(true);
-      expect(slots.every(slot => ['14:00', '14:30'].includes(slot.startTime))).toBe(true);
+      expect(slots.every((slot: any) => slot.isAvailable)).toBe(true);
+      expect(slots.every((slot: any) => ['14:00', '14:30'].includes(slot.startTime))).toBe(true);
     });
 
     it('should return empty array when no slots match target times', () => {
@@ -306,10 +306,10 @@ describe('MatrixSlotSearcher', () => {
       const results = await searcher.batchSearch(queries);
       
       expect(results).toHaveLength(2);
-      expect(results[0].query).toBe(queries[0]);
-      expect(results[0].result).toBeDefined();
-      expect(results[1].query).toBe(queries[1]);
-      expect(results[1].result).toBeDefined();
+      expect(results[0]?.query).toBe(queries[0]);
+      expect(results[0]?.result).toBeDefined();
+      expect(results[1]?.query).toBe(queries[1]);
+      expect(results[1]?.result).toBeDefined();
     });
 
     it('should handle failed queries gracefully', async () => {
@@ -333,8 +333,8 @@ describe('MatrixSlotSearcher', () => {
       const results = await searcher.batchSearch(queries);
       
       expect(results).toHaveLength(2);
-      expect(results[0].result.totalSlots).toBeGreaterThanOrEqual(0);
-      expect(results[1].result.totalSlots).toBe(0); // Failed query returns empty result
+      expect(results[0]?.result.totalSlots).toBeGreaterThanOrEqual(0);
+      expect(results[1]?.result.totalSlots).toBe(0); // Failed query returns empty result
     });
   });
 });

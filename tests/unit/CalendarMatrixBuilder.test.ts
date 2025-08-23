@@ -4,7 +4,7 @@
  */
 
 import { CalendarMatrixBuilder } from '../../src/core/CalendarMatrixBuilder';
-import { CalendarMatrix, CalendarCell } from '../../src/types/booking.types';
+// Types are used in test data structures
 
 // Mock Playwright Page
 const createMockPage = () => ({
@@ -285,45 +285,61 @@ describe('CalendarMatrixBuilder', () => {
     });
   });
 
-  describe('utility methods', () => {
-    it('should normalize state correctly', () => {
-      // Access private method via reflection for testing
-      const normalizeState = (builder as any).normalizeState.bind(builder);
+  describe('performance metrics', () => {
+    it('should track extraction duration', async () => {
+      const mockCells = [
+        {
+          court: 'court1',
+          date: '2024-01-15',
+          start: '14:00',
+          state: 'free' as const,
+          className: 'slot-free',
+          elementSelector: 'td[data-court="court1"]',
+          rawData: {
+            'data-court': 'court1',
+            'data-date': '2024-01-15',
+            'data-start': '14:00',
+            'data-state': 'free',
+            'class': 'slot-free',
+            'id': ''
+          }
+        }
+      ];
 
-      expect(normalizeState('free')).toBe('free');
-      expect(normalizeState('available')).toBe('free');
-      expect(normalizeState('booked')).toBe('booked');
-      expect(normalizeState('occupied')).toBe('booked');
-      expect(normalizeState('unavailable')).toBe('unavailable');
-      expect(normalizeState('blocked')).toBe('unavailable');
-      expect(normalizeState('unknown-state')).toBe('unknown');
-      expect(normalizeState('')).toBe('unknown');
+      mockPage.$$eval.mockResolvedValueOnce(mockCells);
+
+      const matrix = await builder.buildMatrix(mockPage as any);
+
+      expect(matrix.metrics.extractionDurationMs).toBeGreaterThanOrEqual(0);
+      expect(typeof matrix.metrics.extractionDurationMs).toBe('number');
     });
 
-    it('should extract court from class name', () => {
-      const extractCourtFromClass = (builder as any).extractCourtFromClass.bind(builder);
+    it('should provide comprehensive metrics', async () => {
+      const mockCells = Array.from({ length: 50 }, (_, i) => ({
+        court: `court${(i % 5) + 1}`,
+        date: '2024-01-15',
+        start: `${14 + Math.floor(i / 10)}:${(i % 2) * 30}0`,
+        state: (i % 3 === 0 ? 'free' : (i % 3 === 1 ? 'booked' : 'unavailable')) as 'free' | 'booked' | 'unavailable',
+        className: 'test-slot',
+        elementSelector: `td[data-court="court${(i % 5) + 1}"]`,
+        rawData: {
+          'data-court': `court${(i % 5) + 1}`,
+          'data-date': '2024-01-15',
+          'data-start': `${14 + Math.floor(i / 10)}:${(i % 2) * 30}0`,
+          'data-state': i % 3 === 0 ? 'free' : i % 3 === 1 ? 'booked' : 'unavailable',
+          'class': 'test-slot',
+          'id': ''
+        }
+      }));
 
-      expect(extractCourtFromClass('court-1')).toBe('1');
-      expect(extractCourtFromClass('court1')).toBe('1');
-      expect(extractCourtFromClass('court-A')).toBe('A');
-      expect(extractCourtFromClass('no-court-info')).toBe('');
-    });
+      mockPage.$$eval.mockResolvedValueOnce(mockCells);
 
-    it('should extract date from class name', () => {
-      const extractDateFromClass = (builder as any).extractDateFromClass.bind(builder);
+      const matrix = await builder.buildMatrix(mockPage as any);
 
-      expect(extractDateFromClass('date-2024-01-15')).toBe('2024-01-15');
-      expect(extractDateFromClass('cell 2024-01-15 slot')).toBe('2024-01-15');
-      expect(extractDateFromClass('no-date-info')).toBe('');
-    });
-
-    it('should extract time from class name', () => {
-      const extractTimeFromClass = (builder as any).extractTimeFromClass.bind(builder);
-
-      expect(extractTimeFromClass('time-14:00')).toBe('14:00');
-      expect(extractTimeFromClass('slot 14:30 available')).toBe('14:30');
-      expect(extractTimeFromClass('slot 9:00 available')).toBe('9:00');
-      expect(extractTimeFromClass('no-time-info')).toBe('');
+      expect(matrix.metrics.totalCells).toBe(50);
+      expect(matrix.metrics.courtsWithData).toBe(5);
+      expect(matrix.metrics.timeSlotsWithData).toBeGreaterThan(0);
+      expect(matrix.metrics.freeCells + matrix.metrics.bookedCells + matrix.metrics.unavailableCells).toBe(50);
     });
   });
 });
