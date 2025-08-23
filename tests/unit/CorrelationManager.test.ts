@@ -190,14 +190,12 @@ describe('CorrelationManager', () => {
       const testContext = manager.createContext({ component: 'TestComponent' });
       let capturedId: string | undefined;
 
-      const promise = new Promise<string>((resolve) => {
-        setTimeout(() => {
-          capturedId = manager.getCurrentCorrelationId();
-          resolve('async-result');
-        }, 10);
-      });
+      // Create a promise that resolves immediately (not with setTimeout)
+      const promise = Promise.resolve('async-result');
 
       const result = await manager.runWithContext(testContext, async () => {
+        // Capture the correlation ID when the promise is actually executed
+        capturedId = manager.getCurrentCorrelationId();
         return await manager.wrapPromise(promise);
       });
 

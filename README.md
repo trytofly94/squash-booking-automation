@@ -7,7 +7,10 @@ A modern, Playwright-based automation system for booking squash courts with inte
 - **Intelligent Booking Logic**: Automatically finds and books optimal court slots
 - **Multi-Court Search**: Searches across all available courts for the best options
 - **Isolation Prevention**: Avoids creating isolated 30-minute slots that fragment the schedule
-- **Retry Mechanism**: Robust error handling with configurable retry attempts
+- **🆕 Robust Retry System**: Professional retry mechanisms with p-retry integration and circuit breaker pattern
+- **🆕 Error-Specific Strategies**: Different retry strategies for network errors, rate limiting, server errors, and timeouts
+- **🆕 Circuit Breaker Protection**: Prevents cascading failures with automatic recovery and health monitoring
+- **🆕 Enhanced Monitoring**: Comprehensive observability with correlation IDs, performance tracking, and structured logging
 - **Dry-Run Mode**: Test the entire booking flow without making actual reservations
 - **Comprehensive Testing**: Unit, integration, and E2E tests with advanced reporting and debugging capabilities
 - **TypeScript**: Full type safety and modern development experience
@@ -47,6 +50,13 @@ DAYS_AHEAD=20
 TARGET_START_TIME=14:00
 MAX_RETRIES=3
 DRY_RUN=true
+
+# Retry System Configuration (New!)
+RETRY_ENABLED=true
+RETRY_MAX_ATTEMPTS=5
+CIRCUIT_BREAKER_FAILURE_THRESHOLD=5
+RETRY_NETWORK_ATTEMPTS=5
+RETRY_RATE_LIMIT_ATTEMPTS=3
 
 # Authentication (optional)
 USER_EMAIL=your.email@example.com

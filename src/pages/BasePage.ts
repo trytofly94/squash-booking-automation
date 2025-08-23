@@ -1,5 +1,6 @@
 import type { Page, Locator } from '@playwright/test';
 import { logger } from '../utils/logger';
+import { getGlobalRetryManager, RetryManager } from '../core/retry';
 
 /**
  * Base page class with common Playwright functionality
@@ -7,21 +8,27 @@ import { logger } from '../utils/logger';
 export abstract class BasePage {
   protected page: Page;
   protected baseUrl: string;
+  protected retryManager: RetryManager;
 
   constructor(page: Page, baseUrl: string = 'https://www.eversports.de') {
     this.page = page;
     this.baseUrl = baseUrl;
+    
+    // Use global retry manager instance
+    this.retryManager = getGlobalRetryManager();
   }
 
   /**
-   * Navigate to a specific URL
+   * Navigate to a specific URL with retry logic
    */
   async navigateTo(path: string = ''): Promise<void> {
     const fullUrl = path.startsWith('http') ? path : `${this.baseUrl}${path}`;
-    logger.info('Navigating to URL', 'BasePage', { url: fullUrl });
-
-    await this.page.goto(fullUrl);
-    await this.waitForPageLoad();
+    
+    await this.retryManager.executeWithBackoff(async () => {
+      logger.info('Navigating to URL', 'BasePage', { url: fullUrl });
+      await this.page.goto(fullUrl);
+      await this.waitForPageLoad();
+    }, 'navigate-to-url');
   }
 
   /**
@@ -43,39 +50,21 @@ export abstract class BasePage {
   }
 
   /**
-   * Safe click with retry logic
+   * Safe click with robust retry logic
    */
-  async safeClick(selector: string, retries: number = 3): Promise<void> {
-    const component = 'BasePage.safeClick';
-
-    for (let attempt = 1; attempt <= retries; attempt++) {
-      try {
-        await this.waitForElement(selector);
-        await this.page.click(selector);
-        logger.debug('Clicked element successfully', component, { selector, attempt });
-        return;
-      } catch (error) {
-        logger.warn(`Click attempt ${attempt} failed`, component, {
-          selector,
-          error: error instanceof Error ? error.message : String(error),
-        });
-
-        if (attempt === retries) {
-          throw new Error(`Failed to click ${selector} after ${retries} attempts`);
-        }
-
-        await this.page.waitForTimeout(1000 * attempt);
-      }
-    }
+  async safeClick(selector: string): Promise<void> {
+    await this.retryManager.executeWithBackoff(async () => {
+      await this.waitForElement(selector);
+      await this.page.click(selector);
+      logger.debug('Clicked element successfully', 'BasePage.safeClick', { selector });
+    }, 'safe-click');
   }
 
   /**
-   * Safe fill with validation
+   * Safe fill with validation and retry logic
    */
   async safeFill(selector: string, value: string, validateFill: boolean = true): Promise<void> {
-    const component = 'BasePage.safeFill';
-
-    try {
+    await this.retryManager.executeWithBackoff(async () => {
       await this.waitForElement(selector);
       await this.page.fill(selector, value);
 
@@ -86,15 +75,8 @@ export abstract class BasePage {
         }
       }
 
-      logger.debug('Filled element successfully', component, { selector, value });
-    } catch (error) {
-      logger.error('Fill operation failed', component, {
-        selector,
-        value,
-        error: error instanceof Error ? error.message : String(error),
-      });
-      throw error;
-    }
+      logger.debug('Filled element successfully', 'BasePage.safeFill', { selector, value });
+    }, 'safe-fill');
   }
 
   /**

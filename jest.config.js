@@ -22,7 +22,8 @@ module.exports = {
     '^@/core/(.*)$': '<rootDir>/src/core/$1',
     '^@/pages/(.*)$': '<rootDir>/src/pages/$1',
     '^@/types/(.*)$': '<rootDir>/src/types/$1',
-    '^@/utils/(.*)$': '<rootDir>/src/utils/$1'
+    '^@/utils/(.*)$': '<rootDir>/src/utils/$1',
+    '^p-retry$': '<rootDir>/tests/mocks/p-retry.mock.ts'
   },
   
   // Setup files
@@ -63,6 +64,11 @@ module.exports = {
       tsconfig: 'tsconfig.json'
     }]
   },
+  
+  // Transform ESM modules
+  transformIgnorePatterns: [
+    'node_modules/(?!(p-retry|retry)/)'
+  ],
   
   // Test environment options
   testEnvironmentOptions: {

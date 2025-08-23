@@ -3,14 +3,62 @@
  * Validates health checking functionality, system monitoring, and configuration management
  */
 
+// Mock process methods before any imports
+(process.memoryUsage as any) = jest.fn().mockReturnValue({
+  heapUsed: 50 * 1024 * 1024,
+  heapTotal: 100 * 1024 * 1024,
+  external: 10 * 1024 * 1024,
+  rss: 60 * 1024 * 1024,
+  arrayBuffers: 5 * 1024 * 1024
+});
+
+(process.uptime as any) = jest.fn().mockReturnValue(3600);
+
+// Mock dependencies before imports
+jest.mock('@/utils/PerformanceMonitor', () => ({
+  performanceMonitor: {
+    getSystemResourceInfo: jest.fn().mockReturnValue({
+      memoryUsage: {
+        rss: 100000000,
+        heapTotal: 50000000,
+        heapUsed: 30000000,
+        external: 5000000,
+        arrayBuffers: 1000000
+      },
+      uptime: 3600,
+      nodeVersion: 'v18.0.0',
+      platform: 'test',
+      loadAverage: [1.0, 1.5, 2.0]
+    }),
+    getBookingStepsSummary: jest.fn().mockReturnValue({
+      totalSteps: 20,
+      successfulSteps: 18,
+      successRate: 90,
+      averageDuration: 500
+    }),
+    getMetricsSummary: jest.fn().mockReturnValue({
+      totalMetrics: 10,
+      averageResponseTime: 200,
+      slowOperations: 1,
+      fastOperations: 9
+    }),
+    isEnabled: jest.fn().mockReturnValue(true)
+  }
+}));
+
+jest.mock('@/utils/logger', () => ({
+  logger: {
+    info: jest.fn(),
+    warn: jest.fn(),
+    error: jest.fn(),
+    debug: jest.fn()
+  }
+}));
+
 import { healthCheckManager, HealthCheckManager } from '@/monitoring/HealthCheckManager';
-import { HealthStatus, /* HealthCheckResult, */ SystemHealth } from '@/types/health.types';
+import { HealthStatus /*, HealthCheckResult, SystemHealth */ } from '@/types/health.types';
 import { performanceMonitor } from '@/utils/PerformanceMonitor';
 import { logger } from '@/utils/logger';
-
-// Mock dependencies
-jest.mock('@/utils/PerformanceMonitor');
-jest.mock('@/utils/logger');
 jest.mock('@/utils/CorrelationManager');
 
 // Mock global fetch
@@ -115,8 +163,8 @@ describe('HealthCheckManager', () => {
       expect(result.status).toBe(HealthStatus.HEALTHY);
       expect(result.duration).toBeGreaterThan(0);
       expect(result.details).toBeDefined();
-      expect(result.details?.memoryUsage).toBeDefined();
-      expect(result.details?.uptime).toBe(3600);
+      expect(result.details?.['memoryUsage']).toBeDefined();
+      expect(result.details?.['uptime']).toBe(3600);
     });
 
     it('should detect degraded system resources', async () => {
@@ -163,7 +211,7 @@ describe('HealthCheckManager', () => {
       
       expect(result.name).toBe('website_availability');
       expect(result.status).toBe(HealthStatus.HEALTHY);
-      expect(result.details?.statusCode).toBe(200);
+      expect(result.details?.['statusCode']).toBe(200);
       expect(result.duration).toBeGreaterThan(0);
     });
 
@@ -176,7 +224,7 @@ describe('HealthCheckManager', () => {
       const result = await manager['checkWebsiteAvailability']();
       
       expect(result.status).toBe(HealthStatus.DEGRADED);
-      expect(result.details?.statusCode).toBe(500);
+      expect(result.details?.['statusCode']).toBe(500);
     });
 
     it('should handle website availability check errors', async () => {
@@ -208,8 +256,8 @@ describe('HealthCheckManager', () => {
       
       expect(result.name).toBe('application_health');
       expect(result.status).toBe(HealthStatus.HEALTHY);
-      expect(result.details?.totalBookingSteps).toBe(20);
-      expect(result.details?.successRate).toBe(90);
+      expect(result.details?.['totalBookingSteps']).toBe(20);
+      expect(result.details?.['successRate']).toBe(90);
     });
 
     it('should detect degraded application health', async () => {
@@ -227,7 +275,7 @@ describe('HealthCheckManager', () => {
       const result = await manager['checkApplicationHealth']();
       
       expect(result.status).toBe(HealthStatus.DEGRADED);
-      expect(result.details?.recentFailureRate).toBe(60);
+      expect(result.details?.['recentFailureRate']).toBe(60);
     });
 
     it('should handle application health check errors', async () => {

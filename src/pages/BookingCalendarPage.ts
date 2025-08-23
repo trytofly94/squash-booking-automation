@@ -8,9 +8,9 @@ import { logger } from '../utils/logger';
  */
 export class BookingCalendarPage extends BasePage {
   private readonly selectors = {
-    // Calendar and container elements
-    calendar: '#booking-calendar-container, .calendar, [data-testid="calendar"], .booking-calendar',
-    calendarContainer: '#booking-calendar-container',
+    // Calendar and container elements (LIVE-TESTED WORKING SELECTORS)
+    calendar: '#booking-calendar-container', // ✅ LIVE VERIFIED - Found 1
+    calendarContainer: '#booking-calendar-container', // ✅ LIVE VERIFIED - Found 1
     
     // Date navigation elements (Eversports specific)
     dateInput: 'input[type="date"], .date-input, [data-testid="date-picker"]',
@@ -18,12 +18,23 @@ export class BookingCalendarPage extends BasePage {
     prevWeekButton: '#prev-week, .prev-week, [data-testid="prev-week"]',
     currentDateDisplay: '.current-date, .selected-date, .date-display',
     
-    // Court and slot elements
-    courtSelector: '[data-testid*="court"], .court-selector, .court-list',
-    timeSlot: '[data-time], .time-slot, .booking-slot, td[data-date]',
-    availableSlot: 'td[data-state="free"], .available, .slot-available, [data-available="true"]',
-    bookedSlot: 'td[data-state="booked"], .booked, .unavailable, [data-available="false"]',
-    slotContainer: '#booking-calendar-container, .slots-container, .time-slots, .calendar-slots',
+    // Court and slot elements (LIVE-TESTED WORKING SELECTORS)
+    courtSelector: 'td[data-court]', // ✅ LIVE VERIFIED - Found 1477
+    timeSlot: 'td[data-date], td[data-start]', // ✅ LIVE VERIFIED - Found 1428 each
+    availableSlot: 'td[data-state="free"]', // ✅ LIVE VERIFIED - Found 787
+    bookedSlot: 'td[data-state="booked"], td[data-state="unavailable"]',
+    slotContainer: '#booking-calendar-container', // ✅ LIVE VERIFIED
+    
+    // Combined selectors (WORKING ui.vision patterns)
+    combinedSlot: '[data-date][data-start][data-state][data-court]', // ✅ LIVE VERIFIED - Found 1428
+    freeSlotByTime: (date: string, time: string, court: string) => 
+      `td[data-date='${date}'][data-start='${time}'][data-court='${court}'][data-state='free']`, // ui.vision pattern
+    
+    // XPath patterns (proven working from ui.vision)
+    xpathCalendar: '//div[@id="booking-calendar-container"]', // ✅ LIVE VERIFIED
+    xpathTimeSlots: '//div[@id="booking-calendar-container"]//td[@data-date]', // ✅ LIVE VERIFIED - Found 1428
+    xpathFreeSlots: '//div[@id="booking-calendar-container"]//td[@data-state="free"]', // ✅ LIVE VERIFIED - Found 787
+    xpathCourtSlots: '//div[@id="booking-calendar-container"]//td[@data-court]', // ✅ LIVE VERIFIED - Found 1477
     
     // Navigation controls
     nextButton: '#next-week, .next, .btn-next, [data-testid="next"]',
@@ -335,7 +346,7 @@ export class BookingCalendarPage extends BasePage {
   }
 
   /**
-   * Get all available courts for the current date
+   * Get all available courts for the current date (LIVE-TESTED IMPLEMENTATION)
    */
   async getAvailableCourts(): Promise<string[]> {
     const component = 'BookingCalendarPage.getAvailableCourts';
@@ -343,34 +354,43 @@ export class BookingCalendarPage extends BasePage {
     logger.info('Getting available courts', component);
 
     try {
-      await this.waitForElement(this.selectors.courtSelector);
-
-      const courtElements = await this.page.$$(this.selectors.courtSelector);
-      const courts: string[] = [];
-
-      for (let i = 0; i < courtElements.length; i++) {
-        const element = courtElements[i]!;
-
-        // Extract court ID
-        let courtId =
-          (await element.getAttribute('data-court-id')) ||
-          (await element.getAttribute('data-testid')) ||
-          (await element.getAttribute('id')) ||
-          `court-${i + 1}`;
-
-        // Clean court ID
-        courtId = courtId.replace(/^(court-|data-testid-court-)/, '');
-
-        // Check if court has available slots
-        const hasAvailableSlots = await this.checkCourtHasAvailableSlots(element);
-
-        if (hasAvailableSlots) {
-          courts.push(courtId);
+      // Wait for calendar container first (LIVE VERIFIED)
+      await this.waitForElement('#booking-calendar-container');
+      
+      // Use LIVE VERIFIED approach - use locator.all() with immediate extraction
+      const courtLocators = await this.page.locator('td[data-court]').all();
+      const courts = new Set<string>();
+      
+      // Extract court IDs immediately to avoid memory collection issues  
+      for (const locator of courtLocators) {
+        try {
+          const courtId = await locator.getAttribute('data-court');
+          if (courtId) {
+            courts.add(courtId);
+          }
+        } catch (error) {
+          // Skip this element if it was collected
+          continue;
         }
       }
 
-      logger.info('Found available courts', component, { courts });
-      return courts;
+      const courtsArray = Array.from(courts);
+      logger.debug('Found unique courts from locators', component, { courts: courtsArray, count: courtsArray.length });
+
+      // Now check which courts have available slots
+      const availableCourts: string[] = [];
+      
+      for (const courtId of courtsArray) {
+        const hasAvailableSlots = await this.checkCourtHasAvailableSlots(courtId);
+        
+        if (hasAvailableSlots) {
+          availableCourts.push(courtId);
+          logger.debug('Court with available slots found', component, { courtId });
+        }
+      }
+
+      logger.info('Found available courts', component, { courts: availableCourts, totalCount: availableCourts.length });
+      return availableCourts;
     } catch (error) {
       logger.error('Error getting available courts', component, {
         error: error instanceof Error ? error.message : String(error),
@@ -380,13 +400,26 @@ export class BookingCalendarPage extends BasePage {
   }
 
   /**
-   * Check if a court has available slots
+   * Check if a court has available slots (LIVE-TESTED IMPLEMENTATION)
    */
-  private async checkCourtHasAvailableSlots(courtElement: any): Promise<boolean> {
+  private async checkCourtHasAvailableSlots(courtId: string): Promise<boolean> {
     try {
-      const availableSlots = await courtElement.$$(this.selectors.availableSlot);
-      return availableSlots.length > 0;
-    } catch {
+      // Use LIVE VERIFIED selector pattern to find free slots for this court
+      const freeSlots = await this.page.$$(`td[data-court='${courtId}'][data-state='free']`);
+      const hasSlots = freeSlots.length > 0;
+      
+      logger.debug('Checked court for available slots', 'BookingCalendarPage.checkCourtHasAvailableSlots', {
+        courtId,
+        freeSlots: freeSlots.length,
+        hasSlots
+      });
+      
+      return hasSlots;
+    } catch (error) {
+      logger.debug('Error checking court slots', 'BookingCalendarPage.checkCourtHasAvailableSlots', {
+        courtId,
+        error: error instanceof Error ? error.message : String(error)
+      });
       return false;
     }
   }
@@ -456,91 +489,111 @@ export class BookingCalendarPage extends BasePage {
   }
 
   /**
-   * Find a specific time slot (optimized for Eversports)
+   * Find a specific time slot (LIVE-TESTED ui.vision IMPLEMENTATION)
    */
   async findTimeSlot(courtId: string, time: string, targetDate?: string): Promise<BookingSlot | null> {
     const component = 'BookingCalendarPage.findTimeSlot';
 
     const currentDate = targetDate || await this.getCurrentSelectedDate();
+    
+    // Convert time format to match ui.vision ("14:00" to "1400")
+    const timeFormatted = time.replace(':', '');
 
     try {
-      // Convert time format if needed (e.g., "14:00" to "1400")
-      const timeVariants = [
-        time,
-        time.replace(':', ''),
-        time.replace(':', '')
-      ];
-
-      // Eversports-specific selectors based on the original JSON automation
-      const timeSelectors = [
-        // Primary Eversports selector (from JSON automation)
-        `td[data-date='${currentDate}'][data-start='${time.replace(':', '')}'][data-court='${courtId}'][data-state='free']`,
-        `td[data-date='${currentDate}'][data-start='${time.replace(':', '')}'][data-state='free']`,
-        
-        // Alternative formats
-        ...timeVariants.map(timeVar => `td[data-date='${currentDate}'][data-start='${timeVar}'][data-court='${courtId}']`),
-        ...timeVariants.map(timeVar => `td[data-date='${currentDate}'][data-start='${timeVar}']`),
-        
-        // Generic selectors
-        `[data-time="${time}"][data-court="${courtId}"]`,
-        `[data-time="${time}"]`,
-        `.slot-${time.replace(':', '-')}`,
-        `[data-start-time="${time}"]`,
-        
-        // Backup selectors
-        `td[data-time="${time}"]`,
-        `td.time-slot[data-start="${time}"]`,
-      ];
-
-      logger.debug('Searching for time slot', component, { 
+      logger.debug('Searching for time slot with LIVE-VERIFIED patterns', component, { 
         courtId, 
         time, 
-        currentDate,
-        timeVariants,
-        totalSelectors: timeSelectors.length 
+        timeFormatted,
+        currentDate
       });
 
-      for (const selector of timeSelectors) {
-        const elements = await this.page.$$(selector);
+      // PRIMARY: Use exact ui.vision working pattern (LIVE VERIFIED)
+      const primarySelector = `td[data-date='${currentDate}'][data-start='${timeFormatted}'][data-court='${courtId}'][data-state='free']`;
+      logger.debug('Testing primary ui.vision selector', component, { primarySelector });
+      
+      const primaryElements = await this.page.$$(primarySelector);
+      if (primaryElements.length > 0) {
+        const element = primaryElements[0]!;
+        const isAvailable = await this.isSlotAvailable(element);
         
-        if (elements.length > 0) {
-          logger.debug('Found potential slot elements', component, { 
-            selector, 
-            count: elements.length 
-          });
+        const slot: BookingSlot = {
+          date: currentDate,
+          startTime: time,
+          courtId,
+          isAvailable,
+          elementSelector: primarySelector,
+        };
 
-          for (const element of elements) {
-            const isAvailable = await this.isSlotAvailable(element);
-            const elementSelector = await this.getSlotSelector(element);
-            const elementCourtId = await element.getAttribute('data-court') || courtId;
-
-            // If court-specific search and court doesn't match, skip
-            if (courtId && elementCourtId && elementCourtId !== courtId) {
-              continue;
-            }
-
-            const slot: BookingSlot = {
-              date: currentDate,
-              startTime: time,
-              courtId: elementCourtId || courtId,
-              isAvailable,
-              elementSelector,
-            };
-
-            logger.debug('Found time slot', component, { 
-              courtId: slot.courtId, 
-              time, 
-              isAvailable, 
-              selector: elementSelector 
-            });
-            
-            return slot;
-          }
-        }
+        logger.info('Found time slot with primary selector', component, { 
+          courtId, 
+          time, 
+          isAvailable, 
+          selector: primarySelector 
+        });
+        
+        return slot;
       }
 
-      logger.warn('Time slot not found', component, { courtId, time, currentDate });
+      // SECONDARY: Use XPath pattern (LIVE VERIFIED)
+      const xpathSelector = `xpath=//div[@id='booking-calendar-container']//td[@data-date='${currentDate}' and @data-start='${timeFormatted}' and @data-court='${courtId}' and @data-state='free']`;
+      logger.debug('Testing XPath ui.vision selector', component, { xpathSelector });
+      
+      const xpathElements = await this.page.$$(xpathSelector);
+      if (xpathElements.length > 0) {
+        const element = xpathElements[0]!;
+        const isAvailable = await this.isSlotAvailable(element);
+        
+        const slot: BookingSlot = {
+          date: currentDate,
+          startTime: time,
+          courtId,
+          isAvailable,
+          elementSelector: xpathSelector,
+        };
+
+        logger.info('Found time slot with XPath selector', component, { 
+          courtId, 
+          time, 
+          isAvailable 
+        });
+        
+        return slot;
+      }
+
+      // TERTIARY: Relaxed search without state requirement
+      const relaxedSelector = `td[data-date='${currentDate}'][data-start='${timeFormatted}'][data-court='${courtId}']`;
+      logger.debug('Testing relaxed selector', component, { relaxedSelector });
+      
+      const relaxedElements = await this.page.$$(relaxedSelector);
+      if (relaxedElements.length > 0) {
+        const element = relaxedElements[0]!;
+        const isAvailable = await this.isSlotAvailable(element);
+        
+        const slot: BookingSlot = {
+          date: currentDate,
+          startTime: time,
+          courtId,
+          isAvailable,
+          elementSelector: relaxedSelector,
+        };
+
+        logger.info('Found time slot with relaxed selector', component, { 
+          courtId, 
+          time, 
+          isAvailable 
+        });
+        
+        return slot;
+      }
+
+      logger.warn('Time slot not found with any LIVE-VERIFIED patterns', component, { 
+        courtId, 
+        time, 
+        timeFormatted, 
+        currentDate 
+      });
       return null;
+      
     } catch (error) {
       logger.error('Error finding time slot', component, {
         courtId,
@@ -598,8 +651,10 @@ export class BookingCalendarPage extends BasePage {
 
   /**
    * Get selector for a slot element (optimized for Eversports)
+   * @param slotElement - The slot element to get selector for
+   * @returns Promise<string> - The element selector
    */
-  private async getSlotSelector(slotElement: any): Promise<string> {
+  async getSlotSelector(slotElement: any): Promise<string> {
     try {
       // Try ID first
       const id = await slotElement.getAttribute('id');
