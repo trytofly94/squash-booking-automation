@@ -3,7 +3,7 @@
  * Issue #20: Implement Single-Pass Calendar Matrix Building
  */
 
-import { Page } from 'playwright';
+import { Page } from '@playwright/test';
 import { CalendarMatrix, CalendarCell, CalendarMatrixMetrics, HybridCalendarMatrix, NetworkAvailabilityData, MatrixConflict } from '@/types/booking.types';
 import { logger } from '@/utils/logger';
 
@@ -58,9 +58,9 @@ export class CalendarMatrixBuilder {
       // Primary selector based on live testing: works for 1428+ elements
       const primaryCells = await page.$$eval(
         'td[data-date][data-start][data-court]',
-        (elements) => {
+        (elements: any[]) => {
           // Browser-context utility functions
-          const normalizeState = (stateData: string): string => {
+          const normalizeState = (stateData: string): 'free' | 'booked' | 'unavailable' | 'unknown' => {
             const normalized = stateData.toLowerCase();
             if (normalized.includes('free') || normalized.includes('available')) return 'free';
             if (normalized.includes('booked') || normalized.includes('occupied')) return 'booked';
@@ -68,7 +68,7 @@ export class CalendarMatrixBuilder {
             return 'unknown';
           };
           
-          return elements.map(el => ({
+          return elements.map((el: any) => ({
             court: el.getAttribute('data-court') || '',
             date: el.getAttribute('data-date') || '',
             start: el.getAttribute('data-start') || '',
@@ -97,9 +97,9 @@ export class CalendarMatrixBuilder {
       
       const fallbackCells = await page.$$eval(
         'td[data-court], td[data-date]',
-        (elements) => {
+        (elements: any[]) => {
           // Browser-context utility functions
-          const normalizeState = (stateData: string): string => {
+          const normalizeState = (stateData: string): 'free' | 'booked' | 'unavailable' | 'unknown' => {
             const normalized = stateData.toLowerCase();
             if (normalized.includes('free') || normalized.includes('available')) return 'free';
             if (normalized.includes('booked') || normalized.includes('occupied')) return 'booked';
@@ -109,20 +109,20 @@ export class CalendarMatrixBuilder {
 
           const extractCourtFromClass = (className: string): string => {
             const match = className.match(/court-?(\d+|[a-z]+)/i);
-            return match ? match[1] : '';
+            return match ? match[1]! : '';
           };
 
           const extractDateFromClass = (className: string): string => {
             const match = className.match(/(\d{4}-\d{2}-\d{2})/);
-            return match ? match[1] : '';
+            return match ? match[1]! : '';
           };
 
           const extractTimeFromClass = (className: string): string => {
             const match = className.match(/(\d{1,2}:\d{2})/);
-            return match ? match[1] : '';
+            return match ? match[1]! : '';
           };
 
-          const buildFallbackSelector = (element: Element): string => {
+          const buildFallbackSelector = (element: any): string => {
             const court = element.getAttribute('data-court');
             const date = element.getAttribute('data-date');
             const start = element.getAttribute('data-start');
@@ -138,7 +138,7 @@ export class CalendarMatrixBuilder {
             return `.${element.className.split(' ')[0]}`;
           };
 
-          return elements.map(el => ({
+          return elements.map((el: any) => ({
             court: el.getAttribute('data-court') || extractCourtFromClass(el.className) || '',
             date: el.getAttribute('data-date') || extractDateFromClass(el.className) || '',
             start: el.getAttribute('data-start') || extractTimeFromClass(el.className) || '',
@@ -304,7 +304,7 @@ export class CalendarMatrixBuilder {
     if (!networkData) {
       return {
         ...domMatrix,
-        networkData,
+        networkData: undefined,
         conflicts
       };
     }
@@ -322,54 +322,6 @@ export class CalendarMatrixBuilder {
     };
   }
 
-  /**
-   * Utility methods for fallback data extraction
-   */
-  private normalizeState(stateData: string): 'free' | 'booked' | 'unavailable' | 'unknown' {
-    const normalized = stateData.toLowerCase();
-    
-    if (normalized.includes('free') || normalized.includes('available')) {
-      return 'free';
-    }
-    if (normalized.includes('booked') || normalized.includes('occupied')) {
-      return 'booked';
-    }
-    if (normalized.includes('unavailable') || normalized.includes('blocked')) {
-      return 'unavailable';
-    }
-    
-    return 'unknown';
-  }
-
-  private extractCourtFromClass(className: string): string {
-    const match = className.match(/court-?(\d+|[a-z]+)/i);
-    return match ? match[1] : '';
-  }
-
-  private extractDateFromClass(className: string): string {
-    const match = className.match(/(\d{4}-\d{2}-\d{2})/);
-    return match ? match[1] : '';
-  }
-
-  private extractTimeFromClass(className: string): string {
-    const match = className.match(/(\d{1,2}:\d{2})/);
-    return match ? match[1] : '';
-  }
-
-  private buildFallbackSelector(element: Element): string {
-    const court = element.getAttribute('data-court');
-    const date = element.getAttribute('data-date');
-    const start = element.getAttribute('data-start');
-    
-    if (court && date && start) {
-      return `td[data-court='${court}'][data-date='${date}'][data-start='${start}']`;
-    }
-    
-    // Fallback to class or id based selector
-    if (element.id) {
-      return `#${element.id}`;
-    }
-    
-    return `.${element.className.split(' ')[0]}`;
-  }
+  // These utility methods are implemented inline in the browser context above
+  // to avoid serialization issues with $$eval
 }

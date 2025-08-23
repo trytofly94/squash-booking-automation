@@ -152,8 +152,11 @@ export class MatrixIsolationChecker {
    */
   private addMinutes(timeStr: string, minutes: number): string | null {
     try {
-      const [hours, mins] = timeStr.split(':').map(Number);
-      const totalMinutes = hours * 60 + mins + minutes;
+      const timeParts = timeStr.split(':').map(Number);
+      if (timeParts.length !== 2 || timeParts.some(isNaN)) return null;
+      
+      const [hours, mins] = timeParts;
+      const totalMinutes = hours! * 60 + mins! + minutes;
       
       // Check if we've gone past end of day (assume max 23:30)
       if (totalMinutes >= 24 * 60) return null;
@@ -173,8 +176,11 @@ export class MatrixIsolationChecker {
    */
   private subtractMinutes(timeStr: string, minutes: number): string | null {
     try {
-      const [hours, mins] = timeStr.split(':').map(Number);
-      const totalMinutes = hours * 60 + mins - minutes;
+      const timeParts = timeStr.split(':').map(Number);
+      if (timeParts.length !== 2 || timeParts.some(isNaN)) return null;
+      
+      const [hours, mins] = timeParts;
+      const totalMinutes = hours! * 60 + mins! - minutes;
       
       // Check if we've gone before start of day
       if (totalMinutes < 0) return null;
@@ -198,7 +204,7 @@ export class MatrixIsolationChecker {
       startTime,
       courtId: cell.court,
       isAvailable: cell.state === 'free',
-      elementSelector: cell.elementSelector
+      elementSelector: cell.elementSelector || undefined
     };
   }
 
@@ -258,6 +264,7 @@ export class MatrixIsolationChecker {
     const timeSlots = Array.from(courtMap.keys())
       .filter(key => key.startsWith(date))
       .map(key => key.split('T')[1])
+      .filter((time): time is string => time !== undefined)
       .sort();
 
     for (const timeSlot of timeSlots) {

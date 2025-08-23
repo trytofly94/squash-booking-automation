@@ -914,7 +914,7 @@ export class BookingCalendarPage extends BasePage {
             startTime: time,
             courtId: court,
             isAvailable: cell.state === 'free',
-            elementSelector: cell.elementSelector
+            elementSelector: cell.elementSelector || undefined
           });
         }
       }

@@ -12,7 +12,7 @@ export interface BookingSlot {
   /** Whether the slot is available for booking */
   isAvailable: boolean;
   /** Optional slot element selector for Playwright interaction */
-  elementSelector?: string;
+  elementSelector?: string | undefined;
 }
 
 export interface BookingPair {
@@ -233,7 +233,7 @@ export interface CalendarMatrixMetrics {
 
 export interface HybridCalendarMatrix extends CalendarMatrix {
   /** Network availability data for validation */
-  networkData?: Map<string, NetworkAvailabilityData>;
+  networkData?: Map<string, NetworkAvailabilityData> | undefined;
   /** Conflicts between DOM and network data */
   conflicts: MatrixConflict[];
 }

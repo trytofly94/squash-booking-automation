@@ -8,8 +8,7 @@ import {
   BookingSlot, 
   BookingPair, 
   CourtSearchResult, 
-  CalendarMatrix, 
-  CalendarCell 
+  CalendarMatrix
 } from '../types/booking.types';
 import { BookingCalendarPage } from '../pages/BookingCalendarPage';
 import { MatrixIsolationChecker } from './MatrixIsolationChecker';
@@ -151,7 +150,7 @@ export class MatrixSlotSearcher {
             startTime: targetTime,
             courtId,
             isAvailable: true,
-            elementSelector: cell.elementSelector
+            elementSelector: cell.elementSelector || undefined
           });
         }
       }
@@ -240,8 +239,11 @@ export class MatrixSlotSearcher {
    */
   private addThirtyMinutes(timeStr: string): string | null {
     try {
-      const [hours, mins] = timeStr.split(':').map(Number);
-      const totalMinutes = hours * 60 + mins + 30;
+      const timeParts = timeStr.split(':').map(Number);
+      if (timeParts.length !== 2 || timeParts.some(isNaN)) return null;
+      
+      const [hours, mins] = timeParts;
+      const totalMinutes = hours! * 60 + mins! + 30;
       
       if (totalMinutes >= 24 * 60) return null; // Past end of day
       
