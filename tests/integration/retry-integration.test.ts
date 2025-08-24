@@ -268,7 +268,7 @@ describe('Retry System Integration', () => {
 
       expect(result.result).toEqual({ navigated: true, url: 'https://example.com' });
       expect(result.attempts).toBe(3);
-      expect(navigationOperation).toHaveBeenCalledTimes(3);
+      expect(navigateOperation).toHaveBeenCalledTimes(3);
     });
 
     test('should handle authentication errors appropriately', async () => {
