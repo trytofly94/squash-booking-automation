@@ -27,7 +27,7 @@ class HealthCheckManager {
 
   constructor() {
     this.config = {
-      enabled: process.env['HEALTH_CHECK_ENABLED']?.toLowerCase() === 'true' || false,
+      enabled: process.env['HEALTH_CHECK_ENABLED']?.toLowerCase() !== 'false',
       interval: parseInt(process.env['HEALTH_CHECK_INTERVAL'] || '300000', 10), // 5 minutes
       timeout: parseInt(process.env['HEALTH_CHECK_TIMEOUT'] || '30000', 10), // 30 seconds
       websiteUrl: process.env['WEBSITE_URL'] || 'https://www.eversports.de/sb/sportcenter-kautz?sport=squash',
@@ -199,11 +199,11 @@ class HealthCheckManager {
     try {
       const availabilityCheck = await this.performWebsiteCheck();
       
-      const status = availabilityCheck.status === HealthStatus.HEALTHY 
-        ? HealthStatus.HEALTHY 
-        : availabilityCheck.responseTime > this.config.alertThresholds.responseTime
-        ? HealthStatus.DEGRADED
-        : HealthStatus.UNHEALTHY;
+      // Start with the status from the website check, then consider response time
+      let status = availabilityCheck.status;
+      if (status === HealthStatus.HEALTHY && availabilityCheck.responseTime > this.config.alertThresholds.responseTime) {
+        status = HealthStatus.DEGRADED;
+      }
 
       return {
         name: 'website_availability',
