@@ -29,7 +29,8 @@
       "@/core/*": ["src/core/*"],
       "@/pages/*": ["src/pages/*"],
       "@/types/*": ["src/types/*"],
-      "@/utils/*": ["src/utils/*"]
+      "@/utils/*": ["src/utils/*"],
+      "@/monitoring/*": ["src/monitoring/*"]
     }
   },
   "include": [
