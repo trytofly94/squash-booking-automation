@@ -1,9 +1,10 @@
 import type { Page } from '@playwright/test';
 import { BasePage } from './BasePage';
 import { logger } from '../utils/logger';
-import { BookingSuccessResult, SuccessDetectionConfig } from '@/types/booking.types';
+import { BookingSuccessResult } from '@/types/booking.types';
 import { BookingResponseListener } from '@/utils/BookingResponseListener';
 import { SuccessDetectionConfigManager } from '@/utils/SuccessDetectionConfigManager';
+import { SuccessDetectionAnalytics } from '@/utils/SuccessDetectionAnalytics';
 
 /**
  * Page Object for the checkout and booking confirmation process
@@ -375,7 +376,14 @@ export class CheckoutPage extends BasePage {
             method: result.method, 
             confirmationId: result.confirmationId 
           });
+          
+          // Track successful detection for analytics
+          SuccessDetectionAnalytics.trackDetectionMethod(result);
+          
           return result;
+        } else if (result) {
+          // Track failed detection attempts
+          SuccessDetectionAnalytics.trackDetectionMethod(result);
         }
       }
 
@@ -487,6 +495,7 @@ export class CheckoutPage extends BasePage {
     timeout: number
   ): Promise<BookingSuccessResult | null> {
     const component = 'CheckoutPage.detectByNetworkResponse';
+    const startTime = new Date();
     
     try {
       const response = await listener.waitForBookingResponse(timeout);
@@ -497,20 +506,38 @@ export class CheckoutPage extends BasePage {
                               response.confirmationNumber ||
                               'network-confirmed';
 
-        return {
+        const result = {
           success: true,
           confirmationId: String(confirmationId),
-          method: 'network',
+          method: 'network' as const,
           timestamp: new Date(),
           additionalData: { 
             networkResponse: response 
           }
         };
+
+        // Track timing for successful network detection
+        SuccessDetectionAnalytics.trackDetectionTiming(
+          'network', 
+          startTime, 
+          result.timestamp, 
+          true
+        );
+
+        return result;
       }
     } catch (error) {
       logger.warn('Network detection failed', component, { 
         error: error instanceof Error ? error.message : String(error) 
       });
+      
+      // Track timing for failed network detection
+      SuccessDetectionAnalytics.trackDetectionTiming(
+        'network', 
+        startTime, 
+        new Date(), 
+        false
+      );
     }
     return null;
   }

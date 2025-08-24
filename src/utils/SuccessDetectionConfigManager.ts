@@ -10,13 +10,13 @@ export class SuccessDetectionConfigManager {
    */
   static getConfig(): SuccessDetectionConfig {
     return {
-      networkTimeout: parseInt(process.env.SUCCESS_DETECTION_NETWORK_TIMEOUT || '10000'),
-      domTimeout: parseInt(process.env.SUCCESS_DETECTION_DOM_TIMEOUT || '5000'),
-      urlCheckInterval: parseInt(process.env.SUCCESS_DETECTION_URL_CHECK_INTERVAL || '500'),
-      enableNetworkMonitoring: process.env.SUCCESS_DETECTION_ENABLE_NETWORK !== 'false',
-      enableDomDetection: process.env.SUCCESS_DETECTION_ENABLE_DOM !== 'false',
-      enableUrlDetection: process.env.SUCCESS_DETECTION_ENABLE_URL !== 'false',
-      enableTextFallback: process.env.SUCCESS_DETECTION_ENABLE_TEXT_FALLBACK === 'true'
+      networkTimeout: parseInt(process.env['SUCCESS_DETECTION_NETWORK_TIMEOUT'] || '10000'),
+      domTimeout: parseInt(process.env['SUCCESS_DETECTION_DOM_TIMEOUT'] || '5000'),
+      urlCheckInterval: parseInt(process.env['SUCCESS_DETECTION_URL_CHECK_INTERVAL'] || '500'),
+      enableNetworkMonitoring: process.env['SUCCESS_DETECTION_ENABLE_NETWORK'] !== 'false',
+      enableDomDetection: process.env['SUCCESS_DETECTION_ENABLE_DOM'] !== 'false',
+      enableUrlDetection: process.env['SUCCESS_DETECTION_ENABLE_URL'] !== 'false',
+      enableTextFallback: process.env['SUCCESS_DETECTION_ENABLE_TEXT_FALLBACK'] === 'true'
     };
   }
 

@@ -6,7 +6,6 @@ import { logger } from './logger';
  * Monitors network responses for booking-related endpoints
  */
 export class BookingResponseListener {
-  private bookingResponse: any = null;
   private responsePromise: Promise<any> | null = null;
   private readonly component = 'BookingResponseListener';
 
@@ -176,7 +175,6 @@ export class BookingResponseListener {
    * Reset the response listener for a new booking attempt
    */
   reset(): void {
-    this.bookingResponse = null;
     this.responsePromise = null;
     logger.debug('Response listener reset', this.component);
   }

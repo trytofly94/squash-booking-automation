@@ -3,7 +3,8 @@ import {
   BookingResult, 
   BookingPair,
   AdvancedBookingConfig,
-  TimePreference
+  TimePreference,
+  BookingSuccessResult
 } from '../types/booking.types';
 import { DateTimeCalculator } from './DateTimeCalculator';
 import { SlotSearcher } from './SlotSearcher';
@@ -18,6 +19,7 @@ import { bookingAnalytics } from '../monitoring/BookingAnalytics';
 import { ErrorCategory } from '../types/monitoring.types';
 import { getGlobalRetryManager, RetryManager } from './retry';
 import { getDay } from 'date-fns';
+import { CheckoutPage } from '@/pages/CheckoutPage';
 
 /**
  * Enhanced main orchestrator for squash court booking automation
@@ -32,6 +34,7 @@ export class BookingManager {
   private timeSlotGenerator: TimeSlotGenerator;
   private patternLearningEnabled: boolean;
   private retryManager: RetryManager;
+  private checkoutPage: CheckoutPage;
 
   constructor(page: Page, config: Partial<AdvancedBookingConfig> = {}) {
     this.page = page;
@@ -80,6 +83,9 @@ export class BookingManager {
     
     // Use global retry manager instance
     this.retryManager = getGlobalRetryManager();
+    
+    // Initialize checkout page
+    this.checkoutPage = new CheckoutPage(page);
 
     // Initialize pattern learning if enabled
     if (this.patternLearningEnabled) {
@@ -706,15 +712,31 @@ export class BookingManager {
       // Proceed to checkout
       await this.proceedToCheckout();
 
-      // Complete booking process
-      await this.completeBookingProcess();
+      // Complete booking process with enhanced success detection
+      const successResult = await this.completeBookingProcess();
 
-      return {
-        success: true,
-        bookedPair: pair,
-        retryAttempts: 1,
-        timestamp: DateTimeCalculator.getCurrentTimestamp(this.config.timezone),
-      };
+      if (successResult.success) {
+        return {
+          success: true,
+          bookedPair: pair,
+          retryAttempts: 1,
+          timestamp: DateTimeCalculator.getCurrentTimestamp(this.config.timezone),
+        };
+      } else {
+        // Booking process completed but success detection failed
+        const errorMessage = `Booking success detection failed using ${successResult.method}`;
+        logger.error(errorMessage, 'BookingManager.executeRealBooking', {
+          method: successResult.method,
+          timestamp: successResult.timestamp
+        });
+        
+        return {
+          success: false,
+          error: errorMessage,
+          retryAttempts: 1,
+          timestamp: DateTimeCalculator.getCurrentTimestamp(this.config.timezone),
+        };
+      }
     } catch (error) {
       return {
         success: false,
@@ -759,23 +781,118 @@ export class BookingManager {
   }
 
   /**
-   * Complete the booking process (login, payment, etc.)
+   * Complete the booking process with enhanced success detection
    */
-  private async completeBookingProcess(): Promise<void> {
+  private async completeBookingProcess(): Promise<BookingSuccessResult> {
     const component = 'BookingManager.completeBookingProcess';
 
-    logger.info('Completing booking process', component);
+    logger.info('Completing booking process with enhanced success detection', component);
 
-    // This would include:
-    // 1. Login if required
-    // 2. Fill in any required information
-    // 3. Complete payment process
-    // 4. Confirm booking
+    try {
+      // Complete the checkout process (handles login, payment, etc.)
+      const checkoutOptions: {
+        dryRun: boolean;
+        userCredentials?: { email: string; password: string };
+      } = {
+        dryRun: this.config.dryRun
+      };
+      
+      // Add user credentials from environment if available
+      if (process.env['USER_EMAIL'] && process.env['USER_PASSWORD']) {
+        checkoutOptions.userCredentials = {
+          email: process.env['USER_EMAIL'],
+          password: process.env['USER_PASSWORD']
+        };
+      }
 
-    // For now, this is a placeholder
-    await this.page.waitForTimeout(2000);
+      const checkoutSuccess = await this.checkoutPage.completeCheckout(checkoutOptions);
+      
+      if (!checkoutSuccess) {
+        logger.error('Checkout process failed', component);
+        return {
+          success: false,
+          method: 'none',
+          timestamp: new Date()
+        };
+      }
 
-    logger.info('Booking process completed', component);
+      // If in dry run mode, return success without actual confirmation
+      if (this.config.dryRun) {
+        logger.info('Dry run mode - booking process completed without confirmation', component);
+        return {
+          success: true,
+          confirmationId: 'dry-run-success',
+          method: 'text-fallback', // Use text fallback method for dry runs
+          timestamp: new Date()
+        };
+      }
+
+      // Enhanced booking confirmation with success detection
+      const successResult = await this.checkoutPage.confirmBooking();
+      
+      if (successResult.success) {
+        logger.info('Live booking completed successfully', component, {
+          confirmationId: successResult.confirmationId,
+          detectionMethod: successResult.method,
+          timestamp: successResult.timestamp
+        });
+        
+        // Record booking success metrics
+        this.recordBookingSuccess(successResult);
+        
+        return successResult;
+      } else {
+        logger.warn('Booking success detection failed', component, {
+          method: successResult.method,
+          timestamp: successResult.timestamp
+        });
+        
+        return successResult;
+      }
+
+    } catch (error) {
+      logger.error('Booking process failed with error', component, {
+        error: error instanceof Error ? error.message : String(error),
+        phase: 'booking-process'
+      });
+      
+      return {
+        success: false,
+        method: 'none',
+        timestamp: new Date()
+      };
+    }
+  }
+
+  /**
+   * Record booking success metrics for analytics and monitoring
+   */
+  private recordBookingSuccess(result: BookingSuccessResult): void {
+    const component = 'BookingManager.recordBookingSuccess';
+    
+    // Enhanced success metrics collection
+    const metrics = {
+      detectionMethod: result.method,
+      confirmationId: result.confirmationId,
+      detectionTime: result.timestamp,
+      additionalData: result.additionalData
+    };
+    
+    logger.info('Booking success metrics recorded', component, metrics);
+    
+    // Integration with existing monitoring systems
+    try {
+      bookingAnalytics.recordSuccess({
+        confirmationId: result.confirmationId || 'unknown',
+        detectionMethod: result.method,
+        timestamp: result.timestamp,
+        metadata: result.additionalData
+      });
+    } catch (error) {
+      logger.warn('Failed to record booking analytics', component, {
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
   }
 
   /**
