@@ -21,16 +21,15 @@ describe('DateTimeCalculator', () => {
     });
 
     it('should handle leap year correctly', () => {
-      const originalDate = Date;
-      global.Date = jest.fn(() => new originalDate('2024-02-20T10:00:00.000Z')) as any;
-      global.Date.UTC = originalDate.UTC;
-      global.Date.parse = originalDate.parse;
-      global.Date.now = () => new originalDate('2024-02-20T10:00:00.000Z').getTime();
+      // Use jest.useFakeTimers for better date-fns compatibility
+      const mockDate = new Date('2024-02-20T10:00:00.000Z');
+      jest.useFakeTimers();
+      jest.setSystemTime(mockDate);
 
       const result = DateTimeCalculator.calculateBookingDate(10);
       expect(result).toBe('2024-03-01'); // Should cross leap day correctly
 
-      global.Date = originalDate; // Restore
+      jest.useRealTimers(); // Restore real timers
     });
   });
 
@@ -157,29 +156,25 @@ describe('DateTimeCalculator', () => {
 
   describe('Edge Cases and Timezone Handling', () => {
     it('should handle month transitions correctly', () => {
-      const originalDate = Date;
-      global.Date = jest.fn(() => new originalDate('2025-01-31T10:00:00.000Z')) as any;
-      global.Date.UTC = originalDate.UTC;
-      global.Date.parse = originalDate.parse;
-      global.Date.now = () => new originalDate('2025-01-31T10:00:00.000Z').getTime();
+      const mockDate = new Date('2025-01-31T10:00:00.000Z');
+      jest.useFakeTimers();
+      jest.setSystemTime(mockDate);
 
       const result = DateTimeCalculator.calculateBookingDate(15);
       expect(result).toBe('2025-02-15');
 
-      global.Date = originalDate;
+      jest.useRealTimers();
     });
 
     it('should handle year transitions correctly', () => {
-      const originalDate = Date;
-      global.Date = jest.fn(() => new originalDate('2024-12-25T10:00:00.000Z')) as any;
-      global.Date.UTC = originalDate.UTC;
-      global.Date.parse = originalDate.parse;
-      global.Date.now = () => new originalDate('2024-12-25T10:00:00.000Z').getTime();
+      const mockDate = new Date('2024-12-25T10:00:00.000Z');
+      jest.useFakeTimers();
+      jest.setSystemTime(mockDate);
 
       const result = DateTimeCalculator.calculateBookingDate(20);
       expect(result).toBe('2025-01-14');
 
-      global.Date = originalDate;
+      jest.useRealTimers();
     });
 
     it('should handle negative time calculations correctly', () => {
@@ -222,16 +217,14 @@ describe('DateTimeCalculator', () => {
 
     it('should handle weekend and holiday dates correctly', () => {
       // Test on a Sunday
-      const originalDate = Date;
-      global.Date = jest.fn(() => new originalDate('2025-08-17T10:00:00.000Z')) as any; // Sunday
-      global.Date.UTC = originalDate.UTC;
-      global.Date.parse = originalDate.parse;
-      global.Date.now = () => new originalDate('2025-08-17T10:00:00.000Z').getTime();
+      const mockDate = new Date('2025-08-17T10:00:00.000Z'); // Sunday
+      jest.useFakeTimers();
+      jest.setSystemTime(mockDate);
 
       const result = DateTimeCalculator.calculateBookingDate(20);
       expect(result).toBe('2025-09-06');
 
-      global.Date = originalDate;
+      jest.useRealTimers();
     });
 
     it('should validate boundary conditions for slot generation', () => {
@@ -267,16 +260,14 @@ describe('DateTimeCalculator', () => {
 
     it('should handle DST transitions correctly', () => {
       // Mock date during DST transition (example: Spring forward in EU)
-      const originalDate = Date;
-      global.Date = jest.fn(() => new originalDate('2025-03-30T01:00:00.000Z')) as any;
-      global.Date.UTC = originalDate.UTC;
-      global.Date.parse = originalDate.parse;
-      global.Date.now = () => new originalDate('2025-03-30T01:00:00.000Z').getTime();
+      const mockDate = new Date('2025-03-30T01:00:00.000Z');
+      jest.useFakeTimers();
+      jest.setSystemTime(mockDate);
 
       const result = DateTimeCalculator.calculateBookingDate(1);
       expect(result).toBe('2025-03-31');
 
-      global.Date = originalDate;
+      jest.useRealTimers();
     });
   });
 });
