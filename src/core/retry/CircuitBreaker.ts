@@ -145,11 +145,17 @@ export class CircuitBreaker {
    * Check if circuit should be opened based on failure statistics
    */
   private shouldOpenCircuit(stats: CircuitBreakerStats): boolean {
-    // Circuit is already open or half-open
-    if (this.state !== CircuitState.CLOSED) {
+    // If in HALF_OPEN state, any failure should reopen the circuit
+    if (this.state === CircuitState.HALF_OPEN) {
+      return true;
+    }
+    
+    // Circuit is already open
+    if (this.state === CircuitState.OPEN) {
       return false;
     }
     
+    // For CLOSED state, check thresholds
     // Not enough requests to make a decision
     if (stats.totalRequests < this.config.requestVolumeThreshold) {
       return false;
@@ -236,8 +242,16 @@ export class CircuitBreaker {
    */
   setState(state: CircuitState): void {
     this.state = state;
+    
+    // When setting to OPEN state, set lastFailureTime to current time
+    // to ensure proper rejection behavior
+    if (state === CircuitState.OPEN) {
+      this.lastFailureTime = Date.now();
+    }
+    
     logger.debug('Circuit breaker state manually set', 'CircuitBreaker', {
-      newState: state
+      newState: state,
+      lastFailureTime: this.lastFailureTime
     });
   }
 

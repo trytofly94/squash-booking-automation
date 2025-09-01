@@ -12,7 +12,7 @@ export interface BookingSlot {
   /** Whether the slot is available for booking */
   isAvailable: boolean;
   /** Optional slot element selector for Playwright interaction */
-  elementSelector?: string;
+  elementSelector?: string | undefined;
 }
 
 export interface BookingPair {
@@ -65,6 +65,38 @@ export interface BookingResult {
   retryAttempts: number;
   /** Timestamp of the booking attempt */
   timestamp: Date;
+}
+
+export interface BookingSuccessResult {
+  /** Whether the booking confirmation was successful */
+  success: boolean;
+  /** Detection method used (e.g., 'url', 'dom', 'text') */
+  method: string;
+  /** Timestamp when success was detected */
+  timestamp: Date;
+  /** Optional confirmation ID if available */
+  confirmationId?: string;
+  /** Optional additional metadata */
+  metadata?: Record<string, unknown>;
+  /** Optional additional data for extended success information */
+  additionalData?: Record<string, unknown>;
+}
+
+export interface SuccessDetectionConfig {
+  /** Network monitoring timeout in milliseconds */
+  networkTimeout: number;
+  /** DOM detection timeout in milliseconds */
+  domTimeout: number;
+  /** URL check interval in milliseconds */
+  urlCheckInterval: number;
+  /** Enable network request monitoring */
+  enableNetworkMonitoring: boolean;
+  /** Enable DOM element detection */
+  enableDomDetection: boolean;
+  /** Enable URL pattern detection */
+  enableUrlDetection: boolean;
+  /** Enable text content fallback detection */
+  enableTextFallback: boolean;
 }
 
 export interface IsolationCheckResult {
@@ -172,4 +204,94 @@ export interface TimeSlot {
   priority: number;
   /** Distance from preferred time in minutes */
   distanceFromPreferred: number;
+}
+
+// Calendar Matrix Types (Issue #20 - Single-Pass Performance Optimization)
+
+export interface CalendarCell {
+  /** Court identifier */
+  court: string;
+  /** Date in YYYY-MM-DD format */
+  date: string;
+  /** Start time in HH:MM format */
+  start: string;
+  /** Cell state */
+  state: 'free' | 'booked' | 'unavailable' | 'unknown';
+  /** CSS class name for state identification */
+  className: string;
+  /** Element selector for interaction (optional for matrix-only operations) */
+  elementSelector?: string;
+  /** Raw element data for debugging */
+  rawData?: Record<string, string>;
+}
+
+export interface CalendarMatrix {
+  /** Nested map structure: court -> time -> cell for O(1) lookup */
+  cells: Map<string, Map<string, CalendarCell>>;
+  /** Date range covered by this matrix */
+  dateRange: { start: string; end: string };
+  /** All court IDs found in the matrix */
+  courts: string[];
+  /** All time slots found in the matrix */
+  timeSlots: string[];
+  /** Matrix creation timestamp */
+  createdAt: Date;
+  /** Data source information */
+  source: 'dom' | 'network' | 'hybrid';
+  /** Matrix validation metrics */
+  metrics: CalendarMatrixMetrics;
+}
+
+export interface CalendarMatrixMetrics {
+  /** Total number of cells extracted */
+  totalCells: number;
+  /** Number of free cells */
+  freeCells: number;
+  /** Number of booked cells */
+  bookedCells: number;
+  /** Number of unavailable cells */
+  unavailableCells: number;
+  /** Number of courts with data */
+  courtsWithData: number;
+  /** Number of time slots with data */
+  timeSlotsWithData: number;
+  /** Extraction duration in milliseconds */
+  extractionDurationMs: number;
+  /** Whether the matrix appears complete */
+  isComplete: boolean;
+  /** Validation warnings */
+  warnings: string[];
+}
+
+export interface HybridCalendarMatrix extends CalendarMatrix {
+  /** Network availability data for validation */
+  networkData?: Map<string, NetworkAvailabilityData> | undefined;
+  /** Conflicts between DOM and network data */
+  conflicts: MatrixConflict[];
+}
+
+export interface NetworkAvailabilityData {
+  /** Court identifier */
+  courtId: string;
+  /** Date in YYYY-MM-DD format */
+  date: string;
+  /** Available time slots */
+  availableSlots: string[];
+  /** Source timestamp */
+  timestamp: Date;
+  /** Data reliability score */
+  reliability: number;
+}
+
+export interface MatrixConflict {
+  /** Court and time identifying the conflict */
+  location: { court: string; date: string; start: string };
+  /** DOM state */
+  domState: string;
+  /** Network state */
+  networkState: string;
+  /** Conflict resolution strategy used */
+  resolution: 'prefer-dom' | 'prefer-network' | 'mark-uncertain';
+  /** Additional context */
+  reason: string;
 }

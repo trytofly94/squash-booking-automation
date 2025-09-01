@@ -21,16 +21,15 @@ describe('DateTimeCalculator', () => {
     });
 
     it('should handle leap year correctly', () => {
-      const originalDate = Date;
-      global.Date = jest.fn(() => new originalDate('2024-02-20T10:00:00.000Z')) as any;
-      global.Date.UTC = originalDate.UTC;
-      global.Date.parse = originalDate.parse;
-      global.Date.now = () => new originalDate('2024-02-20T10:00:00.000Z').getTime();
+      // Use jest.useFakeTimers for better date-fns compatibility
+      const mockDate = new Date('2024-02-20T10:00:00.000Z');
+      jest.useFakeTimers();
+      jest.setSystemTime(mockDate);
 
       const result = DateTimeCalculator.calculateBookingDate(10);
       expect(result).toBe('2024-03-01'); // Should cross leap day correctly
 
-      global.Date = originalDate; // Restore
+      jest.useRealTimers(); // Restore real timers
     });
   });
 
@@ -58,14 +57,24 @@ describe('DateTimeCalculator', () => {
         'Invalid time format: 14:75. Expected HH:MM format.'
       );
     });
+
+    it('should support custom duration and slot size', () => {
+      const result = DateTimeCalculator.generateTimeSlots('14:00', 90, 30);
+      expect(result).toEqual(['14:00', '14:30', '15:00']);
+    });
+
+    it('should handle non-standard slot sizes', () => {
+      const result = DateTimeCalculator.generateTimeSlots('14:00', 60, 20);
+      expect(result).toEqual(['14:00', '14:20', '14:40']);
+    });
   });
 
   describe('calculateNeighborSlots', () => {
-    it('should calculate correct neighbor slots', () => {
+    it('should calculate correct neighbor slots with default duration', () => {
       const result = DateTimeCalculator.calculateNeighborSlots('14:00');
       expect(result).toEqual({
         before: '13:30',
-        after: '15:00',
+        after: '15:00', // 14:00 + 60 minutes = 15:00
       });
     });
 
@@ -73,7 +82,7 @@ describe('DateTimeCalculator', () => {
       const result = DateTimeCalculator.calculateNeighborSlots('16:00');
       expect(result).toEqual({
         before: '15:30',
-        after: '17:00',
+        after: '17:00', // 16:00 + 60 minutes = 17:00
       });
     });
 
@@ -81,7 +90,15 @@ describe('DateTimeCalculator', () => {
       const result = DateTimeCalculator.calculateNeighborSlots('00:30');
       expect(result).toEqual({
         before: '00:00',
-        after: '01:30',
+        after: '01:30', // 00:30 + 60 minutes = 01:30
+      });
+    });
+
+    it('should support custom duration for neighbor calculation', () => {
+      const result = DateTimeCalculator.calculateNeighborSlots('14:00', 90);
+      expect(result).toEqual({
+        before: '13:30',
+        after: '15:30', // 14:00 + 90 minutes = 15:30
       });
     });
   });
@@ -139,29 +156,25 @@ describe('DateTimeCalculator', () => {
 
   describe('Edge Cases and Timezone Handling', () => {
     it('should handle month transitions correctly', () => {
-      const originalDate = Date;
-      global.Date = jest.fn(() => new originalDate('2025-01-31T10:00:00.000Z')) as any;
-      global.Date.UTC = originalDate.UTC;
-      global.Date.parse = originalDate.parse;
-      global.Date.now = () => new originalDate('2025-01-31T10:00:00.000Z').getTime();
+      const mockDate = new Date('2025-01-31T10:00:00.000Z');
+      jest.useFakeTimers();
+      jest.setSystemTime(mockDate);
 
       const result = DateTimeCalculator.calculateBookingDate(15);
       expect(result).toBe('2025-02-15');
 
-      global.Date = originalDate;
+      jest.useRealTimers();
     });
 
     it('should handle year transitions correctly', () => {
-      const originalDate = Date;
-      global.Date = jest.fn(() => new originalDate('2024-12-25T10:00:00.000Z')) as any;
-      global.Date.UTC = originalDate.UTC;
-      global.Date.parse = originalDate.parse;
-      global.Date.now = () => new originalDate('2024-12-25T10:00:00.000Z').getTime();
+      const mockDate = new Date('2024-12-25T10:00:00.000Z');
+      jest.useFakeTimers();
+      jest.setSystemTime(mockDate);
 
       const result = DateTimeCalculator.calculateBookingDate(20);
       expect(result).toBe('2025-01-14');
 
-      global.Date = originalDate;
+      jest.useRealTimers();
     });
 
     it('should handle negative time calculations correctly', () => {
@@ -204,16 +217,14 @@ describe('DateTimeCalculator', () => {
 
     it('should handle weekend and holiday dates correctly', () => {
       // Test on a Sunday
-      const originalDate = Date;
-      global.Date = jest.fn(() => new originalDate('2025-08-17T10:00:00.000Z')) as any; // Sunday
-      global.Date.UTC = originalDate.UTC;
-      global.Date.parse = originalDate.parse;
-      global.Date.now = () => new originalDate('2025-08-17T10:00:00.000Z').getTime();
+      const mockDate = new Date('2025-08-17T10:00:00.000Z'); // Sunday
+      jest.useFakeTimers();
+      jest.setSystemTime(mockDate);
 
       const result = DateTimeCalculator.calculateBookingDate(20);
       expect(result).toBe('2025-09-06');
 
-      global.Date = originalDate;
+      jest.useRealTimers();
     });
 
     it('should validate boundary conditions for slot generation', () => {
@@ -249,16 +260,14 @@ describe('DateTimeCalculator', () => {
 
     it('should handle DST transitions correctly', () => {
       // Mock date during DST transition (example: Spring forward in EU)
-      const originalDate = Date;
-      global.Date = jest.fn(() => new originalDate('2025-03-30T01:00:00.000Z')) as any;
-      global.Date.UTC = originalDate.UTC;
-      global.Date.parse = originalDate.parse;
-      global.Date.now = () => new originalDate('2025-03-30T01:00:00.000Z').getTime();
+      const mockDate = new Date('2025-03-30T01:00:00.000Z');
+      jest.useFakeTimers();
+      jest.setSystemTime(mockDate);
 
       const result = DateTimeCalculator.calculateBookingDate(1);
       expect(result).toBe('2025-03-31');
 
-      global.Date = originalDate;
+      jest.useRealTimers();
     });
   });
 });

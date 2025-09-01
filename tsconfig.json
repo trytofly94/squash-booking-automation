@@ -29,8 +29,13 @@
       "@/core/*": ["src/core/*"],
       "@/pages/*": ["src/pages/*"],
       "@/types/*": ["src/types/*"],
-      "@/utils/*": ["src/utils/*"]
-    }
+      "@/utils/*": ["src/utils/*"],
+      "@/monitoring/*": ["src/monitoring/*"]
+    },
+    // Incremental compilation settings
+    "incremental": true,
+    "tsBuildInfoFile": "./.tsbuildinfo",
+    "assumeChangesOnlyAffectDirectDependencies": true
   },
   "include": [
     "src/**/*"
@@ -38,6 +43,9 @@
   "exclude": [
     "node_modules",
     "dist",
-    "tests"
+    "tests",
+    "*.tsbuildinfo",
+    "src/**/*.test.ts",
+    "src/**/__tests__/**"
   ]
 }

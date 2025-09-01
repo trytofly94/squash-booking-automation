@@ -6,10 +6,12 @@ module.exports = {
   // Root directory for tests
   rootDir: '.',
   
-  // Test file patterns - ONLY unit tests
+  // Test file patterns - unit and pure Jest integration tests
   testMatch: [
     '<rootDir>/tests/unit/**/*.test.ts',
-    '<rootDir>/tests/unit/**/*.spec.ts'
+    '<rootDir>/tests/unit/**/*.spec.ts',
+    '<rootDir>/tests/integration/**/*.test.ts',
+    '<rootDir>/tests/integration/**/*.spec.ts'
   ],
   
   // Module file extensions
@@ -23,6 +25,7 @@ module.exports = {
     '^@/pages/(.*)$': '<rootDir>/src/pages/$1',
     '^@/types/(.*)$': '<rootDir>/src/types/$1',
     '^@/utils/(.*)$': '<rootDir>/src/utils/$1',
+    '^@/monitoring/(.*)$': '<rootDir>/src/monitoring/$1',
     '^p-retry$': '<rootDir>/tests/mocks/p-retry.mock.ts'
   },
   
@@ -61,7 +64,7 @@ module.exports = {
   // TypeScript configuration for ts-jest
   transform: {
     '^.+\\.ts$': ['ts-jest', {
-      tsconfig: 'tsconfig.json'
+      tsconfig: 'tsconfig.test.json'
     }]
   },
   

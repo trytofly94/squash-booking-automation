@@ -269,14 +269,15 @@ describe('Monitoring Integration Tests', () => {
       ];
 
       for (const pattern of bookingPatterns) {
-        bookingAnalytics.recordBookingAttempt({
+        const attemptData = {
           courtId: pattern.courtId,
           startTime: pattern.startTime,
           success: pattern.success,
           responseTime: pattern.responseTime,
           retryCount: 0,
-          errorCategory: pattern.success ? undefined : ErrorCategory.NETWORK
-        });
+          ...(pattern.success ? {} : { errorCategory: ErrorCategory.NETWORK })
+        };
+        bookingAnalytics.recordBookingAttempt(attemptData);
       }
 
       // Get comprehensive analytics

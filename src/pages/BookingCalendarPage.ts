@@ -1,12 +1,15 @@
 import type { Page } from '@playwright/test';
 import { BasePage } from './BasePage';
-import { BookingSlot } from '../types/booking.types';
+import { BookingSlot, CalendarMatrix, CalendarCell } from '../types/booking.types';
+import { CalendarMatrixBuilder } from '../core/CalendarMatrixBuilder';
 import { logger } from '../utils/logger';
 
 /**
  * Page Object for the booking calendar interface
  */
 export class BookingCalendarPage extends BasePage {
+  private readonly matrixBuilder: CalendarMatrixBuilder;
+  
   private readonly selectors = {
     // Calendar and container elements (LIVE-TESTED WORKING SELECTORS)
     calendar: '#booking-calendar-container', // ✅ LIVE VERIFIED - Found 1
@@ -44,6 +47,7 @@ export class BookingCalendarPage extends BasePage {
 
   constructor(page: Page) {
     super(page);
+    this.matrixBuilder = new CalendarMatrixBuilder();
   }
 
   /**
@@ -855,5 +859,200 @@ export class BookingCalendarPage extends BasePage {
       // Fallback: Return current date
       return new Date().toISOString().split('T')[0]!;
     }
+  }
+
+  // ====================
+  // MATRIX-BASED METHODS (Issue #20)
+  // Single-Pass DOM Extraction for Performance Optimization
+  // ====================
+
+  /**
+   * Extract complete calendar matrix in single pass
+   * This is the main entry point for matrix-based operations
+   */
+  async extractCalendarMatrix(): Promise<CalendarMatrix> {
+    const component = 'BookingCalendarPage.extractCalendarMatrix';
+    logger.info('Starting single-pass calendar matrix extraction', component);
+
+    try {
+      await this.waitForCalendarToLoad();
+      const matrix = await this.matrixBuilder.buildMatrix(this.page);
+      
+      logger.info('Calendar matrix extracted successfully', component, {
+        totalCells: matrix.metrics.totalCells,
+        courts: matrix.courts.length,
+        timeSlots: matrix.timeSlots.length,
+        extractionTimeMs: matrix.metrics.extractionDurationMs
+      });
+
+      return matrix;
+    } catch (error) {
+      logger.error('Failed to extract calendar matrix', component, { error });
+      throw error;
+    }
+  }
+
+  /**
+   * Convert calendar matrix to legacy BookingSlot array for API compatibility
+   */
+  matrixToBookingSlots(matrix: CalendarMatrix, targetTimes: string[]): BookingSlot[] {
+    const component = 'BookingCalendarPage.matrixToBookingSlots';
+    const slots: BookingSlot[] = [];
+
+    try {
+      for (const [court, timeSlots] of matrix.cells) {
+        for (const [timeKey, cell] of timeSlots) {
+          const time = timeKey.split('T')[1]!;
+          
+          // Filter by target times if specified
+          if (targetTimes.length > 0 && !targetTimes.includes(time)) {
+            continue;
+          }
+
+          slots.push({
+            date: cell.date,
+            startTime: time,
+            courtId: court,
+            isAvailable: cell.state === 'free',
+            elementSelector: cell.elementSelector || undefined
+          });
+        }
+      }
+
+      logger.debug('Converted matrix to booking slots', component, {
+        totalSlots: slots.length,
+        availableSlots: slots.filter(s => s.isAvailable).length
+      });
+
+      return slots;
+    } catch (error) {
+      logger.error('Failed to convert matrix to booking slots', component, { error });
+      return [];
+    }
+  }
+
+  /**
+   * Get available courts from matrix data
+   */
+  matrixToCourtList(matrix: CalendarMatrix): string[] {
+    const component = 'BookingCalendarPage.matrixToCourtList';
+    
+    try {
+      const availableCourts: string[] = [];
+      
+      for (const [court, timeSlots] of matrix.cells) {
+        const hasAvailableSlots = Array.from(timeSlots.values())
+          .some(cell => cell.state === 'free');
+        
+        if (hasAvailableSlots) {
+          availableCourts.push(court);
+        }
+      }
+
+      logger.debug('Extracted available courts from matrix', component, {
+        totalCourts: matrix.courts.length,
+        availableCourts: availableCourts.length
+      });
+
+      return availableCourts.sort();
+    } catch (error) {
+      logger.error('Failed to extract courts from matrix', component, { error });
+      return [];
+    }
+  }
+
+  /**
+   * Get specific slot from matrix with O(1) lookup
+   */
+  getSlotFromMatrix(
+    matrix: CalendarMatrix, 
+    court: string, 
+    date: string, 
+    startTime: string
+  ): CalendarCell | null {
+    const component = 'BookingCalendarPage.getSlotFromMatrix';
+    
+    try {
+      const courtMap = matrix.cells.get(court);
+      if (!courtMap) {
+        logger.debug('Court not found in matrix', component, { court });
+        return null;
+      }
+
+      const timeKey = `${date}T${startTime}`;
+      const cell = courtMap.get(timeKey);
+      
+      if (cell) {
+        logger.debug('Found slot in matrix', component, { court, date, startTime, state: cell.state });
+      } else {
+        logger.debug('Slot not found in matrix', component, { court, date, startTime });
+      }
+
+      return cell || null;
+    } catch (error) {
+      logger.error('Error getting slot from matrix', component, { error, court, date, startTime });
+      return null;
+    }
+  }
+
+  /**
+   * Batch check slot availability from matrix
+   */
+  checkSlotsAvailabilityFromMatrix(
+    matrix: CalendarMatrix,
+    slotQueries: Array<{ court: string; date: string; startTime: string }>
+  ): Array<{ query: typeof slotQueries[0]; cell: CalendarCell | null; isAvailable: boolean }> {
+    const component = 'BookingCalendarPage.checkSlotsAvailabilityFromMatrix';
+    
+    try {
+      const results = slotQueries.map(query => {
+        const cell = this.getSlotFromMatrix(matrix, query.court, query.date, query.startTime);
+        return {
+          query,
+          cell,
+          isAvailable: cell?.state === 'free'
+        };
+      });
+
+      logger.debug('Batch checked slot availability from matrix', component, {
+        totalQueries: slotQueries.length,
+        availableSlots: results.filter(r => r.isAvailable).length
+      });
+
+      return results;
+    } catch (error) {
+      logger.error('Error batch checking slots from matrix', component, { error });
+      return slotQueries.map(query => ({ query, cell: null, isAvailable: false }));
+    }
+  }
+
+  /**
+   * Get matrix performance metrics
+   */
+  getMatrixMetrics(matrix: CalendarMatrix): {
+    performanceGain: string;
+    dataCompleteness: string;
+    extractionTime: string;
+    cellDensity: number;
+  } {
+    const { metrics } = matrix;
+    
+    // Estimate performance gain vs legacy approach
+    const estimatedLegacyQueries = metrics.courtsWithData * metrics.timeSlotsWithData * 3; // 3 queries per slot
+    const actualQueries = 1; // Single matrix extraction
+    const performanceGain = `${Math.round((1 - actualQueries / estimatedLegacyQueries) * 100)}%`;
+    
+    const completenessPercentage = Math.round((metrics.totalCells / (metrics.courtsWithData * metrics.timeSlotsWithData)) * 100);
+    const dataCompleteness = `${completenessPercentage}%`;
+    
+    const extractionTime = `${metrics.extractionDurationMs}ms`;
+    const cellDensity = metrics.totalCells / (metrics.courtsWithData || 1);
+
+    return {
+      performanceGain,
+      dataCompleteness, 
+      extractionTime,
+      cellDensity
+    };
   }
 }

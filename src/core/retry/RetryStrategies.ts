@@ -268,8 +268,14 @@ export class ErrorClassifier {
       'econnrefused',
       'ehostunreach',
       'enetunreach',
-      'socket',
       'dns'
+    ];
+    
+    // Socket-specific keywords that aren't timeouts
+    const socketKeywords = [
+      'socket hang up',
+      'socket disconnected',
+      'socket closed'
     ];
 
     // Specific network error codes (exclude ETIMEDOUT which is a timeout)
@@ -277,8 +283,27 @@ export class ErrorClassifier {
     const isNetworkCode = error?.code && networkCodes.includes(error.code.toUpperCase());
 
     return networkKeywords.some(keyword => message.includes(keyword)) ||
+           socketKeywords.some(keyword => message.includes(keyword)) ||
            isNetworkCode ||
            error?.name === 'NetworkError';
+  }
+
+  /**
+   * Check if error code is specifically a network error (not timeout)
+   */
+  private isSpecificNetworkCode(code: string): boolean {
+    if (!code) return false;
+    
+    const networkCodes = [
+      'ENOTFOUND',
+      'ECONNRESET',
+      'ECONNREFUSED', 
+      'EHOSTUNREACH',
+      'ENETUNREACH',
+      'ECONNABORTED'
+    ];
+    
+    return networkCodes.includes(code.toUpperCase());
   }
 
   /**
