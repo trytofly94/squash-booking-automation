@@ -65,7 +65,7 @@ describe('Success Detection Strategies', () => {
       };
 
       // Simulate the response event
-      const responseHandler = mockPage.on.mock.calls.find(call => call[0] === 'response')?.[1];
+      const responseHandler = mockPage.on.mock.calls.find((call: any) => call[0] === 'response')?.[1];
       if (responseHandler) {
         const mockPlaywrightResponse = {
           url: () => 'https://example.com/api/booking/confirm',
@@ -101,7 +101,7 @@ describe('Success Detection Strategies', () => {
         reservation_id: 'RES345678'
       };
 
-      const responseHandler = mockPage.on.mock.calls.find(call => call[0] === 'response')?.[1];
+      const responseHandler = mockPage.on.mock.calls.find((call: any) => call[0] === 'response')?.[1];
       if (responseHandler) {
         const mockPlaywrightResponse = {
           url: () => 'https://example.com/api/reservation',
@@ -132,7 +132,7 @@ describe('Success Detection Strategies', () => {
       await responseListener.setupNetworkMonitoring(mockPage);
       
       testUrls.forEach(url => {
-        const responseHandler = mockPage.on.mock.calls.find(call => call[0] === 'response')?.[1];
+        const responseHandler = mockPage.on.mock.calls.find((call: any) => call[0] === 'response')?.[1];
         if (responseHandler) {
           const mockPlaywrightResponse = {
             url: () => url,

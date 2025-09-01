@@ -11,7 +11,9 @@ module.exports = {
     '<rootDir>/tests/unit/**/*.test.ts',
     '<rootDir>/tests/unit/**/*.spec.ts',
     '<rootDir>/tests/integration/**/*.test.ts',
-    '<rootDir>/tests/integration/**/*.spec.ts'
+    '<rootDir>/tests/integration/**/*.spec.ts',
+    '<rootDir>/tests/performance/**/*.test.ts',
+    '<rootDir>/tests/performance/**/*.spec.ts'
   ],
   
   // Module file extensions

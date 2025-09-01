@@ -79,7 +79,15 @@ export class BookingManager {
     );
     this.courtScorer = new CourtScorer(this.config.courtScoringWeights);
     this.patternStorage = new PatternStorage();
-    this.timeSlotGenerator = new TimeSlotGenerator();
+    
+    // Initialize TimeSlotGenerator with cache configuration
+    this.timeSlotGenerator = new TimeSlotGenerator({
+      enabled: process.env['TIME_SLOT_CACHE_ENABLED'] !== 'false',
+      maxSize: parseInt(process.env['TIME_SLOT_CACHE_MAX_SIZE'] || '100', 10),
+      ttlMs: parseInt(process.env['TIME_SLOT_CACHE_TTL_MS'] || '3600000', 10), // 1 hour
+      debugMode: process.env['TIME_SLOT_CACHE_DEBUG'] === 'true',
+      enableCacheWarming: process.env['TIME_SLOT_CACHE_WARMING'] !== 'false'
+    });
     
     // Use global retry manager instance
     this.retryManager = getGlobalRetryManager();
@@ -92,12 +100,18 @@ export class BookingManager {
       this.initializePatternLearning();
     }
 
+    // Initialize time slot cache warming if enabled
+    if (this.timeSlotGenerator.isCacheEnabled()) {
+      this.initializeCacheWarming();
+    }
+
     logger.info('BookingManager initialized with advanced features', 'BookingManager', {
       timezone: this.config.timezone,
       preferredCourts: this.config.preferredCourts,
       patternLearning: this.patternLearningEnabled,
       fallbackRange: this.config.fallbackTimeRange,
-      scoringWeights: this.config.courtScoringWeights
+      scoringWeights: this.config.courtScoringWeights,
+      timeslotCacheEnabled: this.timeSlotGenerator.isCacheEnabled()
     });
   }
 
@@ -115,6 +129,30 @@ export class BookingManager {
     } catch (error) {
       logger.warn('Failed to initialize pattern learning', 'BookingManager', {
         error: (error as Error).message
+      });
+    }
+  }
+
+  /**
+   * Initialize time slot cache warming with common configurations
+   */
+  private async initializeCacheWarming(): Promise<void> {
+    try {
+      // Run cache warming asynchronously to avoid blocking initialization
+      this.timeSlotGenerator.warmCache().then(() => {
+        const metrics = this.timeSlotGenerator.getCacheMetrics();
+        logger.info('Time slot cache warming completed', 'BookingManager', {
+          cacheSize: metrics.cacheSize,
+          memoryUsage: `${metrics.memoryUsageMB.toFixed(2)}MB`
+        });
+      }).catch(error => {
+        logger.warn('Cache warming failed', 'BookingManager', {
+          error: error instanceof Error ? error.message : String(error)
+        });
+      });
+    } catch (error) {
+      logger.warn('Failed to start cache warming', 'BookingManager', {
+        error: error instanceof Error ? error.message : String(error)
       });
     }
   }
@@ -959,12 +997,43 @@ export class BookingManager {
     patternLearningEnabled: boolean;
     courtScorerStats: ReturnType<CourtScorer['getStats']>;
     validatorStats: ReturnType<DryRunValidator['getValidationStats']>;
+    timeslotCacheStats: ReturnType<TimeSlotGenerator['getCacheMetrics']>;
   } {
     return {
       config: this.sanitizeConfigForLogging(),
       patternLearningEnabled: this.patternLearningEnabled,
       courtScorerStats: this.courtScorer.getStats(),
-      validatorStats: this.validator.getValidationStats()
+      validatorStats: this.validator.getValidationStats(),
+      timeslotCacheStats: this.timeSlotGenerator.getCacheMetrics()
     };
+  }
+
+  /**
+   * Get time slot cache performance metrics
+   */
+  getCacheMetrics() {
+    return this.timeSlotGenerator.getCacheMetrics();
+  }
+
+  /**
+   * Log current cache status for monitoring
+   */
+  logCacheStatus(): void {
+    this.timeSlotGenerator.logCacheStatus();
+  }
+
+  /**
+   * Clear the time slot cache (useful for testing or troubleshooting)
+   */
+  clearTimeSlotCache(): void {
+    this.timeSlotGenerator.clearCache();
+    logger.info('Time slot cache cleared by request', 'BookingManager');
+  }
+
+  /**
+   * Check if time slot caching is enabled
+   */
+  isCacheEnabled(): boolean {
+    return this.timeSlotGenerator.isCacheEnabled();
   }
 }

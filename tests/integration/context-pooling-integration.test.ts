@@ -294,7 +294,7 @@ describe('Context Pooling Integration', () => {
       const page1 = await context1.newPage();
       const page2 = await context2.newPage();
       
-      let initialMetrics = pool.getMetrics();
+      const initialMetrics = pool.getMetrics();
       expect(initialMetrics.totalContexts).toBe(2);
       
       // Cleanup should close all contexts and pages
