@@ -20,7 +20,12 @@ module.exports = {
     'no-debugger': 'error',
     'no-var': 'error',
     'prefer-const': 'error',
-    'no-unused-vars': ['error', { argsIgnorePattern: '^_' }]
+    'no-unused-vars': ['error', { 
+      argsIgnorePattern: '^_', 
+      varsIgnorePattern: '^_',
+      ignoreRestSiblings: true 
+    }],
+    'no-undef': 'off' // Disable since TypeScript handles this
   },
   overrides: [
     {

@@ -6,7 +6,9 @@
   "scripts": {
     "build": "tsc",
     "build:clean": "npm run clean && tsc",
-    "build:analyze": "npm run build:clean && npm run build",
+    "build:watch": "tsc --watch",
+    "build:reset": "rm -f .tsbuildinfo && npm run build",
+    "build:benchmark": "npm run build:clean && time npm run build",
     "start": "node dist/index.js",
     "dev": "ts-node src/index.ts",
     "test": "jest",
