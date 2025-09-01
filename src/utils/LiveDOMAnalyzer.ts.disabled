@@ -3,8 +3,7 @@
  * Extrahiert echte Website-Strukturen und validiert Selektoren
  */
 
-import { Page, Browser } from '@playwright/test';
-import { chromium } from 'playwright';
+import { Page, Browser, chromium } from '@playwright/test';
 import { writeFileSync } from 'fs';
 import { join } from 'path';
 import { logger } from '@/utils/logger';
@@ -68,10 +67,10 @@ export class LiveDOMAnalyzer {
       url = 'https://www.eversports.de/sb/sportcenter-kautz?sport=squash',
       headless = false,
       screenshotDir = './live-analysis-screenshots',
-      credentials = { email: 'contact@lennart.de', password: 'Columbus94!' }
+      credentials = { email: process.env['ANALYSIS_EMAIL'] || '', password: process.env['ANALYSIS_PASSWORD'] || '' }
     } = options;
 
-    logger.info('[LiveDOMAnalyzer] Starting live website analysis', { url, headless });
+    logger.info('Starting live website analysis', 'LiveDOMAnalyzer', { url, headless });
 
     try {
       // Browser und Page initialisieren
