@@ -4,9 +4,23 @@ import StealthPlugin from 'playwright-extra-plugin-stealth';
 import { BookingManager } from './core/BookingManager';
 import { BookingConfig } from './types/booking.types';
 import { logger } from './utils/logger';
+import { 
+  initializeGlobalContextPool, 
+  cleanupGlobalContextPool, 
+  type BrowserContextPoolConfig 
+} from './utils/BrowserContextPool';
 
 // Add stealth plugin to playwright-extra
 playwright.chromium.use(StealthPlugin());
+
+/**
+ * Safely parse environment variable to integer
+ */
+function parseEnvInt(value: string | undefined): number | undefined {
+  if (!value) return undefined;
+  const parsed = parseInt(value, 10);
+  return isNaN(parsed) ? undefined : parsed;
+}
 
 // Load environment variables
 dotenv.config();
@@ -47,8 +61,8 @@ async function main(): Promise<void> {
   });
 
   try {
-    // Create new page with enhanced stealth context
-    const context = await browser.newContext({
+    // Define context options for consistent browser contexts
+    const contextOptions = {
       viewport: { width: 1920, height: 1080 },
       userAgent:
         'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -63,13 +77,49 @@ async function main(): Promise<void> {
         'DNT': '1',
         'Upgrade-Insecure-Requests': '1',
       },
-    });
+    };
 
+    // Initialize context pool configuration with safe parsing
+    const poolConfig: Partial<BrowserContextPoolConfig> = {};
+    
+    const maxPoolSize = parseEnvInt(process.env['CONTEXT_POOL_MAX_SIZE']);
+    if (maxPoolSize !== undefined) poolConfig.maxPoolSize = maxPoolSize;
+    
+    const maxContextAge = parseEnvInt(process.env['CONTEXT_POOL_MAX_AGE']);
+    if (maxContextAge !== undefined) poolConfig.maxContextAge = maxContextAge;
+    
+    const minWarmContexts = parseEnvInt(process.env['CONTEXT_POOL_MIN_WARM']);
+    if (minWarmContexts !== undefined) poolConfig.minWarmContexts = minWarmContexts;
+    
+    const healthCheckInterval = parseEnvInt(process.env['CONTEXT_POOL_HEALTH_CHECK']);
+    if (healthCheckInterval !== undefined) poolConfig.healthCheckInterval = healthCheckInterval;
+    
+    const failureThreshold = parseEnvInt(process.env['CONTEXT_POOL_FAILURE_THRESHOLD']);
+    if (failureThreshold !== undefined) poolConfig.failureThreshold = failureThreshold;
+    
+    poolConfig.enablePreWarming = process.env['CONTEXT_POOL_ENABLE_PREWARMING'] !== 'false';
+
+    // Initialize the global context pool
+    const contextPool = initializeGlobalContextPool(browser, poolConfig, contextOptions);
+    
+    // Get a context from the pool
+    const context = await contextPool.getContext();
     const page = await context.newPage();
 
     // Create booking manager and execute booking
     const bookingManager = new BookingManager(page, config);
     const result = await bookingManager.executeBooking();
+
+    // Release context back to pool
+    await contextPool.releaseContext(context);
+
+    // Log pool metrics
+    const poolMetrics = contextPool.getMetrics();
+    logger.info('Context pool metrics', component, {
+      totalContexts: poolMetrics.totalContexts,
+      hitRate: `${(poolMetrics.hitRate * 100).toFixed(1)}%`,
+      averageAge: `${(poolMetrics.averageAge / 1000).toFixed(1)}s`,
+    });
 
     // Log results
     if (result.success) {
@@ -94,6 +144,16 @@ async function main(): Promise<void> {
     });
     process.exit(1);
   } finally {
+    // Cleanup context pool before closing browser
+    try {
+      await cleanupGlobalContextPool();
+      logger.info('Context pool cleaned up', component);
+    } catch (error) {
+      logger.warn('Failed to cleanup context pool', component, {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+    
     await browser.close();
     logger.info('Browser closed, automation complete', component);
   }
