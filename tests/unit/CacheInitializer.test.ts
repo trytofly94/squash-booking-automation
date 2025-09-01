@@ -82,12 +82,14 @@ describe('CacheInitializer', () => {
     });
 
     it('should set up debug logging when debug mode is enabled', () => {
-      mockConfigManager.getSelectorCacheConfig.mockReturnValue({
+      const debugConfig = {
         enabled: true,
         maxSize: 100,
         ttlMs: 600000,
         debugMode: true
-      });
+      };
+      
+      mockConfigManager.getSelectorCacheConfig.mockReturnValue(debugConfig);
 
       const mockCache = {
         logCacheStatus: jest.fn(),
@@ -105,16 +107,14 @@ describe('CacheInitializer', () => {
         }))
       };
 
+      // Use the mocked function directly
       jest.mocked(getGlobalSelectorCache).mockReturnValue(mockCache as any);
 
       initializeGlobalSelectorCache();
 
-      expect(getGlobalSelectorCache).toHaveBeenCalledWith({
-        enabled: true,
-        maxSize: 100,
-        ttlMs: 600000,
-        debugMode: true
-      });
+      // Check that getGlobalSelectorCache was called with the config
+      expect(jest.mocked(getGlobalSelectorCache)).toHaveBeenCalledTimes(1);
+      expect(jest.mocked(getGlobalSelectorCache)).toHaveBeenCalledWith(debugConfig);
     });
   });
 
