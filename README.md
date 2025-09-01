@@ -114,8 +114,16 @@ npm run test:coverage
 # Run Playwright end-to-end tests
 npm run test:playwright
 
+# Performance-Optimized Playwright Testing (Issue #34)
+npm run test:playwright:dev    # Fast development (Chrome only - 83% faster)
+npm run test:playwright:cross  # Cross-browser validation (Chrome/Firefox/Safari)  
+npm run test:playwright:full   # Full browser matrix (all 6 browsers)
+
 # Advanced Playwright Testing
 npm run test:e2e          # Run E2E tests specifically
+npm run test:e2e:dev      # Fast E2E testing (Chrome only)
+npm run test:e2e:cross    # Cross-browser E2E testing
+npm run test:e2e:full     # Full E2E browser matrix
 npm run test:debug        # Debug tests with step-by-step execution
 npm run test:ui           # Run tests with Playwright UI mode
 npm run test:headed       # Run tests in headed browser mode
@@ -241,6 +249,12 @@ LOG_LEVEL=info
 # Authentication (optional)
 USER_EMAIL=
 USER_PASSWORD=
+
+# Test Configuration Optimization (Issue #34)
+# Project selection for Playwright tests
+# Options: dev (Chrome only), cross (Chrome/Firefox/Safari), full (all browsers), ci (full for CI)
+# Custom: comma-separated browser names (e.g., "Google Chrome,firefox")
+PLAYWRIGHT_PROJECTS=dev
 
 # Advanced Settings
 NAVIGATION_TIMEOUT=30000
