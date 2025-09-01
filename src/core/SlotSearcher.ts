@@ -6,6 +6,13 @@ import { DateTimeCalculator } from './DateTimeCalculator';
 import { logger } from '../utils/logger';
 import { parseISO, isValid } from 'date-fns';
 
+// Configuration constants for matrix validation
+const MATRIX_VALIDATION_CONFIG = {
+  MINIMUM_CELL_COVERAGE_PERCENTAGE: 0.5, // 50% minimum coverage
+  MINIMUM_TIME_SLOTS: 1,
+  MINIMUM_COURTS: 1
+} as const;
+
 /**
  * Enhanced slot searcher with date-fns integration and improved court discovery
  * Searches for available booking slots across multiple courts with intelligent filtering
@@ -180,7 +187,7 @@ export class SlotSearcher {
 
     // Quality threshold check
     const expectedMinimumCells = metrics.courtsWithData * this.targetTimes.length;
-    if (metrics.totalCells < expectedMinimumCells * 0.5) { // At least 50% coverage
+    if (metrics.totalCells < expectedMinimumCells * MATRIX_VALIDATION_CONFIG.MINIMUM_CELL_COVERAGE_PERCENTAGE) {
       logger.warn('Matrix validation failed: insufficient cell coverage', component, {
         totalCells: metrics.totalCells,
         expectedMinimum: expectedMinimumCells,

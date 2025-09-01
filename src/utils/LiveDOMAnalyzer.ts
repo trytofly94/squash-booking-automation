@@ -68,7 +68,10 @@ export class LiveDOMAnalyzer {
       url = 'https://www.eversports.de/sb/sportcenter-kautz?sport=squash',
       headless = false,
       screenshotDir = './live-analysis-screenshots',
-      credentials = { email: 'contact@lennart.de', password: 'Columbus94!' }
+      credentials = { 
+        email: process.env['ANALYSIS_EMAIL'] || '', 
+        password: process.env['ANALYSIS_PASSWORD'] || '' 
+      }
     } = options;
 
     logger.info('[LiveDOMAnalyzer] Starting live website analysis', { url, headless });
