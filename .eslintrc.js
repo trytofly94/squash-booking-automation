@@ -9,6 +9,7 @@ module.exports = {
   extends: [
     'eslint:recommended'
   ],
+  plugins: ['@typescript-eslint'],
   parser: '@typescript-eslint/parser',
   parserOptions: {
     ecmaVersion: 2022,
@@ -20,7 +21,8 @@ module.exports = {
     'no-debugger': 'error',
     'no-var': 'error',
     'prefer-const': 'error',
-    'no-unused-vars': ['error', { 
+    'no-unused-vars': 'off', // Disable base rule as it conflicts with TypeScript version
+    '@typescript-eslint/no-unused-vars': ['error', { 
       argsIgnorePattern: '^_', 
       varsIgnorePattern: '^_',
       ignoreRestSiblings: true 
@@ -36,7 +38,8 @@ module.exports = {
       },
       rules: {
         'no-console': 'off',
-        'no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }]
+        'no-unused-vars': 'off',
+        '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }]
       }
     }
   ],
