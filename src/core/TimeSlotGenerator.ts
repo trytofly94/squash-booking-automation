@@ -1,20 +1,36 @@
 import { logger } from '../utils/logger';
 import { DateTimeCalculator } from './DateTimeCalculator';
+import { TimeSlotCache, type TimeSlotCacheConfig } from '../utils/TimeSlotCache';
 import type { TimeSlot, TimePreference, FallbackStrategy } from '../types/booking.types';
 
 /**
  * Time slot generator with flexible alternative generation and priority ranking
  * Supports multiple fallback strategies for optimized booking success
+ * Includes integrated caching for performance optimization
  */
 export class TimeSlotGenerator {
   private readonly fallbackStrategies: Map<string, FallbackStrategy>;
+  private readonly timeSlotCache: TimeSlotCache;
 
-  constructor() {
+  constructor(cacheConfig?: TimeSlotCacheConfig) {
     this.fallbackStrategies = new Map();
     this.initializeFallbackStrategies();
     
-    logger.info('TimeSlotGenerator initialized with fallback strategies', 'TimeSlotGenerator', {
-      strategies: Array.from(this.fallbackStrategies.keys())
+    // Initialize cache with default config if none provided
+    const defaultCacheConfig: TimeSlotCacheConfig = {
+      enabled: process.env['TIME_SLOT_CACHE_ENABLED'] !== 'false',
+      maxSize: parseInt(process.env['TIME_SLOT_CACHE_MAX_SIZE'] || '100', 10),
+      ttlMs: parseInt(process.env['TIME_SLOT_CACHE_TTL_MS'] || '3600000', 10), // 1 hour default
+      debugMode: process.env['TIME_SLOT_CACHE_DEBUG'] === 'true',
+      enableCacheWarming: process.env['TIME_SLOT_CACHE_WARMING'] !== 'false'
+    };
+
+    this.timeSlotCache = new TimeSlotCache(cacheConfig || defaultCacheConfig);
+    
+    logger.info('TimeSlotGenerator initialized with fallback strategies and caching', 'TimeSlotGenerator', {
+      strategies: Array.from(this.fallbackStrategies.keys()),
+      cacheEnabled: this.timeSlotCache.isEnabled(),
+      cacheConfig: this.timeSlotCache.getConfig()
     });
   }
 
@@ -27,6 +43,26 @@ export class TimeSlotGenerator {
    * @returns Array of time slots sorted by priority (highest first)
    */
   generatePrioritizedTimeSlots(
+    preferredTime: string,
+    preferences: TimePreference[] = [],
+    fallbackRange: number = 120,
+    slotInterval: number = 30
+  ): TimeSlot[] {
+    // Use cache-integrated generation for performance optimization
+    return this.timeSlotCache.generateWithCache(
+      preferredTime,
+      preferences,
+      fallbackRange,
+      slotInterval,
+      () => this.computePrioritizedTimeSlots(preferredTime, preferences, fallbackRange, slotInterval)
+    );
+  }
+
+  /**
+   * Internal method to compute prioritized time slots without caching
+   * This method contains the original computation logic
+   */
+  private computePrioritizedTimeSlots(
     preferredTime: string,
     preferences: TimePreference[] = [],
     fallbackRange: number = 120,
@@ -65,7 +101,7 @@ export class TimeSlotGenerator {
     // Remove duplicates
     const uniqueSlots = this.removeDuplicateSlots(sortedSlots);
 
-    logger.debug('Generated prioritized time slots', 'TimeSlotGenerator', {
+    logger.debug('Computed prioritized time slots', 'TimeSlotGenerator', {
       preferredTime,
       fallbackRange,
       slotInterval,
@@ -173,6 +209,47 @@ export class TimeSlotGenerator {
    */
   getAvailableStrategies(): string[] {
     return Array.from(this.fallbackStrategies.keys());
+  }
+
+  /**
+   * Warm the time slot cache with common configurations
+   * @returns Promise that resolves when cache warming is complete
+   */
+  async warmCache(): Promise<void> {
+    await this.timeSlotCache.warmCache(
+      (targetStartTime, preferences, fallbackTimeRange, slotInterval) =>
+        this.computePrioritizedTimeSlots(targetStartTime, preferences, fallbackTimeRange, slotInterval)
+    );
+  }
+
+  /**
+   * Get cache performance metrics
+   * @returns Cache metrics object
+   */
+  getCacheMetrics() {
+    return this.timeSlotCache.getMetrics();
+  }
+
+  /**
+   * Log current cache status
+   */
+  logCacheStatus(): void {
+    this.timeSlotCache.logCacheStatus();
+  }
+
+  /**
+   * Clear the time slot cache
+   */
+  clearCache(): void {
+    this.timeSlotCache.clear();
+  }
+
+  /**
+   * Check if caching is enabled
+   * @returns Whether caching is enabled
+   */
+  isCacheEnabled(): boolean {
+    return this.timeSlotCache.isEnabled();
   }
 
   /**
