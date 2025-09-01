@@ -1,8 +1,17 @@
 import type { Page } from '@playwright/test';
-import { BookingSlot, BookingPair, CourtSearchResult } from '../types/booking.types';
+import { BookingSlot, BookingPair, CourtSearchResult, CalendarMatrix } from '../types/booking.types';
+import { MatrixSlotSearcher } from './MatrixSlotSearcher';
+import { BookingCalendarPage } from '../pages/BookingCalendarPage';
 import { DateTimeCalculator } from './DateTimeCalculator';
 import { logger } from '../utils/logger';
 import { parseISO, isValid } from 'date-fns';
+
+// Configuration constants for matrix validation
+const MATRIX_VALIDATION_CONFIG = {
+  MINIMUM_CELL_COVERAGE_PERCENTAGE: 0.5, // 50% minimum coverage
+  MINIMUM_TIME_SLOTS: 1,
+  MINIMUM_COURTS: 1
+} as const;
 
 /**
  * Enhanced slot searcher with date-fns integration and improved court discovery
@@ -12,11 +21,15 @@ export class SlotSearcher {
   private page: Page;
   private targetDate: string;
   private targetTimes: string[];
+  private matrixSearcher: MatrixSlotSearcher;
+  private calendarPage: BookingCalendarPage;
 
   constructor(page: Page, targetDate: string, targetTimes: string[]) {
     this.page = page;
     this.targetDate = targetDate;
     this.targetTimes = targetTimes;
+    this.matrixSearcher = new MatrixSlotSearcher(page, targetDate, targetTimes);
+    this.calendarPage = new BookingCalendarPage(page);
     
     // Validate inputs with date-fns
     this.validateInputs();
@@ -48,14 +61,79 @@ export class SlotSearcher {
 
   /**
    * Search for available courts and their slots
+   * Issue #20: Matrix-based approach with legacy fallback
    */
   async searchAvailableSlots(): Promise<CourtSearchResult> {
-    const component = 'SlotSearcher';
+    const component = 'SlotSearcher.searchAvailableSlots';
 
-    logger.info('Starting slot search', component, {
+    logger.info('Starting slot search with matrix optimization', component, {
       targetDate: this.targetDate,
       targetTimes: this.targetTimes,
     });
+
+    try {
+      // OPTIMIZATION: Try matrix-based approach first (Issue #20)
+      logger.debug('Attempting matrix-based search', component);
+      const matrixResult = await this.searchWithMatrix();
+      
+      if (this.validateMatrixResult(matrixResult)) {
+        logger.info('Matrix-based search successful', component, {
+          availableCourts: matrixResult.availableCourts.length,
+          totalSlots: matrixResult.totalSlots,
+          availablePairs: matrixResult.availablePairs.length,
+          approach: 'matrix-optimized'
+        });
+        return matrixResult;
+      } else {
+        logger.warn('Matrix result validation failed, falling back to legacy approach', component);
+      }
+    } catch (error) {
+      logger.warn('Matrix-based search failed, falling back to legacy approach', component, { 
+        error: error instanceof Error ? error.message : String(error) 
+      });
+    }
+
+    // FALLBACK: Use legacy iterative approach
+    logger.debug('Using legacy iterative search approach', component);
+    return this.searchWithLegacyApproach();
+  }
+
+  /**
+   * Matrix-based search implementation (Issue #20)
+   */
+  private async searchWithMatrix(): Promise<CourtSearchResult> {
+    const component = 'SlotSearcher.searchWithMatrix';
+    
+    try {
+      // Extract calendar matrix in single pass
+      const matrix = await this.calendarPage.extractCalendarMatrix();
+      
+      // Validate matrix completeness
+      if (!this.validateMatrixCompleteness(matrix)) {
+        throw new Error('Matrix extraction incomplete or invalid');
+      }
+      
+      // Use matrix searcher for optimized slot finding
+      const result = await this.matrixSearcher.searchAvailableSlots();
+      
+      // Log performance metrics
+      const metrics = await this.matrixSearcher.getOptimizationMetrics(matrix);
+      logger.info('Matrix search performance', component, metrics);
+      
+      return result;
+    } catch (error) {
+      logger.error('Matrix search failed', component, { error });
+      throw error;
+    }
+  }
+
+  /**
+   * Legacy iterative search approach (fallback)
+   */
+  private async searchWithLegacyApproach(): Promise<CourtSearchResult> {
+    const component = 'SlotSearcher.searchWithLegacyApproach';
+    
+    logger.info('Using legacy iterative approach', component);
 
     const availableCourts = await this.findAvailableCourts();
     const allSlots: BookingSlot[] = [];
@@ -73,13 +151,91 @@ export class SlotSearcher {
       availablePairs,
     };
 
-    logger.info('Slot search completed', component, {
+    logger.info('Legacy slot search completed', component, {
       availableCourts: availableCourts.length,
       totalSlots: allSlots.length,
       availablePairs: availablePairs.length,
+      approach: 'legacy-iterative'
     });
 
     return result;
+  }
+
+  /**
+   * Validate matrix extraction completeness
+   */
+  private validateMatrixCompleteness(matrix: CalendarMatrix): boolean {
+    const component = 'SlotSearcher.validateMatrixCompleteness';
+    
+    const { metrics } = matrix;
+    
+    // Basic completeness checks
+    if (metrics.totalCells === 0) {
+      logger.warn('Matrix validation failed: no cells', component);
+      return false;
+    }
+    
+    if (metrics.courtsWithData === 0) {
+      logger.warn('Matrix validation failed: no courts', component);
+      return false;
+    }
+    
+    if (metrics.timeSlotsWithData === 0) {
+      logger.warn('Matrix validation failed: no time slots', component);
+      return false;
+    }
+
+    // Quality threshold check
+    const expectedMinimumCells = metrics.courtsWithData * this.targetTimes.length;
+    if (metrics.totalCells < expectedMinimumCells * MATRIX_VALIDATION_CONFIG.MINIMUM_CELL_COVERAGE_PERCENTAGE) {
+      logger.warn('Matrix validation failed: insufficient cell coverage', component, {
+        totalCells: metrics.totalCells,
+        expectedMinimum: expectedMinimumCells,
+        coverage: metrics.totalCells / expectedMinimumCells
+      });
+      return false;
+    }
+
+    logger.debug('Matrix validation passed', component, {
+      totalCells: metrics.totalCells,
+      courts: metrics.courtsWithData,
+      timeSlots: metrics.timeSlotsWithData,
+      warnings: metrics.warnings.length
+    });
+
+    return true;
+  }
+
+  /**
+   * Validate matrix search result quality
+   */
+  private validateMatrixResult(result: CourtSearchResult): boolean {
+    const component = 'SlotSearcher.validateMatrixResult';
+    
+    // Basic sanity checks
+    if (result.availableCourts.length === 0 && result.totalSlots === 0 && result.availablePairs.length === 0) {
+      logger.warn('Matrix result appears empty - may indicate extraction failure', component);
+      return false;
+    }
+
+    // Check for data consistency
+    if (result.totalSlots > 0 && result.availableCourts.length === 0) {
+      logger.warn('Matrix result inconsistent: slots found but no courts', component);
+      return false;
+    }
+
+    if (result.availablePairs.length > result.totalSlots / 2) {
+      logger.warn('Matrix result suspicious: more pairs than possible slots', component);
+      return false;
+    }
+
+    logger.debug('Matrix result validation passed', component, {
+      courts: result.availableCourts.length,
+      slots: result.totalSlots,
+      pairs: result.availablePairs.length
+    });
+
+    return true;
   }
 
   /**

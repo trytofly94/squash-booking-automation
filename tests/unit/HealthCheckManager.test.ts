@@ -51,7 +51,11 @@ jest.mock('@/utils/logger', () => ({
     info: jest.fn(),
     warn: jest.fn(),
     error: jest.fn(),
-    debug: jest.fn()
+    debug: jest.fn(),
+    getStats: jest.fn(),
+    logStructuredError: jest.fn(),
+    startTiming: jest.fn().mockReturnValue('mock-timer-id'),
+    endTiming: jest.fn()
   }
 }));
 
@@ -109,13 +113,35 @@ describe('HealthCheckManager', () => {
 
     // Mock logger methods
     (logger.getStats as jest.Mock).mockReturnValue({
+      performanceMetrics: {
+        totalMetrics: 10,
+        averageDuration: 150,
+        slowestOperation: null,
+        fastestOperation: null,
+        metricsAboveWarningThreshold: 1,
+        metricsAboveErrorThreshold: 0
+      },
       bookingMetrics: {
         totalSteps: 20,
-        successfulSteps: 18,
-        failedSteps: 2,
-        successRate: 90,
+        successfulSteps: 19,
+        failedSteps: 1,
+        successRate: 95,
         averageDuration: 200
-      }
+      },
+      systemInfo: {
+        memoryUsage: {
+          rss: 100000000,
+          heapTotal: 50000000,
+          heapUsed: 30000000,
+          external: 5000000,
+          arrayBuffers: 1000000
+        },
+        uptime: 3600,
+        nodeVersion: 'v18.0.0',
+        platform: 'linux'
+      },
+      correlationEnabled: true,
+      performanceEnabled: true
     });
 
     manager = new HealthCheckManager();
@@ -161,7 +187,7 @@ describe('HealthCheckManager', () => {
       
       expect(result.name).toBe('system_resources');
       expect(result.status).toBe(HealthStatus.HEALTHY);
-      expect(result.duration).toBeGreaterThan(0);
+      expect(result.duration).toBeGreaterThanOrEqual(0);  // Allow 0 for very fast operations
       expect(result.details).toBeDefined();
       expect(result.details?.['memoryUsage']).toBeDefined();
       expect(result.details?.['uptime']).toBe(3600);
@@ -212,7 +238,7 @@ describe('HealthCheckManager', () => {
       expect(result.name).toBe('website_availability');
       expect(result.status).toBe(HealthStatus.HEALTHY);
       expect(result.details?.['statusCode']).toBe(200);
-      expect(result.duration).toBeGreaterThan(0);
+      expect(result.duration).toBeGreaterThanOrEqual(0);
     });
 
     it('should detect degraded website availability', async () => {
@@ -257,19 +283,41 @@ describe('HealthCheckManager', () => {
       expect(result.name).toBe('application_health');
       expect(result.status).toBe(HealthStatus.HEALTHY);
       expect(result.details?.['totalBookingSteps']).toBe(20);
-      expect(result.details?.['successRate']).toBe(90);
+      expect(result.details?.['successRate']).toBe(95);
     });
 
     it('should detect degraded application health', async () => {
       // Mock high failure rate
       (logger.getStats as jest.Mock).mockReturnValue({
+        performanceMetrics: {
+          totalMetrics: 10,
+          averageDuration: 150,
+          slowestOperation: null,
+          fastestOperation: null,
+          metricsAboveWarningThreshold: 1,
+          metricsAboveErrorThreshold: 0
+        },
         bookingMetrics: {
           totalSteps: 20,
           successfulSteps: 8,
           failedSteps: 12,
           successRate: 40,
           averageDuration: 200
-        }
+        },
+        systemInfo: {
+          memoryUsage: {
+            rss: 100000000,
+            heapTotal: 50000000,
+            heapUsed: 30000000,
+            external: 5000000,
+            arrayBuffers: 1000000
+          },
+          uptime: 3600,
+          nodeVersion: 'v18.0.0',
+          platform: 'linux'
+        },
+        correlationEnabled: true,
+        performanceEnabled: true
       });
 
       const result = await manager['checkApplicationHealth']();
@@ -394,6 +442,9 @@ describe('HealthCheckManager', () => {
     });
 
     it('should start health checks when enabled', () => {
+      // Stop any running health checks first
+      manager.stopPeriodicHealthChecks();
+      
       const startSpy = jest.spyOn(manager, 'startPeriodicHealthChecks');
       
       manager.updateConfig({ enabled: true });
@@ -461,18 +512,28 @@ describe('HealthCheckManager', () => {
   });
 
   describe('Periodic Health Checks', () => {
+    let setIntervalSpy: jest.SpyInstance;
+    let clearIntervalSpy: jest.SpyInstance;
+
     beforeEach(() => {
       jest.useFakeTimers();
+      setIntervalSpy = jest.spyOn(global, 'setInterval');
+      clearIntervalSpy = jest.spyOn(global, 'clearInterval');
     });
 
     afterEach(() => {
       jest.useRealTimers();
+      setIntervalSpy.mockRestore();
+      clearIntervalSpy.mockRestore();
     });
 
     it('should start periodic health checks', () => {
+      // Ensure clean state
+      manager.stopPeriodicHealthChecks();
+      
       manager.startPeriodicHealthChecks();
       
-      expect(setInterval).toHaveBeenCalledWith(
+      expect(setIntervalSpy).toHaveBeenCalledWith(
         expect.any(Function),
         60000
       );
@@ -482,14 +543,17 @@ describe('HealthCheckManager', () => {
       manager.startPeriodicHealthChecks();
       manager.stopPeriodicHealthChecks();
       
-      expect(clearInterval).toHaveBeenCalled();
+      expect(clearIntervalSpy).toHaveBeenCalled();
     });
 
     it('should not start multiple intervals', () => {
+      // Ensure clean state
+      manager.stopPeriodicHealthChecks();
+      
       manager.startPeriodicHealthChecks();
       manager.startPeriodicHealthChecks();
       
-      expect(setInterval).toHaveBeenCalledTimes(1);
+      expect(setIntervalSpy).toHaveBeenCalledTimes(1);
     });
   });
 

@@ -268,13 +268,38 @@ export class ErrorClassifier {
       'econnrefused',
       'ehostunreach',
       'enetunreach',
-      'socket',
       'dns'
+    ];
+    
+    // Socket-specific keywords that aren't timeouts
+    const socketKeywords = [
+      'socket hang up',
+      'socket disconnected',
+      'socket closed'
     ];
 
     return networkKeywords.some(keyword => message.includes(keyword)) ||
-           error?.code?.startsWith('E') || // Node.js error codes
+           socketKeywords.some(keyword => message.includes(keyword)) ||
+           this.isSpecificNetworkCode(error?.code) || // Specific network error codes only
            error?.name === 'NetworkError';
+  }
+
+  /**
+   * Check if error code is specifically a network error (not timeout)
+   */
+  private isSpecificNetworkCode(code: string): boolean {
+    if (!code) return false;
+    
+    const networkCodes = [
+      'ENOTFOUND',
+      'ECONNRESET',
+      'ECONNREFUSED', 
+      'EHOSTUNREACH',
+      'ENETUNREACH',
+      'ECONNABORTED'
+    ];
+    
+    return networkCodes.includes(code.toUpperCase());
   }
 
   /**
@@ -304,6 +329,7 @@ export class ErrorClassifier {
       'unauthorized',
       'forbidden',
       'authentication',
+      'authenticated',
       'login',
       'credentials',
       'token'

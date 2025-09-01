@@ -54,14 +54,18 @@ export class RetryManager {
         correlationId
       });
       
-      const result = await operation();
-      return {
-        result,
-        attempts: 1,
-        duration: Date.now() - startTime,
-        lastError: undefined,
-        circuitBreakerTriggered: false
-      };
+      try {
+        const result = await operation();
+        return {
+          result,
+          attempts: 1,
+          duration: Date.now() - startTime,
+          lastError: undefined,
+          circuitBreakerTriggered: false
+        };
+      } catch (error) {
+        throw error;
+      }
     }
 
     logger.info('Starting retry operation', this.component, {

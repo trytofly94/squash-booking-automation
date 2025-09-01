@@ -6,15 +6,12 @@ import { RetryManager } from '../../../src/core/retry/RetryManager';
 import { CircuitBreaker } from '../../../src/core/retry/CircuitBreaker';
 import { RetryConfig, CircuitState } from '../../../src/types/retry.types';
 
-// Mock p-retry module
-jest.mock('p-retry', () => {
-  const originalPRetry = jest.requireActual('p-retry');
-  return {
-    ...originalPRetry,
-    default: jest.fn(),
-    AbortError: originalPRetry.AbortError
-  };
-});
+// Mock p-retry with the existing mock
+jest.mock('p-retry', () => require('../../mocks/p-retry.mock.ts'));
+
+// Import the mocked p-retry function
+import pRetry from 'p-retry';
+const mockPRetry = pRetry as jest.MockedFunction<typeof pRetry>;
 
 // Mock dependencies
 jest.mock('../../../src/core/retry/CircuitBreaker');
@@ -232,7 +229,10 @@ describe('RetryManager', () => {
   describe('Operation Wrapping', () => {
     test('should wrap operation for reuse', async () => {
       const operation = jest.fn().mockResolvedValue('success');
-      mockCircuitBreaker.execute.mockResolvedValue('success');
+      // Make circuit breaker actually call the operation
+      mockCircuitBreaker.execute.mockImplementation(async (fn: () => any) => {
+        return await fn();
+      });
       
       const wrappedOperation = retryManager.wrap(operation, 'wrapped-operation');
       
@@ -355,9 +355,9 @@ describe('RetryManager', () => {
         jest.fn().mockResolvedValue(`result${i}`)
       );
 
-      // Mock circuit breaker to resolve all operations
-      operations.forEach((_, i) => {
-        mockCircuitBreaker.execute.mockResolvedValueOnce(`result${i}`);
+      // Make circuit breaker actually call each operation
+      mockCircuitBreaker.execute.mockImplementation(async (fn: () => any) => {
+        return await fn();
       });
 
       const startTime = Date.now();
