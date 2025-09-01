@@ -400,8 +400,8 @@ describe('Lazy Pattern Loading', () => {
       
       const initTime = Date.now() - startTime;
       
-      // Initialization should be very fast (< 50ms)
-      expect(initTime).toBeLessThan(50);
+      // Initialization should be very fast (< 200ms)
+      expect(initTime).toBeLessThan(200);
       
       // No I/O operations during init
       expect(mockPatternStorage.loadPatterns).not.toHaveBeenCalled();

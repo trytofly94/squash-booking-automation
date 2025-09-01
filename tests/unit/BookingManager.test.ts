@@ -49,7 +49,17 @@ jest.mock('../../src/core/TimeSlotGenerator', () => ({
   TimeSlotGenerator: jest.fn().mockImplementation(() => ({
     generatePrioritizedTimeSlots: jest.fn().mockReturnValue([
       { startTime: '14:00', endTime: '15:00', priority: 10 }
-    ])
+    ]),
+    isCacheEnabled: jest.fn().mockReturnValue(true),
+    clearCache: jest.fn(),
+    getCacheMetrics: jest.fn().mockReturnValue({
+      enabled: true,
+      size: 0,
+      hitRate: 0,
+      totalQueries: 0,
+      cacheHits: 0,
+      cacheMisses: 0
+    })
   }))
 }));
 
