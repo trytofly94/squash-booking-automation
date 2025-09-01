@@ -21,6 +21,7 @@ import { ErrorCategory } from '../types/monitoring.types';
 import { getGlobalRetryManager, RetryManager } from './retry';
 import { getDay } from 'date-fns';
 import { CheckoutPage } from '@/pages/CheckoutPage';
+import { BasePage } from '@/pages/BasePage';
 
 /**
  * Enhanced main orchestrator for squash court booking automation
@@ -689,6 +690,9 @@ export class BookingManager {
       // Wait for page to load
       await this.page.waitForLoadState('networkidle');
 
+      // Handle cookie consent banner immediately after page load
+      await this.handleCookieConsentForBooking();
+
       // Look for date selector and navigate to target date
       await this.navigateToTargetDate(targetDate);
     } catch (error) {
@@ -751,6 +755,34 @@ export class BookingManager {
     logger.info('Using alternative date navigation', 'BookingManager.navigateToDateAlternative', {
       targetDate,
     });
+  }
+
+  /**
+   * Handle cookie consent banner for booking flow
+   * Non-blocking implementation that continues booking even if cookie handling fails
+   */
+  private async handleCookieConsentForBooking(): Promise<void> {
+    const component = 'BookingManager.handleCookieConsentForBooking';
+    
+    try {
+      logger.debug('Attempting to handle cookie consent for booking flow', component);
+      
+      // Create a temporary BasePage instance to use existing cookie handling functionality
+      const basePage = new (class extends BasePage {
+        constructor(page: Page) {
+          super(page);
+        }
+      })(this.page);
+      
+      await basePage.handleCookieConsent();
+      
+      logger.info('Cookie consent handled successfully in booking flow', component);
+    } catch (error) {
+      // Non-blocking: Don't fail booking process if cookie handling fails
+      logger.warn('Cookie consent handling failed, continuing with booking', component, {
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
   }
 
   /**
