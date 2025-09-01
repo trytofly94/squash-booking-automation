@@ -1,6 +1,10 @@
 import type { Page } from '@playwright/test';
 import { BasePage } from './BasePage';
 import { logger } from '../utils/logger';
+import { BookingSuccessResult } from '@/types/booking.types';
+import { BookingResponseListener } from '@/utils/BookingResponseListener';
+import { SuccessDetectionConfigManager } from '@/utils/SuccessDetectionConfigManager';
+import { SuccessDetectionAnalytics } from '@/utils/SuccessDetectionAnalytics';
 
 /**
  * Page Object for the checkout and booking confirmation process
@@ -337,48 +341,79 @@ export class CheckoutPage extends BasePage {
   }
 
   /**
-   * Complete the booking (final confirmation)
+   * Complete the booking (final confirmation) with enhanced success detection
    */
-  async confirmBooking(): Promise<boolean> {
+  async confirmBooking(): Promise<BookingSuccessResult> {
     const component = 'CheckoutPage.confirmBooking';
 
-    logger.info('Confirming booking', component);
+    logger.info('Confirming booking with enhanced success detection', component);
+
+    const config = SuccessDetectionConfigManager.getLiveConfig();
+    SuccessDetectionConfigManager.validateConfig(config);
 
     try {
-      // Click confirm booking button
-      await this.safeClick(this.selectors.confirmBookingButton);
-
-      // Wait for payment processing
-      if (await this.elementExists(this.selectors.processingPayment, 3000)) {
-        await this.page
-          .locator(this.selectors.processingPayment)
-          .waitFor({ state: 'hidden', timeout: 30000 });
+      // Setup network monitoring before clicking if enabled
+      const responseListener = new BookingResponseListener();
+      if (config.enableNetworkMonitoring) {
+        await responseListener.setupNetworkMonitoring(this.page);
       }
 
-      // Check for booking confirmation
-      const confirmationExists = await this.elementExists(
-        this.selectors.bookingConfirmation,
-        15000
-      );
+      // Perform the booking action
+      await this.clickBookingButton();
 
-      if (confirmationExists) {
-        logger.info('Booking confirmed successfully', component);
-        return true;
-      } else {
-        // Check for error messages
-        if (await this.elementExists(this.selectors.errorMessage)) {
-          const errorText = await this.getText(this.selectors.errorMessage);
-          throw new Error(`Booking confirmation failed: ${errorText}`);
+      // Try detection strategies in order of reliability
+      const strategies = [
+        () => this.detectByNetworkResponse(responseListener, config.networkTimeout),
+        () => this.detectByDomAttribute(config.domTimeout),
+        () => this.detectByUrlPattern(config.urlCheckInterval),
+        () => config.enableTextFallback ? this.detectByTextFallback() : null
+      ];
+
+      for (const strategy of strategies) {
+        const result = await strategy();
+        if (result && result.success) {
+          logger.info('Booking success detected', component, { 
+            method: result.method, 
+            confirmationId: result.confirmationId 
+          });
+          
+          // Track successful detection for analytics
+          SuccessDetectionAnalytics.trackDetectionMethod(result);
+          
+          return result;
+        } else if (result) {
+          // Track failed detection attempts
+          SuccessDetectionAnalytics.trackDetectionMethod(result);
         }
-
-        throw new Error('Booking confirmation not received');
       }
+
+      // All strategies failed
+      logger.error('All success detection strategies failed', component);
+      return { 
+        success: false, 
+        method: 'none', 
+        timestamp: new Date() 
+      };
+
     } catch (error) {
-      logger.error('Error confirming booking', component, {
+      logger.error('Error during booking confirmation', component, {
         error: error instanceof Error ? error.message : String(error),
       });
-      return false;
+      return { 
+        success: false, 
+        method: 'none', 
+        timestamp: new Date() 
+      };
     }
+  }
+
+  /**
+   * Legacy method for backward compatibility
+   * @deprecated Use confirmBooking() which returns BookingSuccessResult
+   */
+  async confirmBookingLegacy(): Promise<boolean> {
+    const result = await this.confirmBooking();
+    return result.success;
   }
 
   /**
@@ -423,7 +458,8 @@ export class CheckoutPage extends BasePage {
         logger.info('Dry run mode - skipping actual booking confirmation', component);
         return true;
       } else {
-        return await this.confirmBooking();
+        const result = await this.confirmBooking();
+        return result.success;
       }
     } catch (error) {
       logger.error('Checkout process failed', component, {
@@ -431,6 +467,273 @@ export class CheckoutPage extends BasePage {
       });
       return false;
     }
+  }
+
+  /**
+   * Perform the actual booking button click with processing wait
+   */
+  private async clickBookingButton(): Promise<void> {
+    const component = 'CheckoutPage.clickBookingButton';
+    
+    // Click confirm booking button
+    await this.safeClick(this.selectors.confirmBookingButton);
+
+    // Wait for payment processing
+    if (await this.elementExists(this.selectors.processingPayment, 3000)) {
+      logger.info('Payment processing detected, waiting for completion', component);
+      await this.page
+        .locator(this.selectors.processingPayment)
+        .waitFor({ state: 'hidden', timeout: 30000 });
+    }
+  }
+
+  /**
+   * Detect booking success via network response monitoring
+   */
+  private async detectByNetworkResponse(
+    listener: BookingResponseListener, 
+    timeout: number
+  ): Promise<BookingSuccessResult | null> {
+    const component = 'CheckoutPage.detectByNetworkResponse';
+    const startTime = new Date();
+    
+    try {
+      const response = await listener.waitForBookingResponse(timeout);
+      if (response?.success || response?.booking_id || response?.confirmation) {
+        const confirmationId = response.booking_id || 
+                              response.bookingId ||
+                              response.confirmation || 
+                              response.confirmationNumber ||
+                              'network-confirmed';
+
+        const result = {
+          success: true,
+          confirmationId: String(confirmationId),
+          method: 'network' as const,
+          timestamp: new Date(),
+          additionalData: { 
+            networkResponse: response 
+          }
+        };
+
+        // Track timing for successful network detection
+        SuccessDetectionAnalytics.trackDetectionTiming(
+          'network', 
+          startTime, 
+          result.timestamp, 
+          true
+        );
+
+        return result;
+      }
+    } catch (error) {
+      logger.warn('Network detection failed', component, { 
+        error: error instanceof Error ? error.message : String(error) 
+      });
+      
+      // Track timing for failed network detection
+      SuccessDetectionAnalytics.trackDetectionTiming(
+        'network', 
+        startTime, 
+        new Date(), 
+        false
+      );
+    }
+    return null;
+  }
+
+  /**
+   * Detect booking success via DOM attribute detection
+   */
+  private async detectByDomAttribute(timeout: number): Promise<BookingSuccessResult | null> {
+    const component = 'CheckoutPage.detectByDomAttribute';
+    
+    try {
+      // Look for specific elements that only appear on confirmation pages
+      const selectors = [
+        '[data-booking-id]',
+        '[data-confirmation-number]',
+        '[data-reservation-id]',
+        '.booking-reference',
+        '.confirmation-number',
+        '[data-testid="booking-confirmation"]'
+      ];
+      
+      for (const selector of selectors) {
+        try {
+          const element = await this.page.waitForSelector(selector, { 
+            timeout: timeout / selectors.length 
+          });
+          
+          if (element) {
+            const bookingId = await element.getAttribute('data-booking-id') ||
+                             await element.getAttribute('data-confirmation-number') ||
+                             await element.getAttribute('data-reservation-id') ||
+                             await element.textContent();
+            
+            return {
+              success: true,
+              confirmationId: bookingId?.trim() || 'dom-confirmed',
+              method: 'dom-attribute',
+              timestamp: new Date(),
+              additionalData: { 
+                domElement: selector 
+              }
+            };
+          }
+        } catch (e) {
+          // Continue to next selector
+        }
+      }
+    } catch (error) {
+      logger.warn('DOM attribute detection failed', component, { 
+        error: error instanceof Error ? error.message : String(error) 
+      });
+    }
+    return null;
+  }
+
+  /**
+   * Detect booking success via URL pattern detection
+   */
+  private async detectByUrlPattern(checkInterval: number): Promise<BookingSuccessResult | null> {
+    const component = 'CheckoutPage.detectByUrlPattern';
+    
+    try {
+      const maxChecks = Math.floor(10000 / checkInterval); // Check for 10 seconds total
+      
+      for (let i = 0; i < maxChecks; i++) {
+        const currentUrl = this.page.url();
+        
+        const successPatterns = [
+          '/booking-confirmed',
+          '/confirmation',
+          '/success',
+          '/booking-complete',
+          '/booking-success',
+          'booking_success',
+          'confirmed=true',
+          'status=success'
+        ];
+        
+        for (const pattern of successPatterns) {
+          if (currentUrl.toLowerCase().includes(pattern.toLowerCase())) {
+            // Extract confirmation ID from URL if present
+            const url = new URL(currentUrl);
+            const confirmationId = url.searchParams.get('booking_id') || 
+                                 url.searchParams.get('confirmation') ||
+                                 url.searchParams.get('id') ||
+                                 url.searchParams.get('reference') ||
+                                 'url-confirmed';
+            
+            return {
+              success: true,
+              confirmationId: confirmationId,
+              method: 'url-pattern',
+              timestamp: new Date(),
+              additionalData: { 
+                urlPattern: pattern 
+              }
+            };
+          }
+        }
+        
+        await this.page.waitForTimeout(checkInterval);
+      }
+    } catch (error) {
+      logger.warn('URL pattern detection failed', component, { 
+        error: error instanceof Error ? error.message : String(error) 
+      });
+    }
+    return null;
+  }
+
+  /**
+   * Detect booking success via enhanced text-based fallback (testing only)
+   */
+  private async detectByTextFallback(): Promise<BookingSuccessResult | null> {
+    const component = 'CheckoutPage.detectByTextFallback';
+    
+    try {
+      // Multiple selector strategies for text-based detection
+      const textSelectors = [
+        '.booking-confirmation',
+        '.success-message',
+        '.confirmation-details',
+        '[data-testid="confirmation"]',
+        '.reservation-confirmed',
+        '.booking-success',
+        '.order-confirmation'
+      ];
+      
+      for (const selector of textSelectors) {
+        try {
+          const element = await this.page.waitForSelector(selector, { timeout: 3000 });
+          if (element) {
+            const confirmationText = await element.textContent();
+            
+            if (confirmationText && this.containsSuccessKeywords(confirmationText)) {
+              // Enhanced regex patterns for confirmation number extraction
+              const confirmationPatterns = [
+                /confirmation\s*(?:number|#|id)?\s*:?\s*([A-Z0-9\-]+)/i,
+                /booking\s*(?:reference|id|number)\s*:?\s*([A-Z0-9\-]+)/i,
+                /reservation\s*(?:number|id)\s*:?\s*([A-Z0-9\-]+)/i,
+                /reference\s*:?\s*([A-Z0-9\-]+)/i,
+                /order\s*(?:number|id)\s*:?\s*([A-Z0-9\-]+)/i
+              ];
+              
+              for (const pattern of confirmationPatterns) {
+                const match = confirmationText.match(pattern);
+                if (match?.[1]) {
+                  return {
+                    success: true,
+                    confirmationId: match[1],
+                    method: 'text-fallback',
+                    timestamp: new Date(),
+                    additionalData: { 
+                      textMatch: confirmationText.substring(0, 200) 
+                    }
+                  };
+                }
+              }
+              
+              // Success keywords found but no ID extracted
+              return {
+                success: true,
+                confirmationId: 'text-confirmed',
+                method: 'text-fallback',
+                timestamp: new Date(),
+                additionalData: { 
+                  textMatch: confirmationText.substring(0, 200) 
+                }
+              };
+            }
+          }
+        } catch (e) {
+          // Continue to next selector
+        }
+      }
+    } catch (error) {
+      logger.warn('Text fallback detection failed', component, { 
+        error: error instanceof Error ? error.message : String(error) 
+      });
+    }
+    return null;
+  }
+
+  /**
+   * Check if text contains success keywords
+   */
+  private containsSuccessKeywords(text: string): boolean {
+    const successKeywords = [
+      'confirmed', 'successful', 'booked', 'reserved',
+      'confirmation', 'thank you', 'completed', 'success',
+      'bestätigt', 'erfolgreich', 'gebucht', 'reserviert',
+      'buchung erfolgreich', 'booking confirmed'
+    ];
+    
+    const lowerText = text.toLowerCase();
+    return successKeywords.some(keyword => lowerText.includes(keyword.toLowerCase()));
   }
 
   /**

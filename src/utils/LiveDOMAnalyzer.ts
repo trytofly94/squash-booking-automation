@@ -3,8 +3,8 @@
  * Extrahiert echte Website-Strukturen und validiert Selektoren
  */
 
-import { Page, Browser } from '@playwright/test';
-import { chromium } from 'playwright';
+import type { Page, Browser } from '@playwright/test';
+import { chromium } from '@playwright/test';
 import { writeFileSync } from 'fs';
 import { join } from 'path';
 import { logger } from '@/utils/logger';
@@ -71,22 +71,27 @@ export class LiveDOMAnalyzer {
       credentials = { email: 'contact@lennart.de', password: 'Columbus94!' }
     } = options;
 
-    logger.info('[LiveDOMAnalyzer] Starting live website analysis', { url, headless });
+    logger.info('Starting live website analysis', 'LiveDOMAnalyzer', { url, headless });
 
     try {
       // Browser und Page initialisieren
       this.browser = await chromium.launch({ 
-        headless,
+        headless: headless,
         slowMo: 1000 // Langsamere Ausführung für bessere Sichtbarkeit
       });
       
       this.page = await this.browser.newPage();
       
+      // Add null check for page
+      if (!this.page) {
+        throw new Error('Failed to create new page');
+      }
+      
       // Navigation zur Website
       await this.page.goto(url);
       await this.page.waitForLoadState('networkidle');
       
-      logger.info('[LiveDOMAnalyzer] Page loaded, starting analysis');
+      logger.info('Page loaded, starting analysis', 'LiveDOMAnalyzer');
 
       // Initial screenshot
       await this.takeScreenshot('01-initial-page', screenshotDir);
@@ -110,7 +115,7 @@ export class LiveDOMAnalyzer {
           await this.takeScreenshot('02-after-login-attempt', screenshotDir);
         }
       } catch (error) {
-        logger.warn('[LiveDOMAnalyzer] Login attempt failed', { error: error.message });
+        logger.warn('Login attempt failed', 'LiveDOMAnalyzer', { error: error instanceof Error ? error.message : String(error) });
       }
 
       // Analysiere Post-Login-Struktur
@@ -118,17 +123,17 @@ export class LiveDOMAnalyzer {
         await this.analyzePostLoginStructure(result);
         await this.takeScreenshot('03-post-login-analysis', screenshotDir);
       } catch (error) {
-        logger.warn('[LiveDOMAnalyzer] Post-login analysis failed', { error: error.message });
+        logger.warn('Post-login analysis failed', 'LiveDOMAnalyzer', { error: error instanceof Error ? error.message : String(error) });
       }
 
       // Speichere Analyse-Ergebnisse
       await this.saveAnalysisResults(result);
 
-      logger.info('[LiveDOMAnalyzer] Analysis completed successfully');
+      logger.info('Analysis completed successfully', 'LiveDOMAnalyzer');
       return result;
 
     } catch (error) {
-      logger.error('[LiveDOMAnalyzer] Analysis failed', { error: error.message });
+      logger.error('Analysis failed', 'LiveDOMAnalyzer', { error: error instanceof Error ? error.message : String(error) });
       throw error;
     } finally {
       await this.cleanup();
@@ -139,7 +144,7 @@ export class LiveDOMAnalyzer {
    * Analysiert die Kalender-Container-Struktur
    */
   private async analyzeCalendarStructure() {
-    logger.info('[LiveDOMAnalyzer] Analyzing calendar structure');
+    logger.info('Analyzing calendar structure', 'LiveDOMAnalyzer');
 
     const selectors = [
       '#booking-calendar-container',
@@ -160,7 +165,7 @@ export class LiveDOMAnalyzer {
           };
         }
       } catch (error) {
-        logger.debug(`[LiveDOMAnalyzer] Calendar selector failed: ${selector}`, { error: error.message });
+        logger.debug('Calendar selector failed', 'LiveDOMAnalyzer', { selector, error: error instanceof Error ? error.message : String(error) });
       }
     }
 
@@ -171,7 +176,7 @@ export class LiveDOMAnalyzer {
    * Analysiert Court-Elemente und deren Attribute
    */
   private async analyzeCourtElements() {
-    logger.info('[LiveDOMAnalyzer] Analyzing court elements');
+    logger.info('Analyzing court elements', 'LiveDOMAnalyzer');
 
     const courtSelectors = [
       '[data-court]',
@@ -198,11 +203,13 @@ export class LiveDOMAnalyzer {
 
           // Sammle Samples der ersten 3 Elemente
           for (let i = 0; i < Math.min(3, elements.length); i++) {
-            const html = await elements[i].innerHTML();
-            const attributes: Record<string, string> = {};
+            const element = elements[i];
+            if (!element) continue;
+            
+            const html = await element.innerHTML();
             
             // Extrahiere alle Attribute
-            const allAttributes = await elements[i].evaluate(el => {
+            const allAttributes = await element.evaluate(el => {
               const attrs: Record<string, string> = {};
               for (const attr of el.attributes) {
                 attrs[attr.name] = attr.value;
@@ -214,7 +221,7 @@ export class LiveDOMAnalyzer {
           }
         }
       } catch (error) {
-        logger.debug(`[LiveDOMAnalyzer] Court selector failed: ${selector}`, { error: error.message });
+        logger.debug('Court selector failed', 'LiveDOMAnalyzer', { selector, error: error instanceof Error ? error.message : String(error) });
       }
     }
 
@@ -271,7 +278,7 @@ export class LiveDOMAnalyzer {
         });
       }
     } catch (error) {
-      logger.debug('[LiveDOMAnalyzer] Time slot analysis failed', { error: error.message });
+      logger.debug('Time slot analysis failed', 'LiveDOMAnalyzer', { error: error instanceof Error ? error.message : String(error) });
     }
 
     return result;
@@ -344,7 +351,7 @@ export class LiveDOMAnalyzer {
    * Extrahiert funktionierende XPath-Patterns basierend auf ui.vision JSON
    */
   private async extractWorkingXPaths() {
-    logger.info('[LiveDOMAnalyzer] Extracting working XPath patterns');
+    logger.info('Extracting working XPath patterns', 'LiveDOMAnalyzer');
 
     // Proven XPath-Patterns aus ui.vision JSON
     const workingXPaths = {
@@ -374,10 +381,10 @@ export class LiveDOMAnalyzer {
           const elements = await this.page!.locator(`xpath=${xpath}`).all();
           if (elements.length > 0) {
             workingOnes.push(xpath);
-            logger.info(`[LiveDOMAnalyzer] Working XPath found in ${category}`, { xpath, count: elements.length });
+            logger.info('Working XPath found', 'LiveDOMAnalyzer', { category, xpath, count: elements.length });
           }
         } catch (error) {
-          logger.debug(`[LiveDOMAnalyzer] XPath failed in ${category}`, { xpath, error: error.message });
+          logger.debug('XPath failed', 'LiveDOMAnalyzer', { category, xpath, error: error instanceof Error ? error.message : String(error) });
         }
       }
 
@@ -391,21 +398,21 @@ export class LiveDOMAnalyzer {
    * Versucht Login mit den bereitgestellten Credentials
    */
   private async attemptLogin(credentials: { email: string; password: string }) {
-    logger.info('[LiveDOMAnalyzer] Attempting login');
+    logger.info('Attempting login', 'LiveDOMAnalyzer');
 
     try {
       // Email eingeben
       const emailField = this.page!.locator('#email').first();
       if (await emailField.isVisible()) {
         await emailField.fill(credentials.email);
-        logger.info('[LiveDOMAnalyzer] Email entered successfully');
+        logger.info('Email entered successfully', 'LiveDOMAnalyzer');
       }
 
       // Password eingeben
       const passwordField = this.page!.locator('#password').first();
       if (await passwordField.isVisible()) {
         await passwordField.fill(credentials.password);
-        logger.info('[LiveDOMAnalyzer] Password entered successfully');
+        logger.info('Password entered successfully', 'LiveDOMAnalyzer');
       }
 
       // Login-Button klicken
@@ -413,10 +420,10 @@ export class LiveDOMAnalyzer {
       if (await loginButton.isVisible()) {
         await loginButton.click();
         await this.page!.waitForLoadState('networkidle');
-        logger.info('[LiveDOMAnalyzer] Login submitted successfully');
+        logger.info('Login submitted successfully', 'LiveDOMAnalyzer');
       }
     } catch (error) {
-      logger.warn('[LiveDOMAnalyzer] Login attempt failed', { error: error.message });
+      logger.warn('Login attempt failed', 'LiveDOMAnalyzer', { error: error instanceof Error ? error.message : String(error) });
     }
   }
 
@@ -424,7 +431,7 @@ export class LiveDOMAnalyzer {
    * Analysiert die Struktur nach dem Login
    */
   private async analyzePostLoginStructure(result: DOMAnalysisResult) {
-    logger.info('[LiveDOMAnalyzer] Analyzing post-login structure');
+    logger.info('Analyzing post-login structure', 'LiveDOMAnalyzer');
 
     // Re-analysiere nach dem Login
     result.calendarStructure = await this.analyzeCalendarStructure();
@@ -442,9 +449,9 @@ export class LiveDOMAnalyzer {
       const path = join(dir, filename);
       
       await this.page!.screenshot({ path, fullPage: true });
-      logger.info('[LiveDOMAnalyzer] Screenshot captured', { path });
+      logger.info('Screenshot captured', 'LiveDOMAnalyzer', { path });
     } catch (error) {
-      logger.warn('[LiveDOMAnalyzer] Screenshot failed', { error: error.message });
+      logger.warn('Screenshot failed', 'LiveDOMAnalyzer', { error: error instanceof Error ? error.message : String(error) });
     }
   }
 
@@ -458,9 +465,9 @@ export class LiveDOMAnalyzer {
       const path = join('./live-analysis-results', filename);
       
       writeFileSync(path, JSON.stringify(result, null, 2));
-      logger.info('[LiveDOMAnalyzer] Analysis results saved', { path });
+      logger.info('Analysis results saved', 'LiveDOMAnalyzer', { path });
     } catch (error) {
-      logger.warn('[LiveDOMAnalyzer] Could not save analysis results', { error: error.message });
+      logger.warn('Could not save analysis results', 'LiveDOMAnalyzer', { error: error instanceof Error ? error.message : String(error) });
     }
   }
 
@@ -475,9 +482,9 @@ export class LiveDOMAnalyzer {
       if (this.browser) {
         await this.browser.close();
       }
-      logger.info('[LiveDOMAnalyzer] Cleanup completed');
+      logger.info('Cleanup completed', 'LiveDOMAnalyzer');
     } catch (error) {
-      logger.warn('[LiveDOMAnalyzer] Cleanup failed', { error: error.message });
+      logger.warn('Cleanup failed', 'LiveDOMAnalyzer', { error: error instanceof Error ? error.message : String(error) });
     }
   }
 }

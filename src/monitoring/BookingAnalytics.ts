@@ -116,6 +116,42 @@ class BookingAnalyticsManager {
   }
 
   /**
+   * Record a successful booking with enhanced detection details
+   */
+  recordSuccess({
+    confirmationId,
+    detectionMethod,
+    timestamp,
+    metadata
+  }: {
+    confirmationId: string;
+    detectionMethod: string;
+    timestamp: Date;
+    metadata?: any;
+  }): void {
+    if (!this.enabled) {
+      return;
+    }
+
+    const correlationId = correlationManager.getCurrentCorrelationId() || correlationManager.generateCorrelationId();
+    
+    logger.info('Booking success recorded with enhanced detection', 'BookingAnalytics', {
+      correlationId,
+      confirmationId,
+      detectionMethod,
+      timestamp,
+      metadata
+    });
+
+    // Also record as a successful booking attempt for overall metrics
+    this.recordBookingAttempt({
+      success: true,
+      responseTime: 0, // Not applicable for success recording
+      retryCount: 0
+    });
+  }
+
+  /**
    * Record a booking pattern
    */
   private recordBookingPattern({

@@ -173,3 +173,44 @@ export interface TimeSlot {
   /** Distance from preferred time in minutes */
   distanceFromPreferred: number;
 }
+
+// Enhanced Success Detection Types (Issue #30)
+
+export interface BookingSuccessResult {
+  /** Whether the booking was detected as successful */
+  success: boolean;
+  /** Extracted confirmation ID if available */
+  confirmationId?: string;
+  /** Method used to detect success */
+  method: 'network' | 'dom-attribute' | 'url-pattern' | 'text-fallback' | 'none';
+  /** Timestamp when detection was performed */
+  timestamp: Date;
+  /** Additional data specific to the detection method */
+  additionalData?: {
+    /** Network response data if network method was used */
+    networkResponse?: any;
+    /** DOM element selector if DOM method was used */
+    domElement?: string;
+    /** URL pattern matched if URL method was used */
+    urlPattern?: string;
+    /** Text content if text fallback was used */
+    textMatch?: string;
+  };
+}
+
+export interface SuccessDetectionConfig {
+  /** Timeout for network response monitoring in milliseconds (default: 10000) */
+  networkTimeout: number;
+  /** Timeout for DOM element detection in milliseconds (default: 5000) */
+  domTimeout: number;
+  /** Interval for URL pattern checking in milliseconds (default: 500) */
+  urlCheckInterval: number;
+  /** Enable network response monitoring (default: true) */
+  enableNetworkMonitoring: boolean;
+  /** Enable DOM attribute detection (default: true) */
+  enableDomDetection: boolean;
+  /** Enable URL pattern detection (default: true) */
+  enableUrlDetection: boolean;
+  /** Enable text-based fallback detection (default: false for live, true for testing) */
+  enableTextFallback: boolean;
+}

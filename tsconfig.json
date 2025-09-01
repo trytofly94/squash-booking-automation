@@ -30,7 +30,10 @@
       "@/pages/*": ["src/pages/*"],
       "@/types/*": ["src/types/*"],
       "@/utils/*": ["src/utils/*"]
-    }
+    },
+    // Incremental compilation settings
+    "incremental": true,
+    "tsBuildInfoFile": "./.tsbuildinfo"
   },
   "include": [
     "src/**/*"
@@ -38,6 +41,7 @@
   "exclude": [
     "node_modules",
     "dist",
-    "tests"
+    "tests",
+    "*.tsbuildinfo"
   ]
 }
