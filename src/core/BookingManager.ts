@@ -4,7 +4,8 @@ import {
   BookingPair,
   AdvancedBookingConfig,
   TimePreference,
-  BookingSuccessResult
+  BookingSuccessResult,
+  BookingPattern
 } from '../types/booking.types';
 import { DateTimeCalculator } from './DateTimeCalculator';
 import { SlotSearcher } from './SlotSearcher';
@@ -33,6 +34,8 @@ export class BookingManager {
   private patternStorage: PatternStorage;
   private timeSlotGenerator: TimeSlotGenerator;
   private patternLearningEnabled: boolean;
+  private patternsLoaded: boolean = false;
+  private patternLoadingPromise: Promise<void> | null = null;
   private retryManager: RetryManager;
   private checkoutPage: CheckoutPage;
 
@@ -95,9 +98,10 @@ export class BookingManager {
     // Initialize checkout page
     this.checkoutPage = new CheckoutPage(page);
 
-    // Initialize pattern learning if enabled
+    // Pattern learning will be lazy-loaded on first use
+    // No immediate loading during initialization for better performance
     if (this.patternLearningEnabled) {
-      this.initializePatternLearning();
+      logger.info('Pattern learning enabled (lazy loading)', 'BookingManager');
     }
 
     // Initialize time slot cache warming if enabled
@@ -116,20 +120,62 @@ export class BookingManager {
   }
 
   /**
-   * Initialize pattern learning system
+   * Ensure patterns are loaded (lazy loading)
+   * This method is idempotent and thread-safe
    */
-  private async initializePatternLearning(): Promise<void> {
+  private async ensurePatternsLoaded(): Promise<void> {
+    // If patterns are already loaded, return immediately
+    if (this.patternsLoaded) {
+      return;
+    }
+
+    // If loading is already in progress, wait for it
+    if (this.patternLoadingPromise) {
+      await this.patternLoadingPromise;
+      return;
+    }
+
+    // Start loading patterns
+    this.patternLoadingPromise = this.loadPatternsWithTimeout();
+    
     try {
-      const patterns = await this.patternStorage.loadPatterns();
+      await this.patternLoadingPromise;
+      this.patternsLoaded = true;
+    } finally {
+      this.patternLoadingPromise = null;
+    }
+  }
+
+  /**
+   * Load patterns with timeout and error handling
+   */
+  private async loadPatternsWithTimeout(): Promise<void> {
+    const timeoutMs = parseInt(process.env['PATTERN_LOAD_TIMEOUT_MS'] || '5000', 10);
+    
+    try {
+      const loadPromise = this.patternStorage.loadPatterns();
+      
+      // Race between loading and timeout
+      const patterns = await Promise.race([
+        loadPromise,
+        new Promise<BookingPattern[]>((_, reject) => 
+          setTimeout(() => reject(new Error('Pattern loading timeout')), timeoutMs)
+        )
+      ]);
+      
       this.courtScorer.loadPatterns(patterns);
       
-      logger.info('Pattern learning initialized', 'BookingManager', {
-        loadedPatterns: patterns.length
+      logger.info('Pattern learning initialized (lazy loaded)', 'BookingManager', {
+        loadedPatterns: patterns.length,
+        loadTimeMs: timeoutMs
       });
     } catch (error) {
-      logger.warn('Failed to initialize pattern learning', 'BookingManager', {
-        error: (error as Error).message
+      logger.warn('Failed to load patterns, continuing without pattern learning', 'BookingManager', {
+        error: (error as Error).message,
+        timeout: timeoutMs
       });
+      // Load empty patterns to prevent repeated attempts
+      this.courtScorer.loadPatterns([]);
     }
   }
 
@@ -511,6 +557,11 @@ export class BookingManager {
     const availableCourtIds = searchResult.availableCourts;
     const availablePairs = searchResult.availablePairs;
     
+    // Ensure patterns are loaded before scoring (lazy loading)
+    if (this.patternLearningEnabled && !this.patternsLoaded) {
+      await this.ensurePatternsLoaded();
+    }
+    
     // Score courts using the intelligent scoring system
     const courtScores = this.courtScorer.scoreCourts(
       availableCourtIds,
@@ -599,6 +650,11 @@ export class BookingManager {
     success: boolean
   ): Promise<void> {
     try {
+      // Ensure patterns are loaded before updating (lazy loading)
+      if (this.patternLearningEnabled && !this.patternsLoaded) {
+        await this.ensurePatternsLoaded();
+      }
+      
       this.courtScorer.updatePattern(courtId, timeSlot, dayOfWeek, success);
       
       // Periodically save patterns to storage

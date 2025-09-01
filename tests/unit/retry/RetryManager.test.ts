@@ -7,7 +7,7 @@ import { CircuitBreaker } from '../../../src/core/retry/CircuitBreaker';
 import { RetryConfig, CircuitState } from '../../../src/types/retry.types';
 
 // Mock p-retry with the existing mock
-jest.mock('p-retry', () => require('../../mocks/p-retry.mock.ts'));
+jest.mock('p-retry', () => require('../../mocks/p-retry.mock'));
 
 // Import the mocked p-retry function
 import pRetry from 'p-retry';
