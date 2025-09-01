@@ -390,35 +390,26 @@ export class SlotSearcher {
     const component = 'SlotSearcher.navigateToCourtView';
 
     try {
-      // Try different ways to select/navigate to court view
       const courtSelectors = [
         `[data-court-id="${courtId}"]`,
         `[data-testid*="${courtId}"]`,
         `#court-${courtId}`,
-        `.court-${courtId}`,
+        `.court-${courtId}`
       ];
 
-      for (const selector of courtSelectors) {
-        const courtElement = await this.page.$(selector);
-        if (courtElement) {
-          await courtElement.click();
-          await this.page.waitForTimeout(1000); // Wait for view to update
-          logger.debug(`Navigated to court view: ${courtId}`, component);
-          return;
-        }
-      }
-
-      logger.warn(`Could not navigate to court view: ${courtId}`, component);
+      // Use the calendar page's cached selector functionality
+      await this.calendarPage.safeClickCached(courtSelectors, 'court', courtId);
+      await this.page.waitForTimeout(1000); // Wait for view to update
+      logger.debug(`Navigated to court view via cache: ${courtId}`, component);
     } catch (error) {
-      logger.error('Error navigating to court view', component, {
-        courtId,
+      logger.warn(`Could not navigate to court view: ${courtId}`, component, {
         error: error instanceof Error ? error.message : String(error),
       });
     }
   }
 
   /**
-   * Find slot element for specific court and time
+   * Find slot element for specific court and time (Cache-optimized)
    */
   private async findSlotElement(courtId: string, time: string): Promise<any> {
     const timeSelectors = [
@@ -428,14 +419,27 @@ export class SlotSearcher {
       `[data-start-time="${time}"]`,
     ];
 
-    for (const selector of timeSelectors) {
-      const element = await this.page.$(selector);
-      if (element) {
-        return element;
+    try {
+      // Use calendar page cached approach
+      const element = await this.calendarPage.waitForElementCached(
+        timeSelectors, 
+        'timeSlot',
+        5000,
+        `${courtId}-${time}`
+      );
+      
+      // Convert Locator to element handle for compatibility
+      return await element.elementHandle();
+    } catch (error) {
+      // Fallback to original approach if cached approach fails
+      for (const selector of timeSelectors) {
+        const element = await this.page.$(selector);
+        if (element) {
+          return element;
+        }
       }
+      return null;
     }
-
-    return null;
   }
 
   /**
