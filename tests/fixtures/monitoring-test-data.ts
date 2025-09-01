@@ -384,7 +384,7 @@ export class MockDataGenerator {
     error?: string;
     errorCategory?: ErrorCategory;
   }> {
-    return Array.from({ length: count }, (_, i) => ({
+    return Array.from({ length: count }, (_, _i) => ({
       success: Math.random() > 0.2, // 80% success rate
       responseTime: Math.floor(Math.random() * 500) + 100,
       retryCount: Math.floor(Math.random() * 3),

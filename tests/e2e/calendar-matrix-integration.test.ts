@@ -10,7 +10,7 @@ import { MatrixIsolationChecker } from '../../src/core/MatrixIsolationChecker';
 import { BookingCalendarPage } from '../../src/pages/BookingCalendarPage';
 import { SlotSearcher } from '../../src/core/SlotSearcher';
 
-const TEST_URL = process.env.TEST_URL || 'https://www.eversports.de/sb/sportcenter-kautz?sport=squash';
+const _TEST_URL = process.env.TEST_URL || 'https://www.eversports.de/sb/sportcenter-kautz?sport=squash';
 
 test.describe('Calendar Matrix Integration Tests', () => {
   let page: Page;
@@ -239,7 +239,7 @@ test.describe('Calendar Matrix Integration Tests', () => {
         ['13:00', '13:30', '14:00', '14:30', '15:00', '15:30', '16:00', '16:30']
       ];
       
-      for (const [index, times] of queryPatterns.entries()) {
+      for (const [_index, times] of queryPatterns.entries()) {
         const searcher = new MatrixSlotSearcher(page, targetDate, times);
         
         const startTime = Date.now();

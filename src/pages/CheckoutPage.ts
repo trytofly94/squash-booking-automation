@@ -675,11 +675,11 @@ export class CheckoutPage extends BasePage {
             if (confirmationText && this.containsSuccessKeywords(confirmationText)) {
               // Enhanced regex patterns for confirmation number extraction
               const confirmationPatterns = [
-                /confirmation\s*(?:number|#|id)?\s*:?\s*([A-Z0-9\-]+)/i,
-                /booking\s*(?:reference|id|number)\s*:?\s*([A-Z0-9\-]+)/i,
-                /reservation\s*(?:number|id)\s*:?\s*([A-Z0-9\-]+)/i,
-                /reference\s*:?\s*([A-Z0-9\-]+)/i,
-                /order\s*(?:number|id)\s*:?\s*([A-Z0-9\-]+)/i
+                /confirmation\s*(?:number|#|id)?\s*:?\s*([A-Z0-9-]+)/i,
+                /booking\s*(?:reference|id|number)\s*:?\s*([A-Z0-9-]+)/i,
+                /reservation\s*(?:number|id)\s*:?\s*([A-Z0-9-]+)/i,
+                /reference\s*:?\s*([A-Z0-9-]+)/i,
+                /order\s*(?:number|id)\s*:?\s*([A-Z0-9-]+)/i
               ];
               
               for (const pattern of confirmationPatterns) {

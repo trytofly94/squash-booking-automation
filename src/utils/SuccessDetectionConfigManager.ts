@@ -1,4 +1,5 @@
 import { SuccessDetectionConfig } from '@/types/booking.types';
+import { logger } from '@/utils/logger';
 
 /**
  * Configuration manager for success detection settings
@@ -46,21 +47,21 @@ export class SuccessDetectionConfigManager {
   static validateConfig(config: SuccessDetectionConfig): void {
     // Validate timeouts
     if (config.networkTimeout < 1000) {
-      console.warn('SUCCESS_DETECTION: Network timeout is very low (< 1s), may cause false negatives');
+      logger.warn('SUCCESS_DETECTION: Network timeout is very low (< 1s), may cause false negatives');
     }
     if (config.networkTimeout > 30000) {
-      console.warn('SUCCESS_DETECTION: Network timeout is very high (> 30s), may cause slow failures');
+      logger.warn('SUCCESS_DETECTION: Network timeout is very high (> 30s), may cause slow failures');
     }
     
     if (config.domTimeout < 1000) {
-      console.warn('SUCCESS_DETECTION: DOM timeout is very low (< 1s), may cause false negatives');
+      logger.warn('SUCCESS_DETECTION: DOM timeout is very low (< 1s), may cause false negatives');
     }
     
     if (config.urlCheckInterval < 100) {
-      console.warn('SUCCESS_DETECTION: URL check interval is very low (< 100ms), may cause high CPU usage');
+      logger.warn('SUCCESS_DETECTION: URL check interval is very low (< 100ms), may cause high CPU usage');
     }
     if (config.urlCheckInterval > 2000) {
-      console.warn('SUCCESS_DETECTION: URL check interval is very high (> 2s), may miss quick redirects');
+      logger.warn('SUCCESS_DETECTION: URL check interval is very high (> 2s), may miss quick redirects');
     }
 
     // Validate at least one detection method is enabled
@@ -76,7 +77,7 @@ export class SuccessDetectionConfigManager {
     }
 
     if (enabledMethods === 1 && config.enableTextFallback) {
-      console.warn('SUCCESS_DETECTION: Only text fallback is enabled, this may cause false positives in live bookings');
+      logger.warn('SUCCESS_DETECTION: Only text fallback is enabled, this may cause false positives in live bookings');
     }
   }
 }
