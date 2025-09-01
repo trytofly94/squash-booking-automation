@@ -22,7 +22,7 @@ module.exports = {
     'no-var': 'error',
     'prefer-const': 'error',
     'no-unused-vars': 'off', // Disable base rule as it conflicts with TypeScript version
-    '@typescript-eslint/no-unused-vars': ['error', { 
+    '@typescript-eslint/no-unused-vars': ['error', {
       argsIgnorePattern: '^_', 
       varsIgnorePattern: '^_',
       ignoreRestSiblings: true 
