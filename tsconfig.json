@@ -43,6 +43,8 @@
     "node_modules",
     "dist",
     "tests",
-    "*.tsbuildinfo"
+    "*.tsbuildinfo",
+    "src/**/*.test.ts",
+    "src/**/__tests__/**"
   ]
 }
