@@ -1,8 +1,58 @@
-import { defineConfig, devices } from '@playwright/test';
+import { defineConfig, devices, Project } from '@playwright/test';
 import dotenv from 'dotenv';
 
 // Load environment variables
 dotenv.config();
+
+/**
+ * Project groups for different testing scenarios
+ */
+const PROJECT_GROUPS = {
+  dev: ['Google Chrome'],
+  cross: ['Google Chrome', 'firefox', 'webkit'],
+  full: ['Google Chrome', 'firefox', 'webkit', 'Mobile Chrome', 'Mobile Safari', 'Microsoft Edge'],
+  ci: ['Google Chrome', 'firefox', 'webkit', 'Mobile Chrome', 'Mobile Safari', 'Microsoft Edge']
+};
+
+/**
+ * Get selected projects based on PLAYWRIGHT_PROJECTS environment variable
+ */
+function getSelectedProjects(): string[] {
+  const projectsEnv = process.env.PLAYWRIGHT_PROJECTS;
+  
+  if (!projectsEnv) {
+    // Default to 'dev' for development, 'ci' for CI environment
+    return PROJECT_GROUPS[process.env.CI ? 'ci' : 'dev'];
+  }
+  
+  const requested = projectsEnv.toLowerCase();
+  
+  if (PROJECT_GROUPS[requested as keyof typeof PROJECT_GROUPS]) {
+    return PROJECT_GROUPS[requested as keyof typeof PROJECT_GROUPS];
+  }
+  
+  // Support custom comma-separated project names
+  const customProjects = projectsEnv.split(',').map(p => p.trim());
+  console.log(`[PLAYWRIGHT] Using custom project selection: ${customProjects.join(', ')}`);
+  return customProjects;
+}
+
+/**
+ * Filter projects array based on selected project names
+ */
+function filterProjects(allProjects: Project[], selectedNames: string[]): Project[] {
+  const filtered = allProjects.filter(project => selectedNames.includes(project.name));
+  
+  console.log(`[PLAYWRIGHT] Selected projects (${filtered.length}/${allProjects.length}): ${filtered.map(p => p.name).join(', ')}`);
+  
+  if (filtered.length === 0) {
+    console.warn(`[PLAYWRIGHT] WARNING: No projects matched selection "${selectedNames.join(', ')}". Available: ${allProjects.map(p => p.name).join(', ')}`);
+    // Fallback to Chrome if no matches
+    return allProjects.filter(project => project.name === 'Google Chrome');
+  }
+  
+  return filtered;
+}
 
 /**
  * @see https://playwright.dev/docs/test-configuration
@@ -63,43 +113,70 @@ export default defineConfig({
     },
   },
 
-  /* Configure projects for major browsers */
-  projects: [
-    {
-      name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
-    },
+  /* Configure projects for major browsers - optimized for performance */
+  projects: (() => {
+    const allProjects: Project[] = [
+      {
+        name: 'Google Chrome',
+        use: { 
+          ...devices['Desktop Chrome'], 
+          channel: 'chrome',
+          // Optimized for booking automation
+          viewport: { width: 1920, height: 1080 }
+        },
+      },
 
-    {
-      name: 'firefox',
-      use: { ...devices['Desktop Firefox'] },
-    },
+      {
+        name: 'firefox',
+        use: { 
+          ...devices['Desktop Firefox'],
+          // Consistent viewport for cross-browser testing
+          viewport: { width: 1920, height: 1080 }
+        },
+      },
 
-    {
-      name: 'webkit',
-      use: { ...devices['Desktop Safari'] },
-    },
+      {
+        name: 'webkit',
+        use: { 
+          ...devices['Desktop Safari'],
+          // Consistent viewport for cross-browser testing
+          viewport: { width: 1920, height: 1080 }
+        },
+      },
 
-    /* Test against mobile viewports. */
-    {
-      name: 'Mobile Chrome',
-      use: { ...devices['Pixel 5'] },
-    },
-    {
-      name: 'Mobile Safari',
-      use: { ...devices['iPhone 12'] },
-    },
+      {
+        name: 'Microsoft Edge',
+        use: { 
+          ...devices['Desktop Edge'], 
+          channel: 'msedge',
+          viewport: { width: 1920, height: 1080 }
+        },
+      },
 
-    /* Test against branded browsers. */
-    {
-      name: 'Microsoft Edge',
-      use: { ...devices['Desktop Edge'], channel: 'msedge' },
-    },
-    {
-      name: 'Google Chrome',
-      use: { ...devices['Desktop Chrome'], channel: 'chrome' },
-    },
-  ],
+      /* Mobile testing - optional based on project selection */
+      {
+        name: 'Mobile Chrome',
+        use: { 
+          ...devices['Pixel 5'],
+          // Mobile-optimized settings for booking automation
+          isMobile: true,
+          hasTouch: true
+        },
+      },
+      {
+        name: 'Mobile Safari',
+        use: { 
+          ...devices['iPhone 12'],
+          // Mobile-optimized settings for booking automation  
+          isMobile: true,
+          hasTouch: true
+        },
+      },
+    ];
+
+    const selectedProjects = getSelectedProjects();
+    return filterProjects(allProjects, selectedProjects);
+  })(),
 
   /* Run your local dev server before starting the tests */
   // webServer: {

@@ -1,0 +1,149 @@
+{
+  "config": {
+    "configFile": "/Volumes/SSD-MacMini/ClaudeCode/Squash-Buchen/playwright.config.ts",
+    "rootDir": "/Volumes/SSD-MacMini/ClaudeCode/Squash-Buchen/tests/e2e",
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": "/Volumes/SSD-MacMini/ClaudeCode/Squash-Buchen/tests/playwright-setup.ts",
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "project": "Squash Booking Automation",
+      "version": "2.0",
+      "environment": "development"
+    },
+    "preserveOutput": "always",
+    "reporter": [
+      [
+        "html",
+        {
+          "outputFolder": "test-reports/html-report",
+          "open": "never"
+        }
+      ],
+      [
+        "junit",
+        {
+          "outputFile": "test-reports/junit-results.xml"
+        }
+      ],
+      [
+        "json",
+        {
+          "outputFile": "test-reports/test-results.json"
+        }
+      ],
+      [
+        "line",
+        null
+      ],
+      [
+        "blob",
+        {
+          "outputDir": "test-reports/blob-report"
+        }
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "quiet": false,
+    "projects": [
+      {
+        "outputDir": "/Volumes/SSD-MacMini/ClaudeCode/Squash-Buchen/test-artifacts",
+        "repeatEach": 1,
+        "retries": 1,
+        "metadata": {
+          "project": "Squash Booking Automation",
+          "version": "2.0",
+          "environment": "development"
+        },
+        "id": "Google Chrome",
+        "name": "Google Chrome",
+        "testDir": "/Volumes/SSD-MacMini/ClaudeCode/Squash-Buchen/tests/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 120000
+      },
+      {
+        "outputDir": "/Volumes/SSD-MacMini/ClaudeCode/Squash-Buchen/test-artifacts",
+        "repeatEach": 1,
+        "retries": 1,
+        "metadata": {
+          "project": "Squash Booking Automation",
+          "version": "2.0",
+          "environment": "development"
+        },
+        "id": "firefox",
+        "name": "firefox",
+        "testDir": "/Volumes/SSD-MacMini/ClaudeCode/Squash-Buchen/tests/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 120000
+      },
+      {
+        "outputDir": "/Volumes/SSD-MacMini/ClaudeCode/Squash-Buchen/test-artifacts",
+        "repeatEach": 1,
+        "retries": 1,
+        "metadata": {
+          "project": "Squash Booking Automation",
+          "version": "2.0",
+          "environment": "development"
+        },
+        "id": "webkit",
+        "name": "webkit",
+        "testDir": "/Volumes/SSD-MacMini/ClaudeCode/Squash-Buchen/tests/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 120000
+      }
+    ],
+    "shard": null,
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.54.2",
+    "workers": 1,
+    "webServer": null
+  },
+  "suites": [],
+  "errors": [
+    {
+      "message": "ReferenceError: jest is not defined",
+      "stack": "ReferenceError: jest is not defined\n    at Object.<anonymous> (/Volumes/SSD-MacMini/ClaudeCode/Squash-Buchen/tests/e2e/advanced-booking-logic.integration.test.ts:13:1)",
+      "location": {
+        "file": "/Volumes/SSD-MacMini/ClaudeCode/Squash-Buchen/tests/e2e/advanced-booking-logic.integration.test.ts",
+        "column": 1,
+        "line": 13
+      },
+      "snippet": "\u001b[90m   at \u001b[39madvanced-booking-logic.integration.test.ts:13\n\n  11 |\n  12 | // Mock logger to avoid console output in tests\n> 13 | jest.mock('../../src/utils/logger', () => ({\n     | ^\n  14 |   logger: {\n  15 |     debug: jest.fn(),\n  16 |     info: jest.fn(),"
+    },
+    {
+      "message": "Error: Wrong package, please see this: https://github.com/berstend/puppeteer-extra/issues/454",
+      "stack": "Error: Wrong package, please see this: https://github.com/berstend/puppeteer-extra/issues/454\n    at Object.<anonymous> (/Volumes/SSD-MacMini/ClaudeCode/Squash-Buchen/node_modules/playwright-extra-plugin-stealth/index.js:1:7)\n    at Object.<anonymous> (/Volumes/SSD-MacMini/ClaudeCode/Squash-Buchen/tests/e2e/stealth-integration.test.ts:3:1)",
+      "location": {
+        "file": "/Volumes/SSD-MacMini/ClaudeCode/Squash-Buchen/tests/e2e/stealth-integration.test.ts",
+        "column": 1,
+        "line": 3
+      },
+      "snippet": "\u001b[90m   at \u001b[39mstealth-integration.test.ts:3\n\n  1 | import { test, expect } from '@playwright/test';\n  2 | import playwright from 'playwright-extra';\n> 3 | import StealthPlugin from 'playwright-extra-plugin-stealth';\n    | ^\n  4 |\n  5 | // Add stealth plugin\n  6 | playwright.chromium.use(StealthPlugin());"
+    }
+  ],
+  "stats": {
+    "startTime": "2025-09-01T13:30:33.107Z",
+    "duration": 338.64700000000005,
+    "expected": 0,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  }
+}

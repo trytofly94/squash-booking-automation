@@ -3,7 +3,7 @@
  * Tests the complete success detection workflow with BookingManager integration
  */
 
-import { BookingManager } from '@/core/BookingManager';
+// import { BookingManager } from '@/core/BookingManager';
 import { CheckoutPage } from '@/pages/CheckoutPage';
 import { SuccessDetectionRetryManager } from '@/utils/SuccessDetectionRetryManager';
 import { SuccessDetectionAnalytics } from '@/utils/SuccessDetectionAnalytics';
