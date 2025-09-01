@@ -2,6 +2,37 @@ import type { Browser, BrowserContext, Page } from '@playwright/test';
 import { logger } from './logger';
 
 /**
+ * Configuration constants
+ */
+export const CONTEXT_POOL_CONSTANTS = {
+  DEFAULT_MAX_POOL_SIZE: 5,
+  DEFAULT_MAX_CONTEXT_AGE: 30 * 60 * 1000, // 30 minutes
+  DEFAULT_MIN_WARM_CONTEXTS: 2,
+  DEFAULT_HEALTH_CHECK_INTERVAL: 5 * 60 * 1000, // 5 minutes
+  DEFAULT_FAILURE_THRESHOLD: 3,
+  HEALTH_CHECK_FAILURE_THRESHOLD: 5,
+  CONTEXT_REUSE_DETECTION_THRESHOLD: 10000, // 10 seconds
+  ESTIMATED_REUSED_CONTEXT_AGE: 5 * 60 * 1000, // 5 minutes
+} as const;
+
+/**
+ * Browser context options interface for type safety
+ */
+export interface BrowserContextOptions {
+  viewport?: { width: number; height: number };
+  userAgent?: string;
+  locale?: string;
+  timezoneId?: string;
+  permissions?: string[];
+  geolocation?: { latitude: number; longitude: number };
+  colorScheme?: 'light' | 'dark' | 'no-preference';
+  extraHTTPHeaders?: Record<string, string>;
+  httpCredentials?: { username: string; password: string };
+  offline?: boolean;
+  [key: string]: any;
+}
+
+/**
  * Configuration for browser context pooling
  */
 export interface BrowserContextPoolConfig {
@@ -15,12 +46,15 @@ export interface BrowserContextPoolConfig {
   healthCheckInterval: number;
   /** Enable/disable context pre-warming */
   enablePreWarming: boolean;
+  /** Maximum failures before context is considered unhealthy */
+  failureThreshold: number;
 }
 
 /**
  * Metadata for tracked browser contexts
  */
 interface ContextMetadata {
+  id: string;
   context: BrowserContext;
   createdAt: number;
   lastUsedAt: number;
@@ -50,8 +84,9 @@ export class BrowserContextPool {
   private browser: Browser;
   private config: BrowserContextPoolConfig;
   private pool: Map<string, ContextMetadata> = new Map();
-  private contextOptions: any;
+  private contextOptions: BrowserContextOptions;
   private healthCheckTimer: NodeJS.Timeout | undefined;
+  private contextCounter: number = 0;
   private metrics: PoolMetrics = {
     totalContexts: 0,
     activeContexts: 0,
@@ -62,15 +97,9 @@ export class BrowserContextPool {
     totalMisses: 0,
   };
 
-  constructor(browser: Browser, config: Partial<BrowserContextPoolConfig> = {}, contextOptions: any = {}) {
+  constructor(browser: Browser, config: Partial<BrowserContextPoolConfig> = {}, contextOptions: BrowserContextOptions = {}) {
     this.browser = browser;
-    this.config = {
-      maxPoolSize: config.maxPoolSize || 5,
-      maxContextAge: config.maxContextAge || 30 * 60 * 1000, // 30 minutes
-      minWarmContexts: config.minWarmContexts || 2,
-      healthCheckInterval: config.healthCheckInterval || 5 * 60 * 1000, // 5 minutes
-      enablePreWarming: config.enablePreWarming ?? true,
-    };
+    this.config = this.validateAndNormalizeConfig(config);
     this.contextOptions = contextOptions;
 
     logger.info('BrowserContextPool initialized', 'BrowserContextPool', {
@@ -196,7 +225,7 @@ export class BrowserContextPool {
       if (
         !metadata.inUse &&
         now - metadata.createdAt < this.config.maxContextAge &&
-        metadata.failureCount < 3 // Skip contexts with too many failures
+        metadata.failureCount < this.config.failureThreshold // Skip contexts with too many failures
       ) {
         return metadata;
       }
@@ -210,9 +239,10 @@ export class BrowserContextPool {
    */
   private async createContext(): Promise<BrowserContext> {
     const context = await this.browser.newContext(this.contextOptions);
-    const contextId = this.getContextId(context);
+    const contextId = this.generateContextId();
     
     const metadata: ContextMetadata = {
+      id: contextId,
       context,
       createdAt: Date.now(),
       lastUsedAt: Date.now(),
@@ -232,8 +262,16 @@ export class BrowserContextPool {
         });
         
         const meta = this.pool.get(contextId);
-        if (meta) {
+        if (meta && meta.failureCount < this.config.failureThreshold) {
           meta.failureCount++;
+          
+          if (meta.failureCount >= this.config.failureThreshold) {
+            logger.warn('Context reached failure threshold, will be removed', 'BrowserContextPool', {
+              contextId,
+              failureCount: meta.failureCount,
+              threshold: this.config.failureThreshold,
+            });
+          }
         }
       });
     });
@@ -331,7 +369,7 @@ export class BrowserContextPool {
       }
 
       // Remove contexts with too many failures
-      if (metadata.failureCount > 5) {
+      if (metadata.failureCount > CONTEXT_POOL_CONSTANTS.HEALTH_CHECK_FAILURE_THRESHOLD) {
         if (!metadata.inUse) {
           contextsToRemove.push(contextId);
         }
@@ -385,9 +423,68 @@ export class BrowserContextPool {
   /**
    * Generate a unique ID for a context
    */
-  private getContextId(_context: BrowserContext): string {
-    // Use a combination of creation time and random string
-    return `ctx_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  private generateContextId(): string {
+    const timestamp = Date.now();
+    const counter = ++this.contextCounter;
+    const processId = process.pid || 0;
+    return `ctx_${processId}_${timestamp}_${counter.toString(36)}`;
+  }
+
+  /**
+   * Get context ID from metadata (for existing contexts)
+   */
+  private getContextId(context: BrowserContext): string {
+    for (const [id, metadata] of this.pool.entries()) {
+      if (metadata.context === context) {
+        return id;
+      }
+    }
+    // Fallback - this shouldn't happen in normal operation
+    return this.generateContextId();
+  }
+
+  /**
+   * Validate and normalize configuration with proper error handling
+   */
+  private validateAndNormalizeConfig(config: Partial<BrowserContextPoolConfig>): BrowserContextPoolConfig {
+    const normalized: BrowserContextPoolConfig = {
+      maxPoolSize: this.validatePositiveInteger(config.maxPoolSize, CONTEXT_POOL_CONSTANTS.DEFAULT_MAX_POOL_SIZE, 'maxPoolSize'),
+      maxContextAge: this.validatePositiveInteger(config.maxContextAge, CONTEXT_POOL_CONSTANTS.DEFAULT_MAX_CONTEXT_AGE, 'maxContextAge'),
+      minWarmContexts: this.validatePositiveInteger(config.minWarmContexts, CONTEXT_POOL_CONSTANTS.DEFAULT_MIN_WARM_CONTEXTS, 'minWarmContexts'),
+      healthCheckInterval: this.validatePositiveInteger(config.healthCheckInterval, CONTEXT_POOL_CONSTANTS.DEFAULT_HEALTH_CHECK_INTERVAL, 'healthCheckInterval'),
+      enablePreWarming: config.enablePreWarming ?? true,
+      failureThreshold: this.validatePositiveInteger(config.failureThreshold, CONTEXT_POOL_CONSTANTS.DEFAULT_FAILURE_THRESHOLD, 'failureThreshold'),
+    };
+
+    // Validate logical constraints
+    if (normalized.minWarmContexts > normalized.maxPoolSize) {
+      logger.warn('minWarmContexts exceeds maxPoolSize, adjusting', 'BrowserContextPool', {
+        minWarmContexts: normalized.minWarmContexts,
+        maxPoolSize: normalized.maxPoolSize,
+      });
+      normalized.minWarmContexts = normalized.maxPoolSize;
+    }
+
+    return normalized;
+  }
+
+  /**
+   * Validate positive integer configuration values
+   */
+  private validatePositiveInteger(value: number | undefined, defaultValue: number, name: string): number {
+    if (value === undefined) {
+      return defaultValue;
+    }
+    
+    if (!Number.isInteger(value) || value <= 0) {
+      logger.warn(`Invalid ${name} value, using default`, 'BrowserContextPool', {
+        provided: value,
+        default: defaultValue,
+      });
+      return defaultValue;
+    }
+    
+    return value;
   }
 
   /**

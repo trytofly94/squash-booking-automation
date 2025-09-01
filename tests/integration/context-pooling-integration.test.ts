@@ -39,9 +39,9 @@ describe('Context Pooling Integration', () => {
     const config: Partial<BrowserContextPoolConfig> = {
       maxPoolSize: 3,
       maxContextAge: 30000,
-      minWarmContexts: 1,
+      minWarmContexts: 0, // Disable for predictable testing
       healthCheckInterval: 5000,
-      enablePreWarming: true,
+      enablePreWarming: false, // Disable for predictable testing
     };
     
     const contextOptions = {

@@ -3,6 +3,7 @@ import { logger } from '../utils/logger';
 import { getGlobalRetryManager, RetryManager } from '../core/retry';
 import { SelectorFallbackManager, type SelectorConfig } from '../utils/SelectorFallbackManager';
 import { getGlobalSelectorCache, type SelectorCache } from '../utils/SelectorCache';
+import { CONTEXT_POOL_CONSTANTS } from '../utils/BrowserContextPool';
 
 /**
  * Base page class with common Playwright functionality
@@ -16,6 +17,7 @@ export abstract class BasePage {
   protected fallbackManager: SelectorFallbackManager;
   private contextCreationTime: number;
   private sessionStartTime: number;
+  private contextId: string | undefined;
 
   constructor(page: Page, baseUrl: string = 'https://www.eversports.de') {
     this.page = page;
@@ -23,7 +25,9 @@ export abstract class BasePage {
     
     // Track session timing for context reuse optimization
     this.sessionStartTime = Date.now();
-    this.contextCreationTime = this.detectContextAge();
+    const contextDetection = this.detectContextInfo();
+    this.contextCreationTime = contextDetection.creationTime;
+    this.contextId = contextDetection.contextId;
     
     // Use global retry manager instance
     this.retryManager = getGlobalRetryManager();
@@ -383,24 +387,63 @@ export abstract class BasePage {
   }
 
   /**
-   * Detect context age by examining existing pages and URLs
+   * Detect context information including age and ID
    */
-  private detectContextAge(): number {
+  private detectContextInfo(): { creationTime: number; contextId: string | undefined } {
     try {
-      const context = this.page.context();
-      const allPages = context.pages();
-      
-      // If there are existing pages, this context has been used before
-      if (allPages.length > 1) {
-        // Context is being reused, estimate creation time based on session
-        return Date.now() - 300000; // Assume context is 5 minutes old if reused
+      // Check if page has context method (might be mocked in tests)
+      if (typeof this.page.context !== 'function') {
+        return { creationTime: Date.now(), contextId: undefined };
       }
       
-      // Fresh context
-      return Date.now();
+      const context = this.page.context();
+      if (!context || typeof context.pages !== 'function') {
+        return { creationTime: Date.now(), contextId: undefined };
+      }
+      
+      const allPages = context.pages();
+      
+      // Try to extract context ID from any existing metadata
+      let contextId: string | undefined;
+      try {
+        // Check if context has any custom properties we can use
+        contextId = (context as any)._contextId || (context as any).contextId;
+      } catch {
+        // Ignore if not available
+      }
+      
+      // More sophisticated context age detection
+      if (allPages.length > 1) {
+        // Multiple pages suggest reuse - check if any have navigation history
+        let hasNavigationHistory = false;
+        let oldestPageTime = Date.now();
+        
+        for (const page of allPages) {
+          try {
+            // Check if page has been navigated (not just about:blank)
+            const url = page.url();
+            if (url && url !== 'about:blank' && !url.startsWith('data:')) {
+              hasNavigationHistory = true;
+              // Try to estimate when this page might have been created
+              // This is still an estimate, but more sophisticated
+              const estimatedAge = Math.min(oldestPageTime, Date.now() - CONTEXT_POOL_CONSTANTS.ESTIMATED_REUSED_CONTEXT_AGE);
+              oldestPageTime = estimatedAge;
+            }
+          } catch {
+            // Ignore individual page errors
+          }
+        }
+        
+        if (hasNavigationHistory) {
+          return { creationTime: oldestPageTime, contextId };
+        }
+      }
+      
+      // Fresh context or no clear history
+      return { creationTime: Date.now(), contextId };
     } catch {
       // Fallback to current time if detection fails
-      return Date.now();
+      return { creationTime: Date.now(), contextId: undefined };
     }
   }
 
@@ -409,7 +452,43 @@ export abstract class BasePage {
    */
   private isContextReused(): boolean {
     const contextAge = Date.now() - this.contextCreationTime;
-    return contextAge > 10000; // If context is older than 10 seconds, it's likely reused
+    
+    // Check if page has context method (might be mocked in tests)
+    if (typeof this.page.context !== 'function') {
+      return contextAge > CONTEXT_POOL_CONSTANTS.CONTEXT_REUSE_DETECTION_THRESHOLD;
+    }
+    
+    const context = this.page.context();
+    if (!context || typeof context.pages !== 'function') {
+      return contextAge > CONTEXT_POOL_CONSTANTS.CONTEXT_REUSE_DETECTION_THRESHOLD;
+    }
+    
+    const allPages = context.pages();
+    
+    // Multiple indicators of context reuse:
+    // 1. Age threshold
+    const ageIndicatesReuse = contextAge > CONTEXT_POOL_CONSTANTS.CONTEXT_REUSE_DETECTION_THRESHOLD;
+    
+    // 2. Multiple existing pages
+    const multiplePages = allPages.length > 1;
+    
+    // 3. Existing navigation history in other pages
+    let hasExistingNavigation = false;
+    for (const page of allPages) {
+      if (page !== this.page) {
+        try {
+          const url = page.url();
+          if (url && url !== 'about:blank' && !url.startsWith('data:')) {
+            hasExistingNavigation = true;
+            break;
+          }
+        } catch {
+          // Ignore errors checking individual pages
+        }
+      }
+    }
+    
+    return ageIndicatesReuse || (multiplePages && hasExistingNavigation);
   }
 
   /**
@@ -419,9 +498,23 @@ export abstract class BasePage {
     const isReused = this.isContextReused();
     const contextAge = Date.now() - this.contextCreationTime;
     
+    let pageCount = 1; // Default to 1 if we can't detect
+    try {
+      if (typeof this.page.context === 'function') {
+        const context = this.page.context();
+        if (context && typeof context.pages === 'function') {
+          pageCount = context.pages().length;
+        }
+      }
+    } catch {
+      // Ignore errors in context detection for logging
+    }
+    
     logger.debug('BasePage initialized with context info', 'BasePage', {
       isContextReused: isReused,
       contextAge,
+      contextId: this.contextId,
+      pageCount,
       sessionStartTime: this.sessionStartTime,
     });
   }

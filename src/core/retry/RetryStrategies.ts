@@ -288,24 +288,6 @@ export class ErrorClassifier {
            error?.name === 'NetworkError';
   }
 
-  /**
-   * Check if error code is specifically a network error (not timeout)
-   */
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  private isSpecificNetworkCode(code: string): boolean {
-    if (!code) return false;
-    
-    const networkCodes = [
-      'ENOTFOUND',
-      'ECONNRESET',
-      'ECONNREFUSED', 
-      'EHOSTUNREACH',
-      'ENETUNREACH',
-      'ECONNABORTED'
-    ];
-    
-    return networkCodes.includes(code.toUpperCase());
-  }
 
   /**
    * Check if error is a timeout

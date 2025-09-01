@@ -13,6 +13,15 @@ import {
 // Add stealth plugin to playwright-extra
 playwright.chromium.use(StealthPlugin());
 
+/**
+ * Safely parse environment variable to integer
+ */
+function parseEnvInt(value: string | undefined): number | undefined {
+  if (!value) return undefined;
+  const parsed = parseInt(value, 10);
+  return isNaN(parsed) ? undefined : parsed;
+}
+
 // Load environment variables
 dotenv.config();
 
@@ -70,14 +79,25 @@ async function main(): Promise<void> {
       },
     };
 
-    // Initialize context pool configuration
-    const poolConfig: Partial<BrowserContextPoolConfig> = {
-      maxPoolSize: parseInt(process.env['CONTEXT_POOL_MAX_SIZE'] || '3', 10),
-      maxContextAge: parseInt(process.env['CONTEXT_POOL_MAX_AGE'] || '1800000', 10), // 30 minutes
-      minWarmContexts: parseInt(process.env['CONTEXT_POOL_MIN_WARM'] || '1', 10),
-      healthCheckInterval: parseInt(process.env['CONTEXT_POOL_HEALTH_CHECK'] || '300000', 10), // 5 minutes
-      enablePreWarming: process.env['CONTEXT_POOL_ENABLE_PREWARMING'] !== 'false',
-    };
+    // Initialize context pool configuration with safe parsing
+    const poolConfig: Partial<BrowserContextPoolConfig> = {};
+    
+    const maxPoolSize = parseEnvInt(process.env['CONTEXT_POOL_MAX_SIZE']);
+    if (maxPoolSize !== undefined) poolConfig.maxPoolSize = maxPoolSize;
+    
+    const maxContextAge = parseEnvInt(process.env['CONTEXT_POOL_MAX_AGE']);
+    if (maxContextAge !== undefined) poolConfig.maxContextAge = maxContextAge;
+    
+    const minWarmContexts = parseEnvInt(process.env['CONTEXT_POOL_MIN_WARM']);
+    if (minWarmContexts !== undefined) poolConfig.minWarmContexts = minWarmContexts;
+    
+    const healthCheckInterval = parseEnvInt(process.env['CONTEXT_POOL_HEALTH_CHECK']);
+    if (healthCheckInterval !== undefined) poolConfig.healthCheckInterval = healthCheckInterval;
+    
+    const failureThreshold = parseEnvInt(process.env['CONTEXT_POOL_FAILURE_THRESHOLD']);
+    if (failureThreshold !== undefined) poolConfig.failureThreshold = failureThreshold;
+    
+    poolConfig.enablePreWarming = process.env['CONTEXT_POOL_ENABLE_PREWARMING'] !== 'false';
 
     // Initialize the global context pool
     const contextPool = initializeGlobalContextPool(browser, poolConfig, contextOptions);
