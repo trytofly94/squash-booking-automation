@@ -7,6 +7,7 @@ import type {
 import type { MonitoringConfig } from '../types/monitoring.types';
 import type { HealthCheckConfig } from '../types/health.types';
 import type { RetryConfig } from '../types/retry.types';
+import type { SelectorCacheConfig } from './SelectorCache';
 
 /**
  * Configuration manager for advanced booking features
@@ -18,12 +19,14 @@ export class ConfigurationManager {
   private monitoringConfig: MonitoringConfig;
   private healthCheckConfig: HealthCheckConfig;
   private retryConfig: RetryConfig;
+  private selectorCacheConfig: SelectorCacheConfig;
 
   private constructor() {
     this.config = this.loadConfiguration();
     this.monitoringConfig = this.loadMonitoringConfiguration();
     this.healthCheckConfig = this.loadHealthCheckConfiguration();
     this.retryConfig = this.loadRetryConfiguration();
+    this.selectorCacheConfig = this.loadSelectorCacheConfiguration();
     this.validateConfiguration();
   }
 
@@ -63,6 +66,13 @@ export class ConfigurationManager {
    */
   getRetryConfig(): RetryConfig {
     return { ...this.retryConfig };
+  }
+
+  /**
+   * Get selector cache configuration
+   */
+  getSelectorCacheConfig(): SelectorCacheConfig {
+    return { ...this.selectorCacheConfig };
   }
 
   /**
@@ -130,6 +140,20 @@ export class ConfigurationManager {
       updatedFields: Object.keys(updates),
       oldConfig,
       newConfig: this.retryConfig
+    });
+  }
+
+  /**
+   * Update selector cache configuration
+   */
+  updateSelectorCacheConfig(updates: Partial<SelectorCacheConfig>): void {
+    const oldConfig = { ...this.selectorCacheConfig };
+    this.selectorCacheConfig = { ...this.selectorCacheConfig, ...updates };
+    
+    logger.info('Selector cache configuration updated', 'ConfigurationManager', {
+      updatedFields: Object.keys(updates),
+      oldConfig,
+      newConfig: this.selectorCacheConfig
     });
   }
 
@@ -234,6 +258,21 @@ export class ConfigurationManager {
     };
 
     logger.info('Retry configuration loaded', 'ConfigurationManager', { config });
+    return config;
+  }
+
+  /**
+   * Load selector cache configuration from environment variables
+   */
+  private loadSelectorCacheConfiguration(): SelectorCacheConfig {
+    const config: SelectorCacheConfig = {
+      enabled: this.parseBoolean(process.env['SELECTOR_CACHE_ENABLED'], true),
+      maxSize: this.parseNumber(process.env['SELECTOR_CACHE_SIZE'], 100),
+      ttlMs: this.parseNumber(process.env['SELECTOR_CACHE_TTL_MS'], 600000), // 10 minutes default
+      debugMode: this.parseBoolean(process.env['SELECTOR_CACHE_DEBUG'], false)
+    };
+
+    logger.info('Selector cache configuration loaded', 'ConfigurationManager', { config });
     return config;
   }
 
@@ -475,7 +514,13 @@ export class ConfigurationManager {
       RETRY_TIMEOUT_ATTEMPTS: this.retryConfig.errorSpecific.timeoutAttempts.toString(),
       RETRY_EXPONENTIAL_BACKOFF: this.retryConfig.exponentialBackoff.enabled.toString(),
       RETRY_EXPONENTIAL_BASE: this.retryConfig.exponentialBackoff.base.toString(),
-      RETRY_ABORT_ON_CLIENT_ERRORS: this.retryConfig.abortOnClientErrors.toString()
+      RETRY_ABORT_ON_CLIENT_ERRORS: this.retryConfig.abortOnClientErrors.toString(),
+
+      // Selector cache configuration
+      SELECTOR_CACHE_ENABLED: this.selectorCacheConfig.enabled.toString(),
+      SELECTOR_CACHE_SIZE: this.selectorCacheConfig.maxSize.toString(),
+      SELECTOR_CACHE_TTL_MS: this.selectorCacheConfig.ttlMs.toString(),
+      SELECTOR_CACHE_DEBUG: this.selectorCacheConfig.debugMode.toString()
     };
   }
 
@@ -506,6 +551,7 @@ export class ConfigurationManager {
     this.monitoringConfig = this.loadMonitoringConfiguration();
     this.healthCheckConfig = this.loadHealthCheckConfiguration();
     this.retryConfig = this.loadRetryConfiguration();
+    this.selectorCacheConfig = this.loadSelectorCacheConfiguration();
     logger.info('All configurations reset to defaults', 'ConfigurationManager');
   }
 
@@ -544,12 +590,14 @@ export class ConfigurationManager {
     monitoring: MonitoringConfig;
     healthCheck: HealthCheckConfig;
     retry: RetryConfig;
+    selectorCache: SelectorCacheConfig;
   } {
     return {
       booking: this.getConfig(),
       monitoring: this.getMonitoringConfig(),
       healthCheck: this.getHealthCheckConfig(),
-      retry: this.getRetryConfig()
+      retry: this.getRetryConfig(),
+      selectorCache: this.getSelectorCacheConfig()
     };
   }
 }

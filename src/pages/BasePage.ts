@@ -1,6 +1,8 @@
 import type { Page, Locator } from '@playwright/test';
 import { logger } from '../utils/logger';
 import { getGlobalRetryManager, RetryManager } from '../core/retry';
+import { SelectorFallbackManager, type SelectorConfig } from '../utils/SelectorFallbackManager';
+import { getGlobalSelectorCache, type SelectorCache } from '../utils/SelectorCache';
 
 /**
  * Base page class with common Playwright functionality
@@ -9,6 +11,8 @@ export abstract class BasePage {
   protected page: Page;
   protected baseUrl: string;
   protected retryManager: RetryManager;
+  protected selectorCache: SelectorCache | undefined;
+  protected fallbackManager: SelectorFallbackManager;
 
   constructor(page: Page, baseUrl: string = 'https://www.eversports.de') {
     this.page = page;
@@ -16,19 +20,74 @@ export abstract class BasePage {
     
     // Use global retry manager instance
     this.retryManager = getGlobalRetryManager();
+
+    // Initialize cache if available
+    try {
+      this.selectorCache = getGlobalSelectorCache();
+    } catch {
+      // Cache not initialized, that's okay - will work without caching
+      this.selectorCache = undefined;
+    }
+
+    // Initialize fallback manager with optional cache
+    this.fallbackManager = new SelectorFallbackManager(page, this.selectorCache);
   }
 
   /**
-   * Navigate to a specific URL with retry logic
+   * Navigate to a specific URL with retry logic and cache invalidation
    */
   async navigateTo(path: string = ''): Promise<void> {
     const fullUrl = path.startsWith('http') ? path : `${this.baseUrl}${path}`;
+    const previousUrl = this.page.url();
     
     await this.retryManager.executeWithBackoff(async () => {
-      logger.info('Navigating to URL', 'BasePage', { url: fullUrl });
+      logger.info('Navigating to URL', 'BasePage', { url: fullUrl, previousUrl });
       await this.page.goto(fullUrl);
       await this.waitForPageLoad();
+      
+      // Invalidate cache if URL changed significantly
+      if (this.selectorCache && this.hasSignificantUrlChange(previousUrl, fullUrl)) {
+        const pageUrlHash = this.generatePageUrlHash(previousUrl);
+        this.selectorCache.invalidateForPage(pageUrlHash);
+        logger.debug('Cache invalidated for page navigation', 'BasePage.navigateTo', {
+          previousUrl,
+          newUrl: fullUrl,
+          pageUrlHash
+        });
+      }
     }, 'navigate-to-url');
+  }
+
+  /**
+   * Generate page URL hash for cache operations
+   */
+  private generatePageUrlHash(url: string): string {
+    if (!url) {
+      return 'unknown-page';
+    }
+    const baseUrl = url.split('?')[0]?.split('#')[0] || 'unknown-url';
+    return require('crypto').createHash('sha256').update(baseUrl).digest('hex').substring(0, 16);
+  }
+
+  /**
+   * Check if URL change is significant enough to invalidate cache
+   */
+  private hasSignificantUrlChange(oldUrl: string, newUrl: string): boolean {
+    const oldBase = oldUrl.split('?')[0]?.split('#')[0] || '';
+    const newBase = newUrl.split('?')[0]?.split('#')[0] || '';
+    
+    // Different base URL means we should invalidate
+    if (oldBase !== newBase) {
+      return true;
+    }
+    
+    // Same base URL but with significant parameter changes
+    const oldParams = new URLSearchParams(oldUrl.split('?')[1] || '');
+    const newParams = new URLSearchParams(newUrl.split('?')[1] || '');
+    
+    // If specific parameters that affect page structure change
+    const significantParams = ['sport', 'venue', 'date', 'court'];
+    return significantParams.some(param => oldParams.get(param) !== newParams.get(param));
   }
 
   /**
@@ -40,7 +99,39 @@ export abstract class BasePage {
   }
 
   /**
-   * Wait for element to be visible
+   * Cache-aware element waiting with fallback
+   */
+  async waitForElementCached(
+    selectors: string[], 
+    category: string, 
+    timeout: number = 10000,
+    specificId?: string
+  ): Promise<Locator> {
+    const config: SelectorConfig = {
+      tiers: [{ name: 'provided', selectors, priority: 1, description: 'Provided selectors' }],
+      timeout,
+      maxAttempts: 1
+    };
+    
+    const result = await this.fallbackManager.findWithCachedFallback(config, category, specificId);
+    
+    if (!result.success || !result.element) {
+      throw new Error(`None of the selectors found: ${selectors.join(', ')}`);
+    }
+    
+    logger.debug('Element found with cache-aware approach', 'BasePage.waitForElementCached', {
+      category,
+      selector: result.selector,
+      tier: result.tier,
+      fromCache: result.fromCache,
+      specificId
+    });
+    
+    return result.element;
+  }
+
+  /**
+   * Wait for element to be visible (backward compatibility)
    */
   async waitForElement(selector: string, timeout: number = 10000): Promise<Locator> {
     logger.debug('Waiting for element', 'BasePage', { selector, timeout });
@@ -50,7 +141,26 @@ export abstract class BasePage {
   }
 
   /**
-   * Safe click with robust retry logic
+   * Enhanced safe click with caching
+   */
+  async safeClickCached(
+    selectors: string[], 
+    category: string, 
+    specificId?: string
+  ): Promise<void> {
+    await this.retryManager.executeWithBackoff(async () => {
+      const element = await this.waitForElementCached(selectors, category, 10000, specificId);
+      await element.click();
+      logger.debug('Clicked element successfully with cache', 'BasePage.safeClickCached', { 
+        category, 
+        specificId,
+        selectors: selectors.length 
+      });
+    }, 'safe-click-cached');
+  }
+
+  /**
+   * Safe click with robust retry logic (backward compatibility)
    */
   async safeClick(selector: string): Promise<void> {
     await this.retryManager.executeWithBackoff(async () => {
@@ -61,7 +171,37 @@ export abstract class BasePage {
   }
 
   /**
-   * Safe fill with validation and retry logic
+   * Enhanced safe fill with caching
+   */
+  async safeFillCached(
+    selectors: string[], 
+    category: string, 
+    value: string, 
+    validateFill: boolean = true,
+    specificId?: string
+  ): Promise<void> {
+    await this.retryManager.executeWithBackoff(async () => {
+      const element = await this.waitForElementCached(selectors, category, 10000, specificId);
+      await element.fill(value);
+
+      if (validateFill) {
+        const actualValue = await element.inputValue();
+        if (actualValue !== value) {
+          throw new Error(`Fill validation failed. Expected: ${value}, Actual: ${actualValue}`);
+        }
+      }
+
+      logger.debug('Filled element successfully with cache', 'BasePage.safeFillCached', { 
+        category, 
+        value,
+        specificId,
+        selectors: selectors.length 
+      });
+    }, 'safe-fill-cached');
+  }
+
+  /**
+   * Safe fill with validation and retry logic (backward compatibility)
    */
   async safeFill(selector: string, value: string, validateFill: boolean = true): Promise<void> {
     await this.retryManager.executeWithBackoff(async () => {

@@ -126,44 +126,52 @@ export class BookingCalendarPage extends BasePage {
   }
 
   /**
-   * Try to navigate by directly entering the date in an input field
+   * Try to navigate by directly entering the date in an input field (Cache-optimized)
    */
   private async tryDirectDateInput(targetDate: string): Promise<boolean> {
     const component = 'BookingCalendarPage.tryDirectDateInput';
 
     try {
-      // Look for date input fields
+      // Look for date input fields using cached approach
       const dateInputSelectors = [
-        this.selectors.dateInput,
         'input[type="date"]',
-        '.datepicker input',
+        '.datepicker input', 
         '[data-date-input]',
         '#date-picker',
         '.date-picker input'
       ];
 
-      for (const selector of dateInputSelectors) {
-        if (await this.elementExists(selector)) {
-          logger.debug('Found date input field', component, { selector });
-          
-          // Clear and fill the date input
-          await this.page.locator(selector).clear();
-          await this.page.locator(selector).fill(targetDate);
-          
-          // Try different ways to trigger the date change
-          await this.page.keyboard.press('Enter');
-          await this.page.waitForTimeout(1000);
-          
-          // Check if the calendar updated
-          await this.waitForCalendarToLoad();
-          
-          // Verify the date was set correctly
-          const currentDate = await this.getCurrentSelectedDate();
-          if (currentDate === targetDate) {
-            logger.info('Date input successful', component, { targetDate });
-            return true;
-          }
+      // Use cached approach instead of manual iteration
+      try {
+        const element = await this.waitForElementCached(
+          dateInputSelectors, 
+          'dateInput',
+          5000
+        );
+        
+        logger.debug('Found date input field via cache', component);
+        
+        // Clear and fill the date input
+        await element.clear();
+        await element.fill(targetDate);
+        
+        // Try different ways to trigger the date change
+        await this.page.keyboard.press('Enter');
+        await this.page.waitForTimeout(1000);
+        
+        // Check if the calendar updated
+        await this.waitForCalendarToLoad();
+        
+        // Verify the date was set correctly
+        const currentDate = await this.getCurrentSelectedDate();
+        if (currentDate === targetDate) {
+          logger.info('Date input successful', component, { targetDate });
+          return true;
         }
+      } catch (error) {
+        logger.debug('Cached date input attempt failed', component, {
+          error: error instanceof Error ? error.message : String(error),
+        });
       }
 
       return false;
@@ -269,38 +277,22 @@ export class BookingCalendarPage extends BasePage {
   }
 
   /**
-   * Click the next week button (Eversports specific)
+   * Click the next week button (Cache-optimized)
    */
   private async clickNextWeek(): Promise<void> {
     const component = 'BookingCalendarPage.clickNextWeek';
 
     try {
-      // Try different selectors for the next week button
       const nextWeekSelectors = [
         '#next-week',
         '.next-week',
         '[data-testid="next-week"]',
         'button[aria-label*="next"]',
-        '.calendar-nav-next',
-        this.selectors.nextWeekButton
+        '.calendar-nav-next'
       ];
 
-      for (const selector of nextWeekSelectors) {
-        if (await this.elementExists(selector)) {
-          await this.safeClick(selector);
-          logger.debug('Clicked next week button', component, { selector });
-          return;
-        }
-      }
-
-      // Fallback to generic next button
-      if (await this.elementExists(this.selectors.nextButton)) {
-        await this.safeClick(this.selectors.nextButton);
-        logger.debug('Used fallback next button', component);
-        return;
-      }
-
-      throw new Error('No next week button found');
+      await this.safeClickCached(nextWeekSelectors, 'nextWeek');
+      logger.debug('Clicked next week button via cache', component);
     } catch (error) {
       logger.error('Error clicking next week', component, {
         error: error instanceof Error ? error.message : String(error),
@@ -310,7 +302,7 @@ export class BookingCalendarPage extends BasePage {
   }
 
   /**
-   * Click the previous week button (Eversports specific)
+   * Click the previous week button (Cache-optimized)
    */
   private async clickPrevWeek(): Promise<void> {
     const component = 'BookingCalendarPage.clickPrevWeek';
@@ -321,26 +313,11 @@ export class BookingCalendarPage extends BasePage {
         '.prev-week',
         '[data-testid="prev-week"]',
         'button[aria-label*="prev"]',
-        '.calendar-nav-prev',
-        this.selectors.prevWeekButton
+        '.calendar-nav-prev'
       ];
 
-      for (const selector of prevWeekSelectors) {
-        if (await this.elementExists(selector)) {
-          await this.safeClick(selector);
-          logger.debug('Clicked prev week button', component, { selector });
-          return;
-        }
-      }
-
-      // Fallback to generic prev button
-      if (await this.elementExists(this.selectors.prevButton)) {
-        await this.safeClick(this.selectors.prevButton);
-        logger.debug('Used fallback prev button', component);
-        return;
-      }
-
-      throw new Error('No prev week button found');
+      await this.safeClickCached(prevWeekSelectors, 'prevWeek');
+      logger.debug('Clicked prev week button via cache', component);
     } catch (error) {
       logger.error('Error clicking prev week', component, {
         error: error instanceof Error ? error.message : String(error),

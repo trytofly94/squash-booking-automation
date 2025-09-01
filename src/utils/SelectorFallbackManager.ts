@@ -5,6 +5,7 @@
 
 import { Page, Locator } from '@playwright/test';
 import { logger } from './logger';
+import type { SelectorCache } from './SelectorCache';
 
 export interface SelectorTier {
   name: string;
@@ -33,9 +34,11 @@ export interface SelectorConfig {
  */
 export class SelectorFallbackManager {
   private page: Page;
+  private cache: SelectorCache | undefined;
 
-  constructor(page: Page) {
+  constructor(page: Page, cache?: SelectorCache | undefined) {
     this.page = page;
+    this.cache = cache;
   }
 
   /**
@@ -205,6 +208,22 @@ export class SelectorFallbackManager {
   }
 
   /**
+   * Cache-integrated selector fallback strategy
+   */
+  async findWithCachedFallback(
+    config: SelectorConfig, 
+    category: string,
+    specificId?: string
+  ): Promise<FallbackResult & { fromCache: boolean }> {
+    if (!this.cache) {
+      const result = await this.findWithFallback(config);
+      return { ...result, fromCache: false };
+    }
+    
+    return await this.cache.findWithCache(this.page, this, config, category, specificId);
+  }
+
+  /**
    * Execute multi-tier selector fallback strategy
    */
   async findWithFallback(config: SelectorConfig): Promise<FallbackResult> {
@@ -291,6 +310,24 @@ export class SelectorFallbackManager {
   }
 
   /**
+   * Find multiple elements with cache-aware fallback strategy
+   */
+  async findAllWithCachedFallback(
+    config: SelectorConfig,
+    category: string,
+    specificId?: string
+  ): Promise<FallbackResult & { elements: Locator[]; fromCache: boolean }> {
+    const result = await this.findWithCachedFallback(config, category, specificId);
+    
+    if (result.success && result.selector) {
+      const elements = await this.page.locator(result.selector).all();
+      return { ...result, elements };
+    }
+    
+    return { ...result, elements: [] };
+  }
+
+  /**
    * Find multiple elements with fallback strategy
    */
   async findAllWithFallback(config: SelectorConfig): Promise<FallbackResult & { elements: Locator[] }> {
@@ -302,6 +339,34 @@ export class SelectorFallbackManager {
     }
     
     return { ...result, elements: [] };
+  }
+
+  /**
+   * Wait for element using cache-aware fallback strategy
+   */
+  async waitForWithCachedFallback(
+    config: SelectorConfig,
+    category: string,
+    specificId?: string
+  ): Promise<FallbackResult & { fromCache: boolean }> {
+    // For waiting, we first check if we have a cached selector
+    if (this.cache) {
+      const result = await this.cache.findWithCache(this.page, this, config, category, specificId);
+      if (result.success && result.element) {
+        try {
+          await result.element.waitFor({ 
+            state: 'visible', 
+            timeout: Math.min(config.timeout, 5000) 
+          });
+          return result;
+        } catch {
+          // If cached selector fails to wait, fall through to regular wait logic
+        }
+      }
+    }
+
+    const result = await this.waitForWithFallback(config);
+    return { ...result, fromCache: false };
   }
 
   /**
