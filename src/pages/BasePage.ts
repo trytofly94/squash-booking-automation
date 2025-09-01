@@ -6,6 +6,7 @@ import { getGlobalSelectorCache, type SelectorCache } from '../utils/SelectorCac
 
 /**
  * Base page class with common Playwright functionality
+ * Enhanced for browser context pooling with reuse detection
  */
 export abstract class BasePage {
   protected page: Page;
@@ -13,10 +14,16 @@ export abstract class BasePage {
   protected retryManager: RetryManager;
   protected selectorCache: SelectorCache | undefined;
   protected fallbackManager: SelectorFallbackManager;
+  private contextCreationTime: number;
+  private sessionStartTime: number;
 
   constructor(page: Page, baseUrl: string = 'https://www.eversports.de') {
     this.page = page;
     this.baseUrl = baseUrl;
+    
+    // Track session timing for context reuse optimization
+    this.sessionStartTime = Date.now();
+    this.contextCreationTime = this.detectContextAge();
     
     // Use global retry manager instance
     this.retryManager = getGlobalRetryManager();
@@ -31,17 +38,33 @@ export abstract class BasePage {
 
     // Initialize fallback manager with optional cache
     this.fallbackManager = new SelectorFallbackManager(page, this.selectorCache);
+
+    // Log context reuse information
+    this.logContextReuseInfo();
   }
 
   /**
    * Navigate to a specific URL with retry logic and cache invalidation
+   * Enhanced for context reuse optimization
    */
   async navigateTo(path: string = ''): Promise<void> {
     const fullUrl = path.startsWith('http') ? path : `${this.baseUrl}${path}`;
     const previousUrl = this.page.url();
+    const isContextReused = this.isContextReused();
     
     await this.retryManager.executeWithBackoff(async () => {
-      logger.info('Navigating to URL', 'BasePage', { url: fullUrl, previousUrl });
+      logger.info('Navigating to URL', 'BasePage', { 
+        url: fullUrl, 
+        previousUrl, 
+        isContextReused,
+        contextAge: Date.now() - this.contextCreationTime 
+      });
+      
+      // For reused contexts, check if we need to clear any state
+      if (isContextReused && this.shouldClearContextState(previousUrl, fullUrl)) {
+        await this.clearContextState();
+      }
+      
       await this.page.goto(fullUrl);
       await this.waitForPageLoad();
       
@@ -52,7 +75,8 @@ export abstract class BasePage {
         logger.debug('Cache invalidated for page navigation', 'BasePage.navigateTo', {
           previousUrl,
           newUrl: fullUrl,
-          pageUrlHash
+          pageUrlHash,
+          isContextReused
         });
       }
     }, 'navigate-to-url');
@@ -356,5 +380,125 @@ export abstract class BasePage {
     await this.page.reload();
     await this.waitForPageLoad();
     logger.debug('Page reloaded', 'BasePage');
+  }
+
+  /**
+   * Detect context age by examining existing pages and URLs
+   */
+  private detectContextAge(): number {
+    try {
+      const context = this.page.context();
+      const allPages = context.pages();
+      
+      // If there are existing pages, this context has been used before
+      if (allPages.length > 1) {
+        // Context is being reused, estimate creation time based on session
+        return Date.now() - 300000; // Assume context is 5 minutes old if reused
+      }
+      
+      // Fresh context
+      return Date.now();
+    } catch {
+      // Fallback to current time if detection fails
+      return Date.now();
+    }
+  }
+
+  /**
+   * Check if this context is being reused from a pool
+   */
+  private isContextReused(): boolean {
+    const contextAge = Date.now() - this.contextCreationTime;
+    return contextAge > 10000; // If context is older than 10 seconds, it's likely reused
+  }
+
+  /**
+   * Log context reuse information for monitoring
+   */
+  private logContextReuseInfo(): void {
+    const isReused = this.isContextReused();
+    const contextAge = Date.now() - this.contextCreationTime;
+    
+    logger.debug('BasePage initialized with context info', 'BasePage', {
+      isContextReused: isReused,
+      contextAge,
+      sessionStartTime: this.sessionStartTime,
+    });
+  }
+
+  /**
+   * Determine if context state should be cleared for navigation
+   */
+  private shouldClearContextState(previousUrl: string, newUrl: string): boolean {
+    // Clear state if switching to a completely different domain
+    const previousDomain = this.extractDomain(previousUrl);
+    const newDomain = this.extractDomain(newUrl);
+    
+    if (previousDomain !== newDomain) {
+      return true;
+    }
+    
+    // Clear state if moving from authenticated to non-authenticated areas
+    const wasAuthenticated = previousUrl.includes('/login') || previousUrl.includes('/booking');
+    const isAuthenticated = newUrl.includes('/login') || newUrl.includes('/booking');
+    
+    if (wasAuthenticated && !isAuthenticated) {
+      return true;
+    }
+    
+    return false;
+  }
+
+  /**
+   * Clear browser context state (cookies, localStorage, etc.)
+   */
+  private async clearContextState(): Promise<void> {
+    try {
+      // Clear browser storage
+      await this.page.evaluate(() => {
+        try {
+          (globalThis as any).localStorage?.clear();
+          (globalThis as any).sessionStorage?.clear();
+        } catch {
+          // Ignore storage clearing errors
+        }
+      });
+      
+      // Clear cookies for the domain
+      const context = this.page.context();
+      await context.clearCookies();
+      
+      logger.debug('Context state cleared for reused context', 'BasePage');
+    } catch (error) {
+      logger.warn('Failed to clear context state', 'BasePage', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  /**
+   * Extract domain from URL
+   */
+  private extractDomain(url: string): string {
+    try {
+      return new URL(url).hostname;
+    } catch {
+      return '';
+    }
+  }
+
+  /**
+   * Get context reuse metrics for monitoring
+   */
+  protected getContextReuseMetrics(): {
+    isReused: boolean;
+    contextAge: number;
+    sessionDuration: number;
+  } {
+    return {
+      isReused: this.isContextReused(),
+      contextAge: Date.now() - this.contextCreationTime,
+      sessionDuration: Date.now() - this.sessionStartTime,
+    };
   }
 }
