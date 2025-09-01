@@ -35,6 +35,7 @@ describe('TimeSlotCache', () => {
   });
 
   afterEach(() => {
+    cache.destroy();
     resetGlobalTimeSlotCache();
   });
 

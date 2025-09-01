@@ -94,6 +94,7 @@ export class TimeSlotCache {
 
   private currentAccessCounter = 0;
   private readonly config: TimeSlotCacheConfig;
+  private cleanupIntervalId?: NodeJS.Timeout;
 
   constructor(config: TimeSlotCacheConfig) {
     this.config = config;
@@ -386,7 +387,7 @@ export class TimeSlotCache {
    */
   private startPeriodicCleanup(): void {
     // Run cleanup every 5 minutes
-    setInterval(() => {
+    this.cleanupIntervalId = setInterval(() => {
       this.cleanup();
     }, 5 * 60 * 1000);
   }
@@ -525,6 +526,19 @@ export class TimeSlotCache {
     logger.info('Cache cleared', 'TimeSlotCache', {
       previousSize
     });
+  }
+
+  /**
+   * Destroy cache and cleanup resources (for testing and graceful shutdown)
+   */
+  destroy(): void {
+    if (this.cleanupIntervalId) {
+      clearInterval(this.cleanupIntervalId);
+      delete this.cleanupIntervalId;
+    }
+    this.clear();
+    
+    logger.info('Cache destroyed', 'TimeSlotCache');
   }
 
   /**

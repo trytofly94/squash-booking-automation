@@ -36,6 +36,10 @@ describe('TimeSlotCache Performance Benchmarks', () => {
   });
 
   afterAll(() => {
+    // Properly cleanup the cache instance used in TimeSlotGenerator
+    if (timeSlotGenerator && (timeSlotGenerator as any).timeSlotCache) {
+      (timeSlotGenerator as any).timeSlotCache.destroy();
+    }
     resetGlobalTimeSlotCache();
   });
 
