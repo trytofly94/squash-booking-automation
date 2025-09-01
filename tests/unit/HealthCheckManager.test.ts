@@ -54,8 +54,8 @@ jest.mock('@/utils/logger', () => ({
     debug: jest.fn(),
     getStats: jest.fn(),
     logStructuredError: jest.fn(),
-    startTiming: jest.fn().mockReturnValue('mock-timer-id'),
-    endTiming: jest.fn()
+    startTiming: jest.fn().mockReturnValue('timer-id'),
+    endTiming: jest.fn().mockReturnValue(1000)
   }
 }));
 

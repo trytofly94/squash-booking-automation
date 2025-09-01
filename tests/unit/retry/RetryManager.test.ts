@@ -16,7 +16,22 @@ const mockPRetry = pRetry as jest.MockedFunction<typeof pRetry>;
 // Mock dependencies
 jest.mock('../../../src/core/retry/CircuitBreaker');
 jest.mock('../../../src/utils/logger');
-jest.mock('../../../src/utils/PerformanceMonitor');
+jest.mock('../../../src/utils/PerformanceMonitor', () => ({
+  __esModule: true,
+  performanceMonitor: {
+    measureAsyncFunction: jest.fn().mockImplementation(async (_name: string, _component: string, fn: () => Promise<any>) => {
+      const result = await fn();
+      return { result, duration: 100 };
+    }),
+    startTimer: jest.fn().mockReturnValue('timer-id'),
+    endTimer: jest.fn().mockReturnValue(100),
+    getMetrics: jest.fn().mockReturnValue([]),
+    clearMetrics: jest.fn(),
+    logStructuredError: jest.fn(),
+    startTiming: jest.fn().mockReturnValue('timer-id'),
+    endTiming: jest.fn().mockReturnValue(1000)
+  }
+}));
 jest.mock('../../../src/utils/CorrelationManager');
 
 describe('RetryManager', () => {
@@ -55,7 +70,9 @@ describe('RetryManager', () => {
     
     // Mock CircuitBreaker
     mockCircuitBreaker = {
-      execute: jest.fn(),
+      execute: jest.fn().mockImplementation(async (fn: () => any) => {
+        return await fn();
+      }),
       getState: jest.fn().mockReturnValue(CircuitState.CLOSED),
       getStats: jest.fn().mockReturnValue({
         totalRequests: 0,
@@ -376,6 +393,11 @@ describe('RetryManager', () => {
       // All operations should have been called
       operations.forEach(op => {
         expect(op).toHaveBeenCalledTimes(1);
+      });
+      
+      // Verify results are correct
+      results.forEach((result, i) => {
+        expect(result.result).toBe(`result${i}`);
       });
     });
   });

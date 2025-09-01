@@ -1,55 +1,77 @@
 /**
- * Mock implementation of p-retry for testing
+ * Mock for p-retry module to enable testing without actual retry delays
+ * Provides controllable retry behavior for unit tests
  */
 
 export class AbortError extends Error {
-  override readonly name = 'AbortError';
-  
   constructor(message: string) {
     super(message);
+    this.name = 'AbortError';
   }
 }
 
-// Mock p-retry function
-const pRetry = jest.fn().mockImplementation(async (fn: Function, options?: any) => {
-  const maxAttempts = options?.retries ?? 3;
-  let lastError: Error | undefined;
+/**
+ * Mock p-retry function that can be controlled for testing
+ */
+export default function pRetry<T>(
+  input: (attemptCount: number) => Promise<T> | T,
+  options: {
+    retries?: number;
+    factor?: number;
+    minTimeout?: number;
+    maxTimeout?: number;
+    randomize?: boolean;
+    onFailedAttempt?: (error: any) => void;
+  } = {}
+): Promise<T> {
+  const { retries = 2, onFailedAttempt } = options;
+  let lastError: Error;
   
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    try {
-      // Call onFailedAttempt callback if provided
-      if (lastError && options?.onFailedAttempt) {
-        const errorWithAttempt = lastError as any;
-        errorWithAttempt.attemptNumber = attempt - 1;
-        options.onFailedAttempt(errorWithAttempt);
-      }
-      
-      const result = await fn(attempt);
-      return result;
-    } catch (error) {
-      lastError = error as Error;
-      
-      // If it's an AbortError, don't retry
-      if (error instanceof AbortError) {
-        throw error;
-      }
-      
-      // If this is the last attempt, throw the error
-      if (attempt === maxAttempts) {
-        const errorWithAttempt = error as any;
-        errorWithAttempt.attemptNumber = attempt;
-        throw error;
-      }
-      
-      // Wait before retrying (simplified backoff)
-      if (options?.minTimeout) {
-        await new Promise(resolve => setTimeout(resolve, options.minTimeout));
+  return new Promise<T>(async (resolve, reject) => {
+    for (let attempt = 1; attempt <= retries + 1; attempt++) {
+      try {
+        const result = await Promise.resolve(input(attempt));
+        resolve(result);
+        return;
+      } catch (error: any) {
+        lastError = error;
+        
+        // If it's an AbortError, stop retrying immediately
+        if (error instanceof AbortError) {
+          reject(error);
+          return;
+        }
+        
+        // If this was the last attempt, reject
+        if (attempt === retries + 1) {
+          reject(lastError);
+          return;
+        }
+        
+        // Add retry information to error for onFailedAttempt callback
+        const errorWithInfo = {
+          ...error,
+          attemptNumber: attempt,
+          retriesLeft: retries - attempt + 1
+        };
+        
+        // Call onFailedAttempt callback if provided
+        if (onFailedAttempt) {
+          try {
+            onFailedAttempt(errorWithInfo);
+          } catch (callbackError) {
+            // Ignore callback errors in mock
+          }
+        }
+        
+        // In mock, we don't add actual delays for faster test execution
+        // Real p-retry would wait here based on backoff strategy
       }
     }
-  }
-  
-  throw lastError!;
-});
+  });
+}
 
-export default pRetry;
+/**
+ * Export the mock as both default and named export for compatibility
+ */
 export { pRetry };

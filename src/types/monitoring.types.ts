@@ -28,6 +28,9 @@ export interface TimerResult {
 
 export enum ErrorCategory {
   NETWORK = 'network',
+  RATE_LIMIT = 'rate_limit',
+  SERVER_ERROR = 'server_error',
+  CLIENT_ERROR = 'client_error',
   VALIDATION = 'validation',
   BUSINESS_LOGIC = 'business_logic',
   SYSTEM = 'system',

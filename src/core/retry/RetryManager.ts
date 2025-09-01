@@ -3,7 +3,31 @@
  * Orchestrates retry operations with circuit breaker and error-specific strategies
  */
 
-import pRetry, { AbortError } from 'p-retry';
+// Dynamic import for ESM-only p-retry module with test compatibility
+let pRetry: any;
+let AbortError: any;
+
+// Initialize p-retry using dynamic import with fallback for tests
+const initPRetry = async () => {
+  if (!pRetry) {
+    try {
+      // Try dynamic import first (production)
+      const pRetryModule: any = await import('p-retry');
+      // p-retry v6+ exports the function as 'pRetry' and 'default' is an object
+      pRetry = pRetryModule.pRetry || pRetryModule.default;
+      AbortError = pRetryModule.AbortError || pRetryModule.default?.AbortError;
+    } catch (error) {
+      // Fallback for test environment - try require for mocked module
+      try {
+        const pRetryModule = require('p-retry');
+        pRetry = pRetryModule.default || pRetryModule;
+        AbortError = pRetryModule.AbortError;
+      } catch (requireError) {
+        throw new Error(`Failed to load p-retry module: ${error}`);
+      }
+    }
+  }
+};
 import {
   RetryableOperation,
   RetryResult,
@@ -134,7 +158,10 @@ export class RetryManager {
     correlationId: string
   ): Promise<T> {
 
-    return await pRetry(async (attemptNumber) => {
+    // Initialize p-retry if not already done
+    await initPRetry();
+
+    return await pRetry(async (attemptNumber: number) => {
       
       const attemptStartTime = Date.now();
       

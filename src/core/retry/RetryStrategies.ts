@@ -105,6 +105,17 @@ export class ErrorClassifier {
       return this.classifyByHttpStatus(httpStatus, error);
     }
 
+    // Timeout errors (check before network to catch ETIMEDOUT)
+    if (this.isTimeoutError(error)) {
+      return this.createClassification(
+        ErrorCategory.TIMEOUT,
+        true,
+        false,
+        'Request timeout',
+        error
+      );
+    }
+
     // Network and connection errors
     if (this.isNetworkError(error)) {
       return this.createClassification(
@@ -112,17 +123,6 @@ export class ErrorClassifier {
         true,
         false,
         'Network connectivity issue',
-        error
-      );
-    }
-
-    // Timeout errors
-    if (this.isTimeoutError(error)) {
-      return this.createClassification(
-        ErrorCategory.TIMEOUT,
-        true,
-        false,
-        'Request timeout',
         error
       );
     }
@@ -278,9 +278,13 @@ export class ErrorClassifier {
       'socket closed'
     ];
 
+    // Specific network error codes (exclude ETIMEDOUT which is a timeout)
+    const networkCodes = ['ENOTFOUND', 'ECONNRESET', 'ECONNREFUSED', 'EHOSTUNREACH', 'ENETUNREACH', 'ECONNABORTED'];
+    const isNetworkCode = error?.code && networkCodes.includes(error.code.toUpperCase());
+
     return networkKeywords.some(keyword => message.includes(keyword)) ||
            socketKeywords.some(keyword => message.includes(keyword)) ||
-           this.isSpecificNetworkCode(error?.code) || // Specific network error codes only
+           isNetworkCode ||
            error?.name === 'NetworkError';
   }
 
@@ -314,6 +318,11 @@ export class ErrorClassifier {
       'request timeout',
       'navigation timeout'
     ];
+
+    // Check for specific timeout error codes
+    if (error?.code === 'ETIMEDOUT') {
+      return true;
+    }
 
     return timeoutKeywords.some(keyword => message.includes(keyword)) ||
            error?.name === 'TimeoutError' ||
