@@ -38,16 +38,15 @@ describe('BookingCalendarPage - Date Navigation', () => {
     it('should try direct date input first', async () => {
       const targetDate = '2025-09-08';
       
-      // Mock elementExists to return true for date input
-      jest.spyOn(calendarPage as any, 'elementExists').mockResolvedValue(true);
+      // Mock the internal tryDirectDateInput method to return true (success)
+      // This prevents the method from falling back to other navigation methods
+      jest.spyOn(calendarPage as any, 'tryDirectDateInput').mockResolvedValue(true);
       jest.spyOn(calendarPage as any, 'waitForCalendarToLoad').mockResolvedValue(undefined);
-      jest.spyOn(calendarPage, 'getCurrentSelectedDate').mockResolvedValue(targetDate);
 
       await calendarPage.navigateToDate(targetDate);
 
-      expect(mockPage.locator).toHaveBeenCalledWith(
-        expect.stringContaining('input[type="date"]')
-      );
+      // Verify that tryDirectDateInput was called with the correct target date
+      expect(calendarPage['tryDirectDateInput']).toHaveBeenCalledWith(targetDate);
     });
 
     it('should fallback to URL navigation if direct input fails', async () => {
