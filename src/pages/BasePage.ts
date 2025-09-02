@@ -351,7 +351,22 @@ export abstract class BasePage {
       '.consent-accept',
       'button:has-text("Accept")',
       'button:has-text("Akzeptieren")',
+      'button:has-text("Alle akzeptieren")',
+      'button:has-text("Accept All")',
       '#CybotCookiebotDialogBodyLevelButtonLevelOptinAllowAll',
+      '.cmp-accept-all',
+      '[data-cmp-ab="accept-all"]',
+      '.cookie-banner button:first-child',
+      '.consent-overlay button[type="button"]',
+      '#onetrust-accept-btn-handler',
+      '.uc-deny-all-button ~ .uc-accept-all-button',
+      '[data-testid="cookie-accept-all"]',
+      '.cookie-notice-accept-button',
+      '.privacy-notice-accept',
+      'button:has-text("Zustimmen")',
+      '.gdpr-accept-button',
+      'button[id*="accept"]',
+      'button[class*="accept"]',
     ];
 
     try {

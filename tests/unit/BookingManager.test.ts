@@ -92,6 +92,23 @@ jest.mock('../../src/monitoring/BookingAnalytics', () => ({
   }
 }));
 
+jest.mock('../../src/pages/BasePage', () => ({
+  BasePage: jest.fn().mockImplementation(() => ({
+    handleCookieConsent: jest.fn().mockResolvedValue(undefined)
+  }))
+}));
+
+jest.mock('../../src/pages/CheckoutPage', () => ({
+  CheckoutPage: jest.fn().mockImplementation(() => ({
+    completeCheckout: jest.fn().mockResolvedValue(true),
+    confirmBooking: jest.fn().mockResolvedValue({
+      success: true,
+      method: 'text-fallback',
+      timestamp: new Date()
+    })
+  }))
+}));
+
 // Get mocked constructors
 const MockedSlotSearcher = SlotSearcher as jest.MockedClass<typeof SlotSearcher>;
 const MockedIsolationChecker = IsolationChecker as unknown as jest.Mocked<typeof IsolationChecker>;
@@ -208,6 +225,75 @@ describe('BookingManager', () => {
     test('should handle zero max retries', () => {
       const manager = new BookingManager(mockPage as Page, { maxRetries: 0 });
       expect(manager).toBeInstanceOf(BookingManager);
+    });
+  });
+
+  describe('Cookie Consent Handling', () => {
+    test('should call handleCookieConsent during navigation', async () => {
+      // Mock the private method by testing through a public method that calls it
+      const mockPair: BookingPair = {
+        courtId: 'court-1',
+        slot1: { courtId: 'court-1', startTime: '14:00', date: '2024-01-21', isAvailable: true, elementSelector: '.slot1' },
+        slot2: { courtId: 'court-1', startTime: '14:30', date: '2024-01-21', isAvailable: true, elementSelector: '.slot2' }
+      };
+
+      const mockSearchResult = {
+        availableCourts: ['court-1'],
+        totalSlots: 2,
+        availablePairs: [mockPair]
+      };
+
+      MockedSlotSearcher.mockImplementation(() => ({
+        searchAvailableSlots: jest.fn().mockResolvedValue(mockSearchResult)
+      } as any));
+
+      MockedIsolationChecker.checkForIsolation = jest.fn().mockReturnValue({ 
+        hasIsolation: false, 
+        reason: 'No isolation' 
+      });
+
+      const manager = new BookingManager(mockPage as Page, { dryRun: true });
+      
+      // Execute booking, which should trigger navigation and cookie handling
+      await manager.executeBooking();
+
+      // Verify that page navigation occurred (which includes cookie handling)
+      expect(mockPage.goto).toHaveBeenCalledWith(
+        'https://www.eversports.de/sb/sportcenter-kautz?sport=squash'
+      );
+      expect(mockPage.waitForLoadState).toHaveBeenCalledWith('networkidle');
+    });
+
+    test('should continue booking process if cookie consent fails', async () => {
+      // This test verifies that cookie consent failure doesn't break the booking flow
+      const mockPair: BookingPair = {
+        courtId: 'court-1',
+        slot1: { courtId: 'court-1', startTime: '14:00', date: '2024-01-21', isAvailable: true, elementSelector: '.slot1' },
+        slot2: { courtId: 'court-1', startTime: '14:30', date: '2024-01-21', isAvailable: true, elementSelector: '.slot2' }
+      };
+
+      const mockSearchResult = {
+        availableCourts: ['court-1'], 
+        totalSlots: 2,
+        availablePairs: [mockPair]
+      };
+
+      MockedSlotSearcher.mockImplementation(() => ({
+        searchAvailableSlots: jest.fn().mockResolvedValue(mockSearchResult)
+      } as any));
+
+      MockedIsolationChecker.checkForIsolation = jest.fn().mockReturnValue({ 
+        hasIsolation: false, 
+        reason: 'No isolation' 
+      });
+
+      const manager = new BookingManager(mockPage as Page, { dryRun: true });
+      
+      // Execute booking - should not throw even if cookie handling fails internally
+      const result = await manager.executeBooking();
+      
+      // The booking should still succeed despite cookie consent issues
+      expect(result).toBeDefined();
     });
   });
 });

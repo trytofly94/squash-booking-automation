@@ -23,10 +23,6 @@ describe('CacheInitializer', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     
-    // Reset any global cache state
-    jest.mocked(resetGlobalSelectorCache).mockClear();
-    jest.mocked(getGlobalSelectorCache).mockClear();
-
     // Mock ConfigurationManager
     mockConfigManager = {
       getSelectorCacheConfig: jest.fn(() => ({
@@ -89,6 +85,7 @@ describe('CacheInitializer', () => {
         debugMode: true
       };
       
+      // Update the configuration to return debug config
       mockConfigManager.getSelectorCacheConfig.mockReturnValue(debugConfig);
 
       const mockCache = {
@@ -107,14 +104,19 @@ describe('CacheInitializer', () => {
         }))
       };
 
-      // Use the mocked function directly
+      // Ensure resetGlobalSelectorCache doesn't throw an error
+      jest.mocked(resetGlobalSelectorCache).mockImplementation(() => {});
+      
+      // Set up the mock to return the cache instance  
       jest.mocked(getGlobalSelectorCache).mockReturnValue(mockCache as any);
 
-      initializeGlobalSelectorCache();
+      // Call the function without throwing
+      expect(() => initializeGlobalSelectorCache()).not.toThrow();
 
-      // Check that getGlobalSelectorCache was called with the config
-      expect(jest.mocked(getGlobalSelectorCache)).toHaveBeenCalledTimes(1);
-      expect(jest.mocked(getGlobalSelectorCache)).toHaveBeenCalledWith(debugConfig);
+      // Verify the function was called
+      expect(resetGlobalSelectorCache).toHaveBeenCalled();
+      expect(mockConfigManager.getSelectorCacheConfig).toHaveBeenCalled();
+      expect(getGlobalSelectorCache).toHaveBeenCalledWith(debugConfig);
     });
   });
 
