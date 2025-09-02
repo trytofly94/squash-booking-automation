@@ -201,6 +201,9 @@ describe('ErrorClassifier', () => {
     });
 
     test('should update strategy correctly', () => {
+      // Save the original strategy before modifying it
+      const originalStrategy = classifier.getStrategyForCategory(ErrorCategory.NETWORK);
+      
       const newStrategy = { retries: 10, factor: 3, minTimeout: 2000, maxTimeout: 20000, randomize: false };
       
       classifier.updateStrategy(ErrorCategory.NETWORK, newStrategy);
@@ -208,6 +211,9 @@ describe('ErrorClassifier', () => {
       const updatedStrategy = classifier.getStrategyForCategory(ErrorCategory.NETWORK);
       expect(updatedStrategy.retries).toBe(10);
       expect(updatedStrategy.factor).toBe(3);
+      
+      // Restore the original strategy to prevent test pollution
+      classifier.updateStrategy(ErrorCategory.NETWORK, originalStrategy);
     });
   });
 });
